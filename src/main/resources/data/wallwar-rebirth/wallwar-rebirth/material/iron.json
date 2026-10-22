@@ -1,0 +1,11 @@
+{
+  "description": {
+    "translate": "material.wallwar.iron",
+    "color": "#E3D4D1"
+  },
+  "item_filter": {
+    "items": [
+      "minecraft:iron_ingot"
+    ]
+  }
+}

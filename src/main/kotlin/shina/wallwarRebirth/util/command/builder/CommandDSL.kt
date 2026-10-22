@@ -1,0 +1,86 @@
+@file:Suppress("unused")
+
+package shina.wallwarRebirth.util.command.builder
+
+import com.mojang.brigadier.arguments.*
+import shina.wallwarRebirth.util.command.context.CommandContext
+import net.minecraft.commands.CommandSourceStack
+
+@DslMarker
+annotation class CommandDSL
+
+fun Command.stringArgument(name: String, block: ArgumentCommand<String>.() -> Unit) {
+    this.node.then(ArgumentCommand(name, StringArgumentType.string()).apply(block).node)
+}
+
+fun Command.wordArgument(name: String, block: ArgumentCommand<String>.() -> Unit) {
+    this.node.then(ArgumentCommand(name, StringArgumentType.word()).apply(block).node)
+}
+
+fun Command.greedyStringArgument(name: String, block: ArgumentCommand<String>.() -> Unit) {
+    this.node.then(ArgumentCommand(name, StringArgumentType.greedyString()).apply(block).node)
+}
+
+fun Command.boolArgument(name: String, block: ArgumentCommand<Boolean>.() -> Unit) {
+    this.node.then(ArgumentCommand(name, BoolArgumentType.bool()).apply(block).node)
+}
+
+fun Command.intArgument(
+    name: String,
+    min: Int = Int.MIN_VALUE,
+    max: Int = Int.MAX_VALUE,
+    block: ArgumentCommand<Int>.() -> Unit
+) {
+    this.node.then(ArgumentCommand(name, IntegerArgumentType.integer(min, max)).apply(block).node)
+}
+
+fun Command.longArgument(
+    name: String,
+    min: Long = Long.MIN_VALUE,
+    max: Long = Long.MAX_VALUE,
+    block: ArgumentCommand<Long>.() -> Unit
+) {
+    this.node.then(ArgumentCommand(name, LongArgumentType.longArg(min, max)).apply(block).node)
+}
+
+fun Command.floatArgument(
+    name: String,
+    min: Float = -Float.MAX_VALUE,
+    max: Float = Float.MAX_VALUE,
+    block: ArgumentCommand<Float>.() -> Unit
+) {
+    this.node.then(ArgumentCommand(name, FloatArgumentType.floatArg(min, max)).apply(block).node)
+}
+
+fun Command.doubleArgument(
+    name: String,
+    min: Double = -Double.MAX_VALUE,
+    max: Double = Double.MAX_VALUE,
+    block: ArgumentCommand<Double>.() -> Unit
+) {
+    this.node.then(ArgumentCommand(name, DoubleArgumentType.doubleArg(min, max)).apply(block).node)
+}
+
+fun Command.requires(requirement: CommandSourceStack.() -> Boolean) {
+    this.node.requires(requirement)
+}
+
+fun Command.executes(block: CommandContext.() -> Int) {
+    this.node.executes { CommandContext(it).block() }
+}
+
+fun Command.then(command: LiteralCommand) {
+    this.node.then(command.node)
+}
+
+fun <T> Command.then(command: ArgumentCommand<T>) {
+    this.node.then(command.node)
+}
+
+fun Command.literal(literal: String, block: LiteralCommand.() -> Unit) {
+    this.node.then(LiteralCommand(literal).apply(block).node)
+}
+
+fun <T> Command.argument(name: String, type: ArgumentType<T>, block: ArgumentCommand<T>.() -> Unit) {
+    this.node.then(ArgumentCommand(name, type).apply(block).node)
+}

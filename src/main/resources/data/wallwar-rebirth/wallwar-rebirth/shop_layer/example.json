@@ -1,0 +1,21 @@
+{
+  "rows": 3,
+  "items": [
+    {
+      "index": 13,
+      "type": "static",
+      "item": {
+        "icon": {
+          "id": "minecraft:diamond",
+          "count": 1
+        },
+        "costs": {
+          "wallwar-rebirth:iron": 4
+        },
+        "on_buy": [
+          "give @s diamond 1"
+        ]
+      }
+    }
+  ]
+}
