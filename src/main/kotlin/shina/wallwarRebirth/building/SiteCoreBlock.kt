@@ -1,0 +1,72 @@
+package shina.wallwarRebirth.building
+
+import com.mojang.serialization.MapCodec
+import eu.pb4.polymer.core.api.block.PolymerBlock
+import net.minecraft.core.BlockPos
+import net.minecraft.server.level.ServerLevel
+import net.minecraft.server.level.ServerPlayer
+import net.minecraft.world.InteractionHand
+import net.minecraft.world.InteractionResult
+import net.minecraft.world.entity.player.Player
+import net.minecraft.world.item.ItemStack
+import net.minecraft.world.level.Level
+import net.minecraft.world.level.block.BaseEntityBlock
+import net.minecraft.world.level.block.Blocks
+import net.minecraft.world.level.block.RenderShape
+import net.minecraft.world.level.block.entity.BlockEntity
+import net.minecraft.world.level.block.entity.BlockEntityTicker
+import net.minecraft.world.level.block.entity.BlockEntityType
+import net.minecraft.world.level.block.state.BlockState
+import net.minecraft.world.phys.BlockHitResult
+import xyz.nucleoid.packettweaker.PacketContext
+
+class SiteCoreBlock(properties: Properties) : BaseEntityBlock(properties), PolymerBlock {
+    override fun codec(): MapCodec<out SiteCoreBlock> = simpleCodec(::SiteCoreBlock)
+
+    override fun getPolymerBlockState(state: BlockState, context: PacketContext): BlockState =
+        Blocks.BLAST_FURNACE.defaultBlockState()
+
+    override fun newBlockEntity(pos: BlockPos, state: BlockState): BlockEntity = SiteCoreBlockEntity(pos, state)
+
+    override fun getRenderShape(state: BlockState): RenderShape = RenderShape.MODEL
+
+    override fun <T : BlockEntity> getTicker(
+        level: Level,
+        state: BlockState,
+        type: BlockEntityType<T>,
+    ): BlockEntityTicker<T>? {
+        if (level.isClientSide) return null
+        return BlockEntityTicker { server, _, _, blockEntity ->
+            (blockEntity as? SiteCoreBlockEntity)?.serverTick(server as ServerLevel)
+        }
+    }
+
+    override fun useWithoutItem(
+        state: BlockState,
+        level: Level,
+        pos: BlockPos,
+        player: Player,
+        hit: BlockHitResult,
+    ): InteractionResult = open(level, pos, player)
+
+    override fun useItemOn(
+        stack: ItemStack,
+        state: BlockState,
+        level: Level,
+        pos: BlockPos,
+        player: Player,
+        hand: InteractionHand,
+        hit: BlockHitResult,
+    ): InteractionResult {
+        if (hand != InteractionHand.MAIN_HAND) return InteractionResult.PASS
+        return open(level, pos, player)
+    }
+
+    private fun open(level: Level, pos: BlockPos, player: Player): InteractionResult {
+        if (level.isClientSide) return InteractionResult.SUCCESS
+        val serverPlayer = player as? ServerPlayer ?: return InteractionResult.PASS
+        val site = level.getBlockEntity(pos) as? SiteCoreBlockEntity ?: return InteractionResult.PASS
+        BuildingMenus.open(serverPlayer, site)
+        return InteractionResult.SUCCESS
+    }
+}

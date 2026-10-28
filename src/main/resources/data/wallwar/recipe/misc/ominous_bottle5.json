@@ -1,0 +1,15 @@
+{
+    "type": "crafting_shaped",
+    
+    "show_notification": false,
+    "key": {
+        "1":"minecraft:hay_block",
+        "2":"minecraft:emerald",
+        "3":"minecraft:villager_spawn_egg"
+    },
+    "pattern": ["121","232","121"],
+    "result": {
+        "id": "minecraft:ominous_bottle",
+        "components": {"ominous_bottle_amplifier": 4}
+    }
+}

@@ -1,0 +1,586 @@
+{
+  "type": "crafting_shaped",
+  "category": "equipment",
+  "show_notification": false,
+  "key": {
+    "2": "copper_ingot",
+    "1": "iron_ingot",
+    "4": "command_block"
+  },
+  "pattern": [
+    "121",
+    "242",
+    "121"
+  ],
+  "result": {
+    "id": "minecraft:white_shulker_box",
+    "components": {
+      "minecraft:item_name": {
+        "translate": "战斗补给套装",
+        "italic": false,
+        "color": "gold"
+      },
+      "minecraft:lore": [
+        {
+          "translate": "BOSS专属",
+          "italic": false,
+          "color": "white"
+        }
+      ],
+      "container": [
+        {
+          "slot": 0,
+          "item": {
+            "id": "minecraft:purple_bundle",
+            "count": 1,
+            "components": {
+              "minecraft:item_name": {
+                "translate": "战斗药水袋",
+                "italic": false,
+                "color": "light_purple"
+              },
+              "bundle_contents": [
+                {
+                  "id": "minecraft:potion",
+                  "count": 1,
+                  "components": {
+                    "potion_contents": {
+                      "potion": "long_swiftness"
+                    },
+                    "max_stack_size": 64
+                  }
+                },
+                {
+                  "id": "minecraft:splash_potion",
+                  "count": 1,
+                  "components": {
+                    "potion_contents": {
+                      "potion": "weakness"
+                    },
+                    "max_stack_size": 64
+                  }
+                },
+                {
+                  "id": "minecraft:potion",
+                  "count": 1,
+                  "components": {
+                    "potion_contents": {
+                      "potion": "fire_resistance"
+                    },
+                    "max_stack_size": 64
+                  }
+                },
+                {
+                  "id": "minecraft:splash_potion",
+                  "count": 1,
+                  "components": {
+                    "potion_contents": {
+                      "potion": "strong_slowness"
+                    },
+                    "max_stack_size": 64
+                  }
+                },
+                {
+                  "id": "minecraft:potion",
+                  "count": 1,
+                  "components": {
+                    "potion_contents": {
+                      "potion": "long_water_breathing"
+                    },
+                    "max_stack_size": 64
+                  }
+                },
+                {
+                  "id": "minecraft:splash_potion",
+                  "count": 1,
+                  "components": {
+                    "potion_contents": {
+                      "potion": "strong_poison"
+                    },
+                    "max_stack_size": 64
+                  }
+                }
+              ]
+            }
+          }
+        },
+        {
+          "slot": 1,
+          "item": {
+            "id": "minecraft:shield",
+            "count": 1,
+            "components": {
+              "enchantments": {
+                "unbreaking": 3
+              }
+            }
+          }
+        },
+        {
+          "slot": 2,
+          "item": {
+            "id": "minecraft:wind_charge",
+            "count": 8
+          }
+        },
+        {
+          "slot": 3,
+          "item": {
+            "id": "minecraft:cobweb",
+            "count": 64
+          }
+        },
+        {
+          "slot": 4,
+          "item": {
+            "id": "minecraft:gold_nugget",
+            "count": 64,
+            "components": {
+              "custom_model_data": {
+                "floats": [
+                  3
+                ]
+              },
+              "minecraft:item_name": {
+                "translate": "小垃圾零食",
+                "italic": false,
+                "color": "light_purple"
+              },
+              "minecraft:lore": [
+                {
+                  "translate": "10饱食 12饱和",
+                  "italic": false,
+                  "color": "yellow"
+                }
+              ],
+              "food": {
+                "can_always_eat": false,
+                "nutrition": 10,
+                "saturation": 12
+              },
+              "consumable": {
+                "animation": "eat",
+                "consume_seconds": 1.4
+              },
+              "max_stack_size": 64
+            }
+          }
+        },
+        {
+          "slot": 5,
+          "item": {
+            "id": "minecraft:spectral_arrow",
+            "count": 64,
+            "components": {
+              "custom_model_data": {
+                "floats": [
+                  1
+                ]
+              },
+              "minecraft:item_name": {
+                "translate": "光灵箭",
+                "italic": false
+              },
+              "minecraft:lore": [
+                {
+                  "translate": "*使命中的敌人发光",
+                  "italic": false,
+                  "color": "gray"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "slot": 6,
+          "item": {
+            "id": "minecraft:chiseled_deepslate",
+            "count": 64
+          }
+        },
+        {
+          "slot": 7,
+          "item": {
+            "id": "minecraft:lava_bucket",
+            "count": 1
+          }
+        },
+        {
+          "slot": 8,
+          "item": {
+            "id": "minecraft:axolotl_bucket",
+            "count": 1
+          }
+        },
+        {
+          "slot": 9,
+          "item": {
+            "id": "minecraft:purple_bundle",
+            "count": 1,
+            "components": {
+              "minecraft:item_name": {
+                "translate": "战斗药水袋",
+                "italic": false,
+                "color": "light_purple"
+              },
+              "bundle_contents": [
+                {
+                  "id": "minecraft:potion",
+                  "count": 1,
+                  "components": {
+                    "potion_contents": {
+                      "potion": "long_swiftness"
+                    },
+                    "max_stack_size": 64
+                  }
+                },
+                {
+                  "id": "minecraft:splash_potion",
+                  "count": 1,
+                  "components": {
+                    "potion_contents": {
+                      "potion": "weakness"
+                    },
+                    "max_stack_size": 64
+                  }
+                },
+                {
+                  "id": "minecraft:potion",
+                  "count": 1,
+                  "components": {
+                    "potion_contents": {
+                      "potion": "fire_resistance"
+                    },
+                    "max_stack_size": 64
+                  }
+                },
+                {
+                  "id": "minecraft:splash_potion",
+                  "count": 1,
+                  "components": {
+                    "potion_contents": {
+                      "potion": "strong_slowness"
+                    },
+                    "max_stack_size": 64
+                  }
+                },
+                {
+                  "id": "minecraft:potion",
+                  "count": 1,
+                  "components": {
+                    "potion_contents": {
+                      "potion": "long_water_breathing"
+                    },
+                    "max_stack_size": 64
+                  }
+                },
+                {
+                  "id": "minecraft:splash_potion",
+                  "count": 1,
+                  "components": {
+                    "potion_contents": {
+                      "potion": "strong_poison"
+                    },
+                    "max_stack_size": 64
+                  }
+                }
+              ]
+            }
+          }
+        },
+        {
+          "slot": 10,
+          "item": {
+            "id": "minecraft:shield",
+            "count": 1,
+            "components": {
+              "enchantments": {
+                "unbreaking": 3
+              }
+            }
+          }
+        },
+        {
+          "slot": 11,
+          "item": {
+            "id": "minecraft:wind_charge",
+            "count": 8
+          }
+        },
+        {
+          "slot": 12,
+          "item": {
+            "id": "minecraft:cobweb",
+            "count": 64
+          }
+        },
+        {
+          "slot": 13,
+          "item": {
+            "id": "minecraft:gold_nugget",
+            "count": 64,
+            "components": {
+              "custom_model_data": {
+                "floats": [
+                  3
+                ]
+              },
+              "minecraft:item_name": {
+                "translate": "小垃圾零食",
+                "italic": false,
+                "color": "light_purple"
+              },
+              "minecraft:lore": [
+                {
+                  "translate": "10饱食 12饱和",
+                  "italic": false,
+                  "color": "yellow"
+                }
+              ],
+              "food": {
+                "can_always_eat": false,
+                "nutrition": 10,
+                "saturation": 12
+              },
+              "consumable": {
+                "animation": "eat",
+                "consume_seconds": 1.4
+              },
+              "max_stack_size": 64
+            }
+          }
+        },
+        {
+          "slot": 14,
+          "item": {
+            "id": "minecraft:spectral_arrow",
+            "count": 64,
+            "components": {
+              "custom_model_data": {
+                "floats": [
+                  1
+                ]
+              },
+              "minecraft:item_name": {
+                "translate": "光灵箭",
+                "italic": false
+              },
+              "minecraft:lore": [
+                {
+                  "translate": "*使命中的敌人发光",
+                  "italic": false,
+                  "color": "gray"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "slot": 15,
+          "item": {
+            "id": "minecraft:chiseled_deepslate",
+            "count": 64
+          }
+        },
+        {
+          "slot": 16,
+          "item": {
+            "id": "minecraft:lava_bucket",
+            "count": 1
+          }
+        },
+        {
+          "slot": 17,
+          "item": {
+            "id": "minecraft:axolotl_bucket",
+            "count": 1
+          }
+        },
+        {
+          "slot": 18,
+          "item": {
+            "id": "minecraft:purple_bundle",
+            "count": 1,
+            "components": {
+              "minecraft:item_name": {
+                "translate": "战斗药水袋",
+                "italic": false,
+                "color": "light_purple"
+              },
+              "bundle_contents": [
+                {
+                  "id": "minecraft:potion",
+                  "count": 1,
+                  "components": {
+                    "potion_contents": {
+                      "potion": "long_swiftness"
+                    },
+                    "max_stack_size": 64
+                  }
+                },
+                {
+                  "id": "minecraft:splash_potion",
+                  "count": 1,
+                  "components": {
+                    "potion_contents": {
+                      "potion": "weakness"
+                    },
+                    "max_stack_size": 64
+                  }
+                },
+                {
+                  "id": "minecraft:potion",
+                  "count": 1,
+                  "components": {
+                    "potion_contents": {
+                      "potion": "fire_resistance"
+                    },
+                    "max_stack_size": 64
+                  }
+                },
+                {
+                  "id": "minecraft:splash_potion",
+                  "count": 1,
+                  "components": {
+                    "potion_contents": {
+                      "potion": "strong_slowness"
+                    },
+                    "max_stack_size": 64
+                  }
+                },
+                {
+                  "id": "minecraft:potion",
+                  "count": 1,
+                  "components": {
+                    "potion_contents": {
+                      "potion": "long_water_breathing"
+                    },
+                    "max_stack_size": 64
+                  }
+                },
+                {
+                  "id": "minecraft:splash_potion",
+                  "count": 1,
+                  "components": {
+                    "potion_contents": {
+                      "potion": "strong_poison"
+                    },
+                    "max_stack_size": 64
+                  }
+                }
+              ]
+            }
+          }
+        },
+        {
+          "slot": 19,
+          "item": {
+            "id": "minecraft:shield",
+            "count": 1,
+            "components": {
+              "enchantments": {
+                "unbreaking": 3
+              }
+            }
+          }
+        },
+        {
+          "slot": 20,
+          "item": {
+            "id": "minecraft:wind_charge",
+            "count": 8
+          }
+        },
+        {
+          "slot": 21,
+          "item": {
+            "id": "minecraft:cobweb",
+            "count": 64
+          }
+        },
+        {
+          "slot": 22,
+          "item": {
+            "id": "minecraft:gold_nugget",
+            "count": 64,
+            "components": {
+              "custom_model_data": {
+                "floats": [
+                  3
+                ]
+              },
+              "minecraft:item_name": {
+                "translate": "小垃圾零食",
+                "italic": false,
+                "color": "light_purple"
+              },
+              "minecraft:lore": [
+                {
+                  "translate": "10饱食 12饱和",
+                  "italic": false,
+                  "color": "yellow"
+                }
+              ],
+              "food": {
+                "can_always_eat": false,
+                "nutrition": 10,
+                "saturation": 12
+              },
+              "consumable": {
+                "animation": "eat",
+                "consume_seconds": 1.4
+              },
+              "max_stack_size": 64
+            }
+          }
+        },
+        {
+          "slot": 23,
+          "item": {
+            "id": "minecraft:spectral_arrow",
+            "count": 64,
+            "components": {
+              "custom_model_data": {
+                "floats": [
+                  1
+                ]
+              },
+              "minecraft:item_name": {
+                "translate": "光灵箭",
+                "italic": false
+              },
+              "minecraft:lore": [
+                {
+                  "translate": "*使命中的敌人发光",
+                  "italic": false,
+                  "color": "gray"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "slot": 24,
+          "item": {
+            "id": "minecraft:chiseled_deepslate",
+            "count": 64
+          }
+        },
+        {
+          "slot": 25,
+          "item": {
+            "id": "minecraft:lava_bucket",
+            "count": 1
+          }
+        },
+        {
+          "slot": 26,
+          "item": {
+            "id": "minecraft:axolotl_bucket",
+            "count": 1
+          }
+        }
+      ]
+    }
+  }
+}

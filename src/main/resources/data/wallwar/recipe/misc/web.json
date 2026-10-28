@@ -1,0 +1,12 @@
+{
+    "type": "crafting_shaped",
+    "category":"redstone",
+    "show_notification": false,
+    "key": {
+        "1":"minecraft:string"
+    },
+    "pattern": [" 1 ","111"," 1 "],
+    "result": {
+        "id": "minecraft:cobweb"
+    }
+}

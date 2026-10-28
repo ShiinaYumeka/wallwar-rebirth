@@ -1,0 +1,36 @@
+{
+  "parent": "minecraft:wallwar/boss/root",
+  "criteria": {
+    "get_item": {
+      "conditions": {
+        "recipe_id": "wallwar:boss/chain/shield2"
+      },
+      "trigger": "minecraft:recipe_crafted"
+    }
+  },
+  "display": {
+    "description": {
+      "translate": "制作星垣\n奖励：行星药水（急迫）"
+    },
+    "icon": {
+      "count": 1,
+      "id": "minecraft:shield",
+      "components": {"custom_model_data": {"floats": [2]},"minecraft:banner_patterns":[{"color":"yellow","pattern":"minecraft:mojang"},{"color":"black","pattern":"minecraft:flower"},{"color":"blue","pattern":"minecraft:gradient_up"},{"color":"white","pattern":"minecraft:circle"},{"color":"black","pattern":"minecraft:square_bottom_left"},{"color":"black","pattern":"minecraft:triangles_bottom"}],"tooltip_display": {"hidden_components": ["banner_patterns"]},"minecraft:base_color":"black","minecraft:custom_name":{"color":"dark_purple","italic":false,"bold":true,"translate":"星垣"}}
+    },
+    "title": {
+      "translate": "星垣"
+    },
+    "frame": "challenge"
+  },
+  "rewards": {
+    "loot":[
+      "wallwar:boss/shield2"
+    ]
+  },
+  "requirements": [
+    [
+      "get_item"
+    ]
+  ],
+  "sends_telemetry_event": true
+}

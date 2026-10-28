@@ -2,11 +2,19 @@ package shina.wallwarRebirth.command
 
 import com.mojang.brigadier.Command
 import eu.pb4.sgui.api.elements.GuiElement
+import net.minecraft.commands.Commands
 import net.minecraft.core.component.DataComponents
 import net.minecraft.network.chat.Component
+import net.minecraft.world.InteractionHand
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
 import net.minecraft.world.item.component.CustomModelData
+import net.minecraft.world.item.context.BlockPlaceContext
+import net.minecraft.world.level.ClipContext
+import net.minecraft.world.phys.BlockHitResult
+import net.minecraft.world.phys.HitResult
+import net.minecraft.world.phys.Vec3
+import shina.wallwarRebirth.building.ModSites
 import shina.wallwarRebirth.flux.gui.FluxGui
 import shina.wallwarRebirth.gui.GuiTheme
 import shina.wallwarRebirth.gui.SimpleHotbarGui
@@ -19,6 +27,7 @@ import shina.wallwarRebirth.shop.gui.ShopGui
 import shina.wallwarRebirth.util.command.builder.executes
 import shina.wallwarRebirth.util.command.builder.literal
 import shina.wallwarRebirth.util.command.builder.literalCommand
+import shina.wallwarRebirth.util.command.builder.requires
 import shina.wallwarRebirth.util.command.context.CommandContext
 
 object WallwarCommands {
@@ -37,6 +46,10 @@ object WallwarCommands {
         }
         literal("token") {
             executes { giveToken() }
+        }
+        literal("build") {
+            requires { Commands.LEVEL_GAMEMASTERS.check(permissions()) }
+            executes { placeSite() }
         }
     }
 
@@ -86,6 +99,33 @@ object WallwarCommands {
             "text.wallwar.shop.team_repo.disabled"
         }
         sendSystemMessage(Component.translatable(key))
+        return Command.SINGLE_SUCCESS
+    }
+
+    private fun CommandContext.placeSite(): Int {
+        val player = context.source.playerOrException
+        val level = player.level()
+        val eye = player.eyePosition
+        val end = eye.add(player.lookAngle.scale(6.0))
+        val hit = level.clip(ClipContext(eye, end, ClipContext.Block.OUTLINE, ClipContext.Fluid.NONE, player))
+        if (hit.type != HitResult.Type.BLOCK) {
+            context.source.sendFailure(Component.literal("没有看向可放置的方块"))
+            return 0
+        }
+        val destination = hit.blockPos.above()
+        if (level.isOutsideBuildHeight(destination)) {
+            context.source.sendFailure(Component.literal("这个位置不能放置核心"))
+            return 0
+        }
+        val state = level.getBlockState(destination)
+        val placeHit = BlockHitResult(Vec3.atCenterOf(destination), hit.direction, destination, false)
+        val placeContext = BlockPlaceContext(player, InteractionHand.MAIN_HAND, ItemStack.EMPTY, placeHit)
+        if (!state.canBeReplaced(placeContext)) {
+            context.source.sendFailure(Component.literal("这个位置不能放置核心"))
+            return 0
+        }
+        level.setBlock(destination, ModSites.CORE.defaultBlockState(), net.minecraft.world.level.block.Block.UPDATE_ALL)
+        player.sendSystemMessage(Component.literal("已放置未选定的建筑核心"))
         return Command.SINGLE_SUCCESS
     }
 

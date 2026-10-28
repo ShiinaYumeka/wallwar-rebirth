@@ -1,0 +1,16 @@
+{
+    "type": "crafting_shaped",
+    "category":"misc",
+    
+    "show_notification": false,
+    "key": {
+        "2":"minecraft:tnt",
+        "3":"minecraft:damaged_anvil",
+        "4":"minecraft:chipped_anvil"
+    },
+    "pattern": ["22","43"],
+  "result": {
+    "count": 1,
+    "id": "minecraft:tnt_minecart"
+  }
+}

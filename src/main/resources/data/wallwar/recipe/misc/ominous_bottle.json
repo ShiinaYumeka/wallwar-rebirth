@@ -1,0 +1,14 @@
+{
+    "type": "crafting_shaped",
+    
+    "show_notification": false,
+    "key": {
+        "1":"minecraft:waxed_oxidized_copper_bulb",
+        "2":"minecraft:waxed_oxidized_copper_grate",
+        "3":"minecraft:trial_key"
+    },
+    "pattern": ["121","232","121"],
+    "result": {
+        "id": "minecraft:ominous_bottle"
+    }
+}

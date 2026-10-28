@@ -28,7 +28,7 @@ import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
 import net.minecraft.world.inventory.ClickType as MinecraftClickType
 
-class ShopGui(
+open class ShopGui(
     val session: ShopSession,
     player: ServerPlayer,
     shopLayers: Collection<ShopLayer>,

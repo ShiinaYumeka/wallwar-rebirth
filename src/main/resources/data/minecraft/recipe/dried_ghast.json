@@ -1,0 +1,16 @@
+{
+    "type": "crafting_shaped",
+    "category":"misc",
+    
+    "show_notification": false,
+    "key": {
+        "1":"soul_sand",
+        "2":"packed_ice",
+        "3":"bone_meal"
+    },
+    "pattern": ["313","121","313"],
+    "result": {
+        "id": "minecraft:dried_ghast",
+        "components": {"minecraft:item_name":{"translate":"失水恶魂","italic": false,"color": "white"},"minecraft:lore":[{"translate":"高度大于220格时持续失去生命值","italic": false,"color": "white"},{"translate":"*并不能参与乐魂战","italic": false,"color": "gray"}]}
+    }
+}

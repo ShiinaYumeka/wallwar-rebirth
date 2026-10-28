@@ -1,0 +1,15 @@
+{
+  "structures": [
+    {
+      "structure": "wallwar:fishhouse",
+      "weight": 1
+    }
+  ],
+  "placement": {
+    "type": "minecraft:random_spread",
+    "spread_type": "triangular",
+    "spacing": 20,
+    "separation": 12,
+    "salt": 791346208
+  }
+}
