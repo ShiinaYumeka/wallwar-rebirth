@@ -5,9 +5,29 @@ import net.minecraft.world.item.Item
 
 data class ItemAmount(val item: Item, val count: Int, val name: String)
 
-data class ProductionRule(val minLevel: Int, val everyTicks: Int, val outputs: List<ItemAmount>)
+data class ProductionRule(val minLevel: Int, val everyTicks: Int, val outputs: List<ItemAmount>) {
+    fun describe(): String {
+        val seconds = everyTicks / 20
+        val parts = outputs.joinToString("、") { "${it.count} ${it.name}" }
+        return "每 $seconds 秒 $parts"
+    }
+}
 
-data class UpgradeCost(val toLevel: Int, val costs: List<ItemAmount>)
+data class UpgradeCost(val toLevel: Int, val costs: List<ItemAmount>) {
+    fun describe(): String {
+        val parts = costs.joinToString("、") { "${it.count} ${it.name}" }
+        return "升到${levelMark(toLevel)}级：$parts"
+    }
+}
+
+data class LevelNote(val minLevel: Int, val text: String)
+
+fun levelMark(level: Int): String = when (level) {
+    1 -> "一"
+    2 -> "二"
+    3 -> "三"
+    else -> level.toString()
+}
 
 data class BuildingDefinition(
     val id: String,
@@ -17,8 +37,15 @@ data class BuildingDefinition(
     val structure: (Int) -> Identifier,
     val upgrades: List<UpgradeCost>,
     val production: List<ProductionRule>,
+    val healthByLevel: List<Int>,
+    val icon: Item,
+    val summary: String,
+    val details: List<LevelNote> = emptyList(),
+    val showsContainer: Boolean = false,
 ) {
     fun upgradeTo(level: Int): UpgradeCost? = upgrades.firstOrNull { it.toLevel == level }
 
     fun activeProduction(level: Int): List<ProductionRule> = production.filter { level >= it.minLevel }
+
+    fun maxHealth(level: Int): Int = healthByLevel.getOrElse(level - 1) { 0 }
 }

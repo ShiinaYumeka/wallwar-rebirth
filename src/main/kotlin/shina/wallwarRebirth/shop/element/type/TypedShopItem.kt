@@ -17,7 +17,6 @@ sealed class TypedShopItem(private val idx: Int) : ShopItemWithIndex {
         DYNAMIC_HAPPY_GHAST(DynamicItemForHappyGhast.CODEC),
         SPECIAL_BLOCK_BLAST_UPGRADING(SpecialBlockBlastUpgradeItem.CODEC),
         BRANCH_ENTRY(BranchEntryItem.CODEC),
-        BUILDING(BuildingPanelItem.CODEC),
         ;
 
         private val serializeName: String = this.name.lowercase(Locale.ROOT)

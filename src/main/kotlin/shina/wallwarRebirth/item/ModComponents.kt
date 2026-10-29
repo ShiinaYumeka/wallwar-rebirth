@@ -1,5 +1,6 @@
 package shina.wallwarRebirth.item
 
+import com.mojang.serialization.Codec
 import eu.pb4.polymer.core.api.other.PolymerComponent
 import net.minecraft.core.Registry
 import net.minecraft.core.component.DataComponentType
@@ -13,8 +14,14 @@ object ModComponents {
         persistent(ItemLore.CODEC).cacheEncoding()
     }
 
+    @JvmField
+    val DROP_TEAM: DataComponentType<String> = register("drop_team") {
+        persistent(Codec.STRING)
+    }
+
     fun init() {
         PRIOR_ITEM_LORE
+        DROP_TEAM
     }
 
     private inline fun <reified T : Any> register(

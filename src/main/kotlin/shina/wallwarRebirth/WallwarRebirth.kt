@@ -8,6 +8,7 @@ import shina.wallwarRebirth.command.WallwarCommands
 import shina.wallwarRebirth.flux.gui.backend.FluxGuiRegistry
 import shina.wallwarRebirth.item.ModComponents
 import shina.wallwarRebirth.item.ModItems
+import shina.wallwarRebirth.monster.ModMonsters
 import shina.wallwarRebirth.item.PolymerLoreListener
 import shina.wallwarRebirth.shop.ShopLayerRegistry
 import shina.wallwarRebirth.shop.ShopMaterialRegistry
@@ -18,6 +19,7 @@ class WallwarRebirth : ModInitializer {
         ModComponents.init()
         ModItems.init()
         ModSites.init()
+        ModMonsters.init()
         PolymerLoreListener.register()
         ShopMaterialRegistry.init()
         ShopLayerRegistry.init()
