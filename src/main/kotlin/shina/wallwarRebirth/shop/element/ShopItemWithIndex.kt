@@ -74,7 +74,7 @@ interface ShopItemWithIndex {
         }
         if (!item.hideBuyText) {
             val msg = component {
-                translatable("text.hgwar.shop_layer.bought") formatted ChatFormatting.YELLOW
+                text("已购买 ") formatted ChatFormatting.YELLOW
                 raw(Component.empty().withStyle(ChatFormatting.WHITE).append(item.icon.hoverName))
             }
             if (!materialSuffix?.string.isNullOrEmpty()) {

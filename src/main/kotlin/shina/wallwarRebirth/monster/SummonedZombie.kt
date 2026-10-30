@@ -1,6 +1,7 @@
 package shina.wallwarRebirth.monster
 
 import eu.pb4.polymer.core.api.entity.PolymerEntity
+import net.minecraft.core.BlockPos
 import net.minecraft.network.chat.Component
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
@@ -13,8 +14,11 @@ import net.minecraft.world.entity.monster.zombie.Zombie
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.Level
 import net.minecraft.world.phys.Vec3
+import shina.wallwarRebirth.building.BuildingMining
 import shina.wallwarRebirth.building.SiteCoreBlockEntity
 import shina.wallwarRebirth.building.SiteCores
+import shina.wallwarRebirth.building.SitePartBlock
+import shina.wallwarRebirth.building.SiteStructureBlock
 import shina.wallwarRebirth.item.ModComponents
 import xyz.nucleoid.packettweaker.PacketContext
 import java.util.UUID
@@ -28,7 +32,7 @@ class SummonedZombie(type: EntityType<out SummonedZombie>, level: Level) : Zombi
     private var phase = Phase.PATH
     private var focusId: UUID? = null
     private var counterSourceId: UUID? = null
-    private var corePos: net.minecraft.core.BlockPos? = null
+    private var corePos: BlockPos? = null
     private var meleeCooldown = 0
     private var buildingCooldown = Monsters.ZOMBIE.buildingIntervalTicks
     private var ticksSinceExchange = 0
@@ -138,7 +142,7 @@ class SummonedZombie(type: EntityType<out SummonedZombie>, level: Level) : Zombi
         stuckZ = input.getDoubleOr("StuckZ", z)
         stuckReady = input.getBooleanOr("StuckReady", false)
         corePos = if (input.getBooleanOr("HasCore", false)) {
-            net.minecraft.core.BlockPos(
+            BlockPos(
                 input.getIntOr("CoreX", 0),
                 input.getIntOr("CoreY", 0),
                 input.getIntOr("CoreZ", 0),
@@ -192,8 +196,8 @@ class SummonedZombie(type: EntityType<out SummonedZombie>, level: Level) : Zombi
         recoverRadius()
         tickStuck(core)
         val center = Vec3.atCenterOf(core.blockPos)
-        val inRange = distanceToCore(core.blockPos) <= stats.attackRange
-        if (inRange) {
+        val coreInRange = distanceToCore(core.blockPos) <= stats.attackRange
+        if (coreInRange) {
             navigation.stop()
             lookControl.setLookAt(center)
         } else if (tickCount % MonsterRules.REPATH_TICKS == 0) {
@@ -201,9 +205,44 @@ class SummonedZombie(type: EntityType<out SummonedZombie>, level: Level) : Zombi
         }
         buildingCooldown--
         if (buildingCooldown <= 0) {
+            val victim = nearestSiegeTarget() ?: return
             buildingCooldown = stats.buildingIntervalTicks
-            if (inRange) core.damageFromMonster(summonedTeam, stats.buildingDamage)
+            victim.damageFromMonster(summonedTeam, stats.buildingDamage)
         }
+    }
+
+    private fun nearestSiegeTarget(): SiteCoreBlockEntity? {
+        val world = level() as? ServerLevel ?: return null
+        val range = stats.attackRange
+        var best: SiteCoreBlockEntity? = null
+        var bestDist = Double.POSITIVE_INFINITY
+        fun consider(core: SiteCoreBlockEntity, pos: BlockPos) {
+            if (core.isRemoved || core.health <= 0 || core.team == summonedTeam) return
+            val dist = position().distanceTo(Vec3.atCenterOf(pos))
+            if (dist <= range && dist < bestDist) {
+                bestDist = dist
+                best = core
+            }
+        }
+        for (core in SiteCores.all()) {
+            if (core.level !== world) continue
+            consider(core, core.blockPos)
+            for (part in core.partPositions) consider(core, part)
+        }
+        val radius = kotlin.math.ceil(range).toInt() + 1
+        val origin = blockPosition()
+        for (x in -radius..radius) {
+            for (y in -radius..radius) {
+                for (z in -radius..radius) {
+                    val pos = origin.offset(x, y, z)
+                    val state = world.getBlockState(pos)
+                    if (state.block !is SiteStructureBlock && state.block !is SitePartBlock) continue
+                    val owner = BuildingMining.resolve(world, pos, state) ?: continue
+                    consider(owner, pos)
+                }
+            }
+        }
+        return best
     }
 
     private fun recoverRadius() {
@@ -420,7 +459,7 @@ class SummonedZombie(type: EntityType<out SummonedZombie>, level: Level) : Zombi
 
     private fun distanceToEntity(entity: Entity): Double = position().distanceTo(entity.position())
 
-    private fun distanceToCore(pos: net.minecraft.core.BlockPos): Double = position().distanceTo(Vec3.atCenterOf(pos))
+    private fun distanceToCore(pos: BlockPos): Double = position().distanceTo(Vec3.atCenterOf(pos))
 
     private fun killerTeam(source: DamageSource): String? = when (val killer = source.entity) {
         is SummonedZombie -> killer.summonedTeam

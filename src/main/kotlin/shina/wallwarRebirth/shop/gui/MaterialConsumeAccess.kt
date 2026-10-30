@@ -143,7 +143,7 @@ interface MaterialConsumeAccess {
                         component {
                             empty()
                             raw(ItemTextComponents.actorDisplayNameWithEntityHover(player))
-                            translatable("text.hgwar.team_chest.material_use_teammate_suffix") provide yellowLineStyle
+                            text(" 使用了团队材料") provide yellowLineStyle
                             raw(materialListSuffix)
                         }
                     )
@@ -157,7 +157,7 @@ interface MaterialConsumeAccess {
         val player = this.getPlayer()
         player.sendSystemMessage(
             component {
-                translatable("text.hgwar.gui.item_upgrade.not_enough_materials.prefix") formatted ChatFormatting.RED
+                text("还缺少 ") formatted ChatFormatting.RED
                 costs.forEach { (materialId, amount) ->
                     val material = ShopMaterialRegistry.getMaterial(player.registryAccess(), materialId)
                         ?: return@forEach

@@ -48,10 +48,10 @@ import kotlin.jvm.optionals.getOrNull
 @Suppress("unused", "TooManyFunctions")
 class ItemStackBuilder private constructor(private val stack: ItemStack) {
     companion object {
-        private val PARSED_NULL = Component.translatable("gui.hgwar.item_stack_builder.parsed_null")
+        private val PARSED_NULL = Component.literal("未知材料")
             .withStyle(ChatFormatting.RED, ChatFormatting.ITALIC)
 
-        private val COSTS_LINE = Component.translatable("gui.hgwar.item_stack_builder.cost")
+        private val COSTS_LINE = Component.literal("消耗")
             .setStyle(TextStyles.LIGHTER_GRAY_ITEM_LORE)
 
         private val EMPTY_BLOCK_PREDICATE = BlockPredicate.Builder.block().build()
@@ -399,7 +399,8 @@ class ItemStackBuilder private constructor(private val stack: ItemStack) {
             component {
                 // 底色与资源颜色相同
                 empty() provide TextStyles.GRAY_ITEM_LORE provide material.description.style
-                translatable("gui.hgwar.item_stack_builder.cost_entry", count, material.description)
+                text("$count × ")
+                raw(material.description)
                 text(" ")
                 if (canAfford) {
                     text("√") provide style {
@@ -428,16 +429,16 @@ class ItemStackBuilder private constructor(private val stack: ItemStack) {
         if (locked) {
             appendLore(
                 baseItem.lockMessage?.takeIf { it.string.isNotBlank() }
-                    ?: Component.translatable("gui.hgwar.item_stack_builder.locked_default")
+                    ?: Component.literal("未解锁")
             )
         } else if (!hasEnoughMaterials) {
             appendLore(
-                Component.translatable("gui.hgwar.item_stack_builder.not_enough_materials")
+                Component.literal("材料不足")
                     .withStyle { it.withColor(ChatFormatting.RED).withItalic(false) }
             )
         } else if (!baseItem.hideBuyText) {
             appendLore(
-                Component.translatable("gui.hgwar.item_stack_builder.click_to_buy")
+                Component.literal("点击购买")
                     .withStyle { it.withColor(ChatFormatting.YELLOW).withItalic(false) }
             )
         }

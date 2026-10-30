@@ -58,12 +58,12 @@ open class ShopGui(
             ItemStackBuilder.of(Items.SPRUCE_CHEST_BOAT)
                 .setName(
                     component {
-                        translatable("text.hgwar.shop_layer.team_repository.name") provide style {
+                        text("团队仓库") provide style {
                             color(ChatFormatting.YELLOW)
                             bold(true)
                             italic(false)
                         }
-                        translatable("text.hgwar.shop_layer.team_repository.click") provide style {
+                        text(" 点击打开") provide style {
                             color(ChatFormatting.GREEN)
                             bold(false)
                             italic(false)
@@ -71,7 +71,7 @@ open class ShopGui(
                     }
                 ).appendLore(
                     component {
-                        translatable("text.hgwar.shop_layer.team_repository.lore.1") provide style {
+                        text("Shift 点击可将物品放入仓库") provide style {
                             color(ChatFormatting.GRAY)
                             italic(false)
                         }
@@ -124,7 +124,7 @@ open class ShopGui(
         // 自动关闭
         if (currentTickCount % 4 == 0 && !session.isValid()) {
             player.sendSystemMessage(
-                Component.translatable("text.hgwar.shop.closed").withStyle(ChatFormatting.RED)
+                Component.literal("商店已关闭").withStyle(ChatFormatting.RED)
             )
             player.playNotifySound(SoundEvents.CHEST_CLOSE, SoundSource.UI, 0.5f, 0.95f)
             close()
@@ -159,12 +159,10 @@ open class ShopGui(
                 itemStack.shrink(add)
                 player.playNotifySound(SoundEvents.EXPERIENCE_ORB_PICKUP, SoundSource.PLAYERS, 1f, 1f)
                 val message = component {
-                    translatable(
-                        "text.hgwar.shop_layer.snow.put",
-                        session.subject?.displayName ?: Component.literal("snow"),
-                        add,
-                    ) formatted ChatFormatting.GREEN
-                }
+                    text("向 ")
+                    raw(session.subject?.displayName ?: Component.literal("snow"))
+                    text(" 放入了 $add 个雪块")
+                }.withStyle(ChatFormatting.GREEN)
                 player.sendSystemMessage(message)
             } else {
                 val repository = TeamStores.find(player, playerTeam) ?: return
@@ -184,7 +182,7 @@ open class ShopGui(
     }
 
     private fun applyShopLayer() {
-        this.title = Component.translatable("gui.hgwar.shop.title")
+        this.title = Component.literal("商店")
         addLayer(furnaceLayer, 0, 0)
     }
 
@@ -215,9 +213,9 @@ open class ShopGui(
             ItemStackBuilder.of(Items.SNOW_BLOCK)
                 .setCount(session.snowCount)
                 .appendLore(
-                    Component.translatable("gui.hgwar.shop.snow_block_indicator.line1")
+                    Component.literal("左键放入全部")
                         .withStyle(TextStyles.GRAY_ITEM_LORE),
-                    Component.translatable("gui.hgwar.shop.snow_block_indicator.line2")
+                    Component.literal("右键放入一个")
                         .withStyle(TextStyles.GRAY_ITEM_LORE)
                 )
                 .build()

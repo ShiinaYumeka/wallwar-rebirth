@@ -94,7 +94,7 @@ class DynamicItemForPlayer(
         } catch (e: Exception) {
             player.sendSystemMessage(
                 component {
-                    translatable("text.hgwar.shop_layer.dynamic_error") formatted ChatFormatting.RED
+                    text("商店条目更新失败") formatted ChatFormatting.RED
                 }
             )
             logger.error(e.message, e)

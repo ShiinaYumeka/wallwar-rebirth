@@ -10,9 +10,15 @@ import net.minecraft.world.entity.EntityType
 import net.minecraft.world.entity.MobCategory
 import net.minecraft.world.entity.monster.zombie.Zombie
 import shina.wallwarRebirth.WallwarMod
+import shina.wallwarRebirth.building.BuildingHealthLabel
+import shina.wallwarRebirth.building.TowerArrow
 
 object ModMonsters {
     lateinit var ZOMBIE: EntityType<SummonedZombie>
+        private set
+    lateinit var TOWER_ARROW: EntityType<TowerArrow>
+        private set
+    lateinit var HEALTH_LABEL: EntityType<BuildingHealthLabel>
         private set
 
     fun init() {
@@ -29,5 +35,29 @@ object ModMonsters {
         )
         FabricDefaultAttributeRegistry.register(ZOMBIE, Zombie.createAttributes())
         PolymerEntityUtils.registerType(ZOMBIE)
+        val arrowId = WallwarMod.idOf("tower_arrow")
+        val arrowKey = ResourceKey.create(Registries.ENTITY_TYPE, arrowId)
+        TOWER_ARROW = Registry.register(
+            BuiltInRegistries.ENTITY_TYPE,
+            arrowId,
+            EntityType.Builder.of(::TowerArrow, MobCategory.MISC)
+                .sized(0.5f, 0.5f)
+                .clientTrackingRange(4)
+                .updateInterval(2)
+                .build(arrowKey),
+        )
+        PolymerEntityUtils.registerType(TOWER_ARROW)
+        val labelId = WallwarMod.idOf("building_health")
+        val labelKey = ResourceKey.create(Registries.ENTITY_TYPE, labelId)
+        HEALTH_LABEL = Registry.register(
+            BuiltInRegistries.ENTITY_TYPE,
+            labelId,
+            EntityType.Builder.of(::BuildingHealthLabel, MobCategory.MISC)
+                .sized(0.0f, 0.0f)
+                .clientTrackingRange(4)
+                .updateInterval(20)
+                .build(labelKey),
+        )
+        PolymerEntityUtils.registerType(HEALTH_LABEL)
     }
 }

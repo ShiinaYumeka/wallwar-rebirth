@@ -75,12 +75,11 @@ class DynamicItemForHappyGhast(
         val player = gui.player
         val broadcastMsg = component {
             empty()
-            translatable(
-                "text.hgwar.shop_layer.ghast_armor.buy",
-                player.displayName,
-                happyGhast.displayName,
-                Component.empty().withStyle(ChatFormatting.WHITE).append(item.icon.hoverName)
-            )
+            raw(player.displayName)
+            text(" 升级了 ")
+            raw(happyGhast.displayName)
+            text("：")
+            raw(Component.empty().withStyle(ChatFormatting.WHITE).append(item.icon.hoverName))
         }
 
         val playerMsg = if (!materialSuffix?.string.isNullOrEmpty()) {
@@ -112,7 +111,7 @@ class DynamicItemForHappyGhast(
         this,
         LevelBasedPermissionSet.GAMEMASTER,
         "Server",
-        Component.translatable("text.hgwar.command_source.server"),
+        Component.literal("服务器"),
         this.server,
         null
     )

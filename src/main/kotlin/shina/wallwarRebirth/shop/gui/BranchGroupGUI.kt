@@ -48,7 +48,7 @@ class BranchGroupGUI(
                     .set(DataComponents.ENCHANTMENT_GLINT_OVERRIDE, true)
                     .setLore(
                         component {
-                            translatable("text.hgwar.branch_group.active") provide TextStyles.LIGHTER_GRAY_ITEM_LORE
+                            text("当前") provide TextStyles.LIGHTER_GRAY_ITEM_LORE
                         }
                     )
                     .build()
@@ -111,7 +111,7 @@ class BranchGroupGUI(
 
         val itemName = item.icon.hoverName.string
         val msg = component {
-            translatable("text.hgwar.branch_group.selected", itemName) formatted ChatFormatting.GREEN
+            text("已选择 $itemName") formatted ChatFormatting.GREEN
             if (deductResult.teamRepoSuffix != null) {
                 text("  ")
                 raw(deductResult.teamRepoSuffix)

@@ -2,6 +2,9 @@ package shina.wallwarRebirth.building
 
 import com.mojang.serialization.MapCodec
 import eu.pb4.polymer.core.api.block.PolymerBlock
+import net.minecraft.core.BlockPos
+import net.minecraft.world.entity.player.Player
+import net.minecraft.world.level.BlockGetter
 import net.minecraft.world.level.block.Block
 import net.minecraft.world.level.block.state.BlockState
 import xyz.nucleoid.packettweaker.PacketContext
@@ -11,4 +14,7 @@ class SitePartBlock(properties: Properties, private val appearance: Block) : Blo
 
     override fun getPolymerBlockState(state: BlockState, context: PacketContext): BlockState =
         appearance.defaultBlockState()
+
+    override fun getDestroyProgress(state: BlockState, player: Player, level: BlockGetter, pos: BlockPos): Float =
+        BuildingMining.progress(state, player, level, pos) { super.getDestroyProgress(state, player, level, pos) }
 }

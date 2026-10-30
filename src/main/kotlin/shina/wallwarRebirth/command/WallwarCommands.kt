@@ -14,6 +14,7 @@ import net.minecraft.world.level.ClipContext
 import net.minecraft.world.phys.BlockHitResult
 import net.minecraft.world.phys.HitResult
 import net.minecraft.world.phys.Vec3
+import shina.wallwarRebirth.building.BuildingStyles
 import shina.wallwarRebirth.building.BuildingStructure
 import shina.wallwarRebirth.building.ModSites
 import shina.wallwarRebirth.monster.ModMonsters
@@ -28,9 +29,11 @@ import shina.wallwarRebirth.shop.ShopLayerTags
 import shina.wallwarRebirth.shop.ShopSession
 import shina.wallwarRebirth.shop.gui.ShopGui
 import shina.wallwarRebirth.util.command.builder.executes
+import shina.wallwarRebirth.util.command.builder.intArgument
 import shina.wallwarRebirth.util.command.builder.literal
 import shina.wallwarRebirth.util.command.builder.literalCommand
 import shina.wallwarRebirth.util.command.builder.requires
+import shina.wallwarRebirth.util.command.builder.wordArgument
 import shina.wallwarRebirth.util.command.context.CommandContext
 
 object WallwarCommands {
@@ -57,6 +60,18 @@ object WallwarCommands {
         literal("zombie") {
             requires { Commands.LEVEL_GAMEMASTERS.check(permissions()) }
             executes { placeZombie() }
+        }
+        literal("style") {
+            requires { Commands.LEVEL_GAMEMASTERS.check(permissions()) }
+            wordArgument("building") {
+                intArgument("level", 1, 3) {
+                    executes { saveStyle() }
+                }
+            }
+        }
+        literal("module") {
+            requires { Commands.LEVEL_GAMEMASTERS.check(permissions()) }
+            executes { giveModules() }
         }
     }
 
@@ -139,6 +154,31 @@ object WallwarCommands {
         level.setBlock(destination, ModSites.CORE.defaultBlockState(), net.minecraft.world.level.block.Block.UPDATE_ALL)
         BuildingStructure.placeUnselected(level, destination)
         player.sendSystemMessage(Component.literal("已放置未选定的建筑核心"))
+        return Command.SINGLE_SUCCESS
+    }
+
+    private fun CommandContext.saveStyle(): Int {
+        val player = context.source.playerOrException
+        val level = player.level()
+        val building: String by this
+        val rank = context.getArgument("level", Integer::class.java).toInt()
+        val eye = player.eyePosition
+        val end = eye.add(player.lookAngle.scale(6.0))
+        val hit = level.clip(ClipContext(eye, end, ClipContext.Block.OUTLINE, ClipContext.Fluid.NONE, player))
+        if (hit.type != HitResult.Type.BLOCK) {
+            context.source.sendFailure(Component.literal("没有看向结构方块"))
+            return 0
+        }
+        val message = BuildingStyles.save(level, hit.blockPos, building, rank)
+        player.sendSystemMessage(Component.literal(message))
+        return Command.SINGLE_SUCCESS
+    }
+
+    private fun CommandContext.giveModules(): Int {
+        val player = context.source.playerOrException
+        player.inventory.add(ItemStack(ModItems.REINFORCE))
+        player.inventory.add(ItemStack(ModItems.REINFORCE_TWO))
+        player.sendSystemMessage(Component.literal("已获得强化模块和强化模块 2"))
         return Command.SINGLE_SUCCESS
     }
 

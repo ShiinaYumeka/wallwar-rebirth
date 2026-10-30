@@ -44,6 +44,13 @@ class SiteCoreBlock(properties: Properties) : BaseEntityBlock(properties), Polym
 
     override fun getRenderShape(state: BlockState): RenderShape = RenderShape.MODEL
 
+    override fun getDestroyProgress(
+        state: BlockState,
+        player: Player,
+        level: net.minecraft.world.level.BlockGetter,
+        pos: BlockPos,
+    ): Float = BuildingMining.progress(state, player, level, pos) { super.getDestroyProgress(state, player, level, pos) }
+
     override fun <T : BlockEntity> getTicker(
         level: Level,
         state: BlockState,
@@ -80,6 +87,10 @@ class SiteCoreBlock(properties: Properties) : BaseEntityBlock(properties), Polym
         if (level.isClientSide) return InteractionResult.SUCCESS
         val serverPlayer = player as? ServerPlayer ?: return InteractionResult.PASS
         val site = level.getBlockEntity(pos) as? SiteCoreBlockEntity ?: return InteractionResult.PASS
+        if (site.team.isNotEmpty() && !site.isAlly(serverPlayer)) {
+            serverPlayer.sendSystemMessage(net.minecraft.network.chat.Component.literal("敌方打不开"))
+            return InteractionResult.SUCCESS
+        }
         BuildingMenus.open(serverPlayer, site)
         return InteractionResult.SUCCESS
     }

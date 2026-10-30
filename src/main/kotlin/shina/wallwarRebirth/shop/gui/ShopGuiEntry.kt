@@ -75,7 +75,7 @@ class ShopGuiEntry(shopItem: ShopItemWithIndex, private val gui: ShopGui) : GuiE
         if (item.checkEmptySlots && player.inventory.freeSlot == Inventory.NOT_FOUND_INDEX) {
             player.sendSystemMessage(
                 component {
-                    translatable("text.hgwar.gui.item_upgrade.inventory_full") formatted ChatFormatting.RED
+                    text("背包已满") formatted ChatFormatting.RED
                 }
             )
             playFailSound()
@@ -98,7 +98,7 @@ class ShopGuiEntry(shopItem: ShopItemWithIndex, private val gui: ShopGui) : GuiE
         } catch (_: Exception) {
             player.sendSystemMessage(
                 component {
-                    translatable("text.hgwar.gui.item_upgrade.buy_error") formatted ChatFormatting.RED
+                    text("购买失败") formatted ChatFormatting.RED
                 }
             )
             playFailSound()

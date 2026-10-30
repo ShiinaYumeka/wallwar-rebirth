@@ -22,6 +22,13 @@ data class UpgradeCost(val toLevel: Int, val costs: List<ItemAmount>) {
 
 data class LevelNote(val minLevel: Int, val text: String)
 
+enum class Footprint {
+    SQUARE_7,
+    WALL_9,
+}
+
+data class MineralOutput(val item: Item, val count: Int, val name: String, val baseTicks: Int, val minLevel: Int)
+
 fun levelMark(level: Int): String = when (level) {
     1 -> "一"
     2 -> "二"
@@ -42,10 +49,16 @@ data class BuildingDefinition(
     val summary: String,
     val details: List<LevelNote> = emptyList(),
     val showsContainer: Boolean = false,
+    val footprint: Footprint = Footprint.SQUARE_7,
+    val acceptsModules: Boolean = false,
 ) {
     fun upgradeTo(level: Int): UpgradeCost? = upgrades.firstOrNull { it.toLevel == level }
 
     fun activeProduction(level: Int): List<ProductionRule> = production.filter { level >= it.minLevel }
+
+    fun minerals(): List<MineralOutput> = production.flatMap { rule ->
+        rule.outputs.map { MineralOutput(it.item, it.count, it.name, rule.everyTicks, rule.minLevel) }
+    }
 
     fun maxHealth(level: Int): Int = healthByLevel.getOrElse(level - 1) { 0 }
 }
