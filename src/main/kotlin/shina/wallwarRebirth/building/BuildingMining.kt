@@ -2,11 +2,18 @@ package shina.wallwarRebirth.building
 
 import net.minecraft.core.BlockPos
 import net.minecraft.server.level.ServerLevel
+import net.minecraft.server.level.ServerPlayer
+import net.minecraft.sounds.SoundEvents
+import net.minecraft.sounds.SoundSource
 import net.minecraft.tags.ItemTags
+import net.minecraft.world.effect.MobEffectInstance
+import net.minecraft.world.effect.MobEffects
 import net.minecraft.world.entity.player.Player
 import net.minecraft.world.level.BlockGetter
 import net.minecraft.world.level.Level
 import net.minecraft.world.level.block.state.BlockState
+import shina.wallwarRebirth.match.Classes
+import shina.wallwarRebirth.match.MatchRules
 
 object BuildingMining {
     fun progress(
@@ -27,7 +34,13 @@ object BuildingMining {
         }
         val core = resolve(level, pos, state) ?: return false
         if (core.isAlly(player) || !player.mainHandItem.`is`(ItemTags.PICKAXES)) return false
-        core.damage(1)
+        val miner = player as? ServerPlayer
+        val amount = if (miner != null) Classes.digDamage(miner) else MatchRules.DIG_DAMAGE
+        core.damage(amount, pos)
+        level.playSound(null, pos, SoundEvents.PLAYER_ATTACK_STRONG, SoundSource.BLOCKS, 1f, 0.8f)
+        if (miner != null) {
+            miner.forceAddEffect(MobEffectInstance(MobEffects.GLOWING, MatchRules.GLOW_TICKS, 0, false, false, true), miner)
+        }
         return false
     }
 

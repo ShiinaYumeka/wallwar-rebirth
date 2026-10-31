@@ -14,6 +14,10 @@ base {
     archivesName.set(project.property("archives_base_name") as String)
 }
 
+loom {
+    accessWidenerPath.set(file("src/main/resources/wallwar-rebirth.accesswidener"))
+}
+
 java {
     // Loom will automatically attach sourcesJar to a RemapSourcesJar task and to the "build" task
     // if it is present.

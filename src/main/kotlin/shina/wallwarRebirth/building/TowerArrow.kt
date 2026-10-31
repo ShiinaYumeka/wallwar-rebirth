@@ -9,7 +9,7 @@ import net.minecraft.world.entity.projectile.arrow.Arrow
 import net.minecraft.world.level.Level
 import net.minecraft.world.level.storage.ValueInput
 import net.minecraft.world.level.storage.ValueOutput
-import shina.wallwarRebirth.monster.SummonedZombie
+import shina.wallwarRebirth.monster.SummonedUnit
 import xyz.nucleoid.packettweaker.PacketContext
 
 class TowerArrow(type: EntityType<out TowerArrow>, level: Level) : Arrow(type, level), PolymerEntity {
@@ -29,7 +29,7 @@ class TowerArrow(type: EntityType<out TowerArrow>, level: Level) : Arrow(type, l
                 if (target.isSpectator) return false
                 target.team?.name ?: ""
             }
-            is SummonedZombie -> target.summonedTeam
+            is SummonedUnit -> target.summonedTeam
             else -> return false
         }
         return other != towerTeam

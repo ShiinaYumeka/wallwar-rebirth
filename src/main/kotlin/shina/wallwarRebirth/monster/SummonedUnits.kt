@@ -1,18 +1,23 @@
 package shina.wallwarRebirth.monster
 
-object SummonedUnits {
-    private val units = java.util.Collections.newSetFromMap(java.util.IdentityHashMap<SummonedZombie, Boolean>())
+import net.minecraft.world.entity.Entity
 
-    fun add(unit: SummonedZombie) {
+object SummonedUnits {
+    private val units = java.util.Collections.newSetFromMap(java.util.IdentityHashMap<SummonedUnit, Boolean>())
+
+    fun add(unit: SummonedUnit) {
         units.add(unit)
     }
 
-    fun remove(unit: SummonedZombie) {
+    fun remove(unit: SummonedUnit) {
         units.remove(unit)
     }
 
-    fun all(): List<SummonedZombie> {
-        units.removeIf { it.isRemoved || !it.isAlive }
+    fun all(): List<SummonedUnit> {
+        units.removeIf { unit ->
+            val entity = unit as Entity
+            entity.isRemoved || !entity.isAlive
+        }
         return ArrayList(units)
     }
 }

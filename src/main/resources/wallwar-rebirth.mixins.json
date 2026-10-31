@@ -4,7 +4,8 @@
   "package": "shina.wallwarRebirth.mixin",
   "compatibilityLevel": "JAVA_21",
   "mixins": [
-    "ItemEntityMixin"
+    "ItemEntityMixin",
+    "ChunkMapMixin"
   ],
   "injectors": {
     "defaultRequire": 1

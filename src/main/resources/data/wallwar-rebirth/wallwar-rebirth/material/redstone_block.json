@@ -1,0 +1,4 @@
+{
+  "description": { "text": "红石块", "color": "red" },
+  "item_filter": { "items": ["minecraft:redstone_block"] }
+}

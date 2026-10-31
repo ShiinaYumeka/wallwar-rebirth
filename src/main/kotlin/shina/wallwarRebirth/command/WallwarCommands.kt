@@ -17,8 +17,11 @@ import net.minecraft.world.phys.Vec3
 import shina.wallwarRebirth.building.BuildingStyles
 import shina.wallwarRebirth.building.BuildingStructure
 import shina.wallwarRebirth.building.ModSites
-import shina.wallwarRebirth.monster.ModMonsters
-import shina.wallwarRebirth.monster.SummonedZombie
+import shina.wallwarRebirth.monster.Monsters
+import shina.wallwarRebirth.monster.Summoning
+import shina.wallwarRebirth.match.Match
+import shina.wallwarRebirth.match.MatchGui
+import shina.wallwarRebirth.monster.TestTeams
 import shina.wallwarRebirth.flux.gui.FluxGui
 import shina.wallwarRebirth.gui.GuiTheme
 import shina.wallwarRebirth.gui.SimpleHotbarGui
@@ -60,6 +63,21 @@ object WallwarCommands {
         literal("zombie") {
             requires { Commands.LEVEL_GAMEMASTERS.check(permissions()) }
             executes { placeZombie() }
+        }
+        literal("side") {
+            literal("red") {
+                executes { joinSide(TestTeams.RED) }
+            }
+            literal("blue") {
+                executes { joinSide(TestTeams.BLUE) }
+            }
+        }
+        literal("match") {
+            executes { openMatch() }
+            literal("reset") {
+                requires { Commands.LEVEL_GAMEMASTERS.check(permissions()) }
+                executes { resetMatch() }
+            }
         }
         literal("style") {
             requires { Commands.LEVEL_GAMEMASTERS.check(permissions()) }
@@ -127,6 +145,10 @@ object WallwarCommands {
     private fun CommandContext.placeSite(): Int {
         val player = context.source.playerOrException
         val level = player.level()
+        if (Match.isArena(level)) {
+            context.source.sendFailure(Component.literal("对局里要购买建筑核心再放置"))
+            return 0
+        }
         val eye = player.eyePosition
         val end = eye.add(player.lookAngle.scale(6.0))
         val hit = level.clip(ClipContext(eye, end, ClipContext.Block.OUTLINE, ClipContext.Fluid.NONE, player))
@@ -202,15 +224,46 @@ object WallwarCommands {
             context.source.sendFailure(Component.literal("这个位置不能放置"))
             return 0
         }
-        val zombie = SummonedZombie(ModMonsters.ZOMBIE, level)
-        zombie.summonedTeam = player.team?.name ?: ""
-        zombie.snapTo(destination.x + 0.5, destination.y.toDouble(), destination.z + 0.5, player.yRot, 0f)
-        if (!level.addFreshEntity(zombie)) {
+        val spawned = Summoning.spawn(
+            level,
+            Monsters.ZOMBIE,
+            player.team?.name ?: "",
+            destination.x + 0.5,
+            destination.y.toDouble(),
+            destination.z + 0.5,
+            player.yRot,
+        )
+        if (!spawned) {
             context.source.sendFailure(Component.literal("这个位置不能放置"))
             return 0
         }
-        val teamLabel = zombie.summonedTeam.ifEmpty { "无" }
+        val teamLabel = (player.team?.name ?: "").ifEmpty { "无" }
         player.sendSystemMessage(Component.literal("已放置唤灵·僵尸，队伍：$teamLabel"))
+        return Command.SINGLE_SUCCESS
+    }
+
+    private fun CommandContext.joinSide(name: String): Int {
+        val player = context.source.playerOrException
+        val board = player.level().server.scoreboard
+        val team = board.getPlayerTeam(name)
+        if (team == null) {
+            context.source.sendFailure(Component.literal("队伍不存在"))
+            return 0
+        }
+        Match.assign(player, name)
+        player.sendSystemMessage(Component.literal("已加入$name"))
+        return Command.SINGLE_SUCCESS
+    }
+
+    private fun CommandContext.openMatch(): Int {
+        MatchGui.open(context.source.playerOrException)
+        return Command.SINGLE_SUCCESS
+    }
+
+    private fun CommandContext.resetMatch(): Int {
+        val player = context.source.player
+        Match.reset(player)
+        if (player == null) context.source.sendSystemMessage(Component.literal("对局已重置"))
         return Command.SINGLE_SUCCESS
     }
 

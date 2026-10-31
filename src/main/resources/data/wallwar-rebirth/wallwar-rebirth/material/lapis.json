@@ -1,0 +1,4 @@
+{
+  "description": { "text": "青金石", "color": "blue" },
+  "item_filter": { "items": ["minecraft:lapis_lazuli"] }
+}

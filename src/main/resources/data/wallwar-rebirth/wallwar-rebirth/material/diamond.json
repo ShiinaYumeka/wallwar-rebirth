@@ -1,0 +1,4 @@
+{
+  "description": { "text": "钻石", "color": "aqua" },
+  "item_filter": { "items": ["minecraft:diamond"] }
+}

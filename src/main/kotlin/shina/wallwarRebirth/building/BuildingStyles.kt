@@ -79,7 +79,10 @@ object BuildingStyles {
         val rotation = rotation(definition, loaded.axis, facing)
         val placed = loaded.pieces.map { rotate(it, rotation) }
         if (placed.any { !BuildingFootprints.inside(definition, it.x, it.z) }) return "样式超出占地"
-        if (placed.any { blocked(level, origin.offset(it.x, it.y, it.z), origin) }) return "这个位置有方块挡着"
+        if (placed.any { piece ->
+            val pos = origin.offset(piece.x, piece.y, piece.z)
+            blocked(level, pos, origin) && (piece.y != COVER_BELOW || !coverable(level, pos))
+        }) return BLOCKED
         return null
     }
 
@@ -90,6 +93,7 @@ object BuildingStyles {
         rank: Int,
         facing: Direction,
         previousParts: List<BlockPos>,
+        remember: (BlockPos, BlockState) -> Unit = { _, _ -> },
     ): List<BlockPos> {
         clearOwned(level, origin, previousParts)
         setCoreForm(level, origin, definition)
@@ -101,6 +105,16 @@ object BuildingStyles {
             if (!BuildingFootprints.inside(definition, relative.x, relative.z)) continue
             val pos = origin.offset(relative.x, relative.y, relative.z)
             if (pos == origin || level.isOutsideBuildHeight(pos)) continue
+            if (pos.y == origin.y - 1) {
+                val current = level.getBlockState(pos)
+                if (!current.isAir &&
+                    current.block !is SiteCoreBlock &&
+                    current.block !is SiteStructureBlock &&
+                    current.block !is SitePartBlock
+                ) {
+                    remember(pos, current)
+                }
+            }
             val state = ModSites.STRUCTURE.defaultBlockState()
             level.setBlock(pos, state, net.minecraft.world.level.block.Block.UPDATE_ALL)
             val entity = level.getBlockEntity(pos) as? SiteStructureBlockEntity ?: continue
@@ -142,6 +156,12 @@ object BuildingStyles {
         }
         val state = if (rotation == Rotation.NONE) piece.state else piece.state.rotate(rotation)
         return piece.copy(x = x, z = z, state = state)
+    }
+
+    private fun coverable(level: ServerLevel, pos: BlockPos): Boolean {
+        val state = level.getBlockState(pos)
+        if (state.block is SiteCoreBlock || state.block is SiteStructureBlock || state.block is SitePartBlock) return false
+        return state.block != Blocks.BARRIER && state.block != Blocks.BEDROCK
     }
 
     private fun blocked(level: ServerLevel, pos: BlockPos, origin: BlockPos): Boolean {
@@ -253,4 +273,7 @@ object BuildingStyles {
 
     private fun folder(buildingId: String): Path =
         FabricLoader.getInstance().gameDir.resolve("structures").resolve("building").resolve(buildingId)
+
+    const val BLOCKED = "这个位置有方块挡着"
+    private const val COVER_BELOW = -1
 }

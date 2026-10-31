@@ -27,10 +27,38 @@ object ModItems {
     @JvmField
     val REINFORCE_TWO: Item = module("reinforce_module_2", "强化模块 2", Items.LAPIS_BLOCK)
 
+    @JvmField
+    val EGG_ZOMBIE: Item = egg("summon_zombie", "唤灵·僵尸", Items.ZOMBIE_SPAWN_EGG, "zombie")
+
+    @JvmField
+    val EGG_SKELETON: Item = egg("summon_skeleton", "唤灵·骷髅", Items.SKELETON_SPAWN_EGG, "skeleton")
+
+    @JvmField
+    val EGG_GOLEM: Item = egg("summon_golem", "唤灵·铁傀儡", Items.IRON_GOLEM_SPAWN_EGG, "golem")
+
+    @JvmField
+    val CORE_REACTOR: Item = core("core_reactor", "矿物反应堆核心", Items.BLAST_FURNACE, "reactor")
+
+    @JvmField
+    val CORE_WALL: Item = core("core_wall", "城墙核心", Items.STONE_BRICKS, "wall")
+
+    @JvmField
+    val CORE_TOWER: Item = core("core_tower", "弩架核心", Items.CROSSBOW, "tower")
+
+    @JvmField
+    val CORE_BARRACKS: Item = core("core_barracks", "兵营核心", Items.IRON_BARS, "barracks")
+
     fun init() {
         EXAMPLE_TOKEN
         REINFORCE
         REINFORCE_TWO
+        EGG_ZOMBIE
+        EGG_SKELETON
+        EGG_GOLEM
+        CORE_REACTOR
+        CORE_WALL
+        CORE_TOWER
+        CORE_BARRACKS
     }
 
     private fun module(path: String, name: String, icon: Item): Item = register(path) { properties ->
@@ -41,6 +69,28 @@ object ModItems {
             ),
             polymerItem = icon,
             interactionType = PolymerInteractionType.CLASSIC,
+        )
+    }
+
+    private fun egg(path: String, name: String, icon: Item, monsterId: String): Item = register(path) { properties ->
+        SummonEggItem(
+            properties = properties.component(
+                DataComponents.CUSTOM_NAME,
+                Component.literal(name).withStyle { style -> style.withItalic(false) },
+            ),
+            polymerItem = icon,
+            monsterId = monsterId,
+        )
+    }
+
+    private fun core(path: String, name: String, icon: Item, buildingId: String): Item = register(path) { properties ->
+        BuildingCoreItem(
+            properties = properties.component(
+                DataComponents.CUSTOM_NAME,
+                Component.literal(name).withStyle { style -> style.withItalic(false) },
+            ),
+            polymerItem = icon,
+            buildingId = buildingId,
         )
     }
 

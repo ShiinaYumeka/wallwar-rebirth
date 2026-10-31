@@ -26,6 +26,13 @@ object InventoryCosts {
         return total
     }
 
+    fun hasAll(container: Container, costs: List<ItemAmount>): Boolean =
+        costs.all { count(container, it.item) >= it.count }
+
+    fun takeAll(container: Container, costs: List<ItemAmount>) {
+        for (cost in costs) take(container, cost.item, cost.count)
+    }
+
     fun has(player: ServerPlayer, container: Container, costs: List<ItemAmount>): Boolean =
         costs.all { count(player, it.item) + count(container, it.item) >= it.count }
 
