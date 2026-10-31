@@ -41,14 +41,14 @@ object MatchHooks {
         UseItemCallback.EVENT.register { player, level, hand ->
             if (player !is ServerPlayer || level.isClientSide) return@register InteractionResult.PASS
             val stack = player.getItemInHand(hand)
-            if (!Classes.castMiner(player, stack)) return@register InteractionResult.PASS
+            if (!Match.castMiner(player, stack)) return@register InteractionResult.PASS
             if (stack.isEmpty) player.setItemInHand(hand, ItemStack.EMPTY)
             InteractionResult.SUCCESS
         }
         UseBlockCallback.EVENT.register { player, _, hand, _ ->
             if (player !is ServerPlayer) return@register InteractionResult.PASS
             val stack = player.getItemInHand(hand)
-            if (Classes.castMiner(player, stack)) {
+            if (Match.castMiner(player, stack)) {
                 if (stack.isEmpty) player.setItemInHand(hand, ItemStack.EMPTY)
                 return@register InteractionResult.FAIL
             }

@@ -141,8 +141,24 @@ object Match {
         if (phase == Phase.LOBBY || phase == Phase.WATCH) MatchGui.open(player)
     }
 
-    fun remember(player: ServerPlayer) {
-        save(player.level().server)
+    fun castMiner(player: ServerPlayer, stack: ItemStack): Boolean {
+        val member = members[player.uuid] ?: return false
+        val now = player.level().server.overworld().gameTime
+        val cast = Classes.castMiner(
+            member.classLocked,
+            member.classId,
+            member.minerUntil,
+            isFight(),
+            now,
+            stack,
+        ) ?: return false
+        player.sendSystemMessage(Component.literal(cast.message))
+        val until = cast.minerUntil
+        if (until != null) {
+            member.minerUntil = until
+            save(player.level().server)
+        }
+        return true
     }
 
     fun confirmReady(player: ServerPlayer) {

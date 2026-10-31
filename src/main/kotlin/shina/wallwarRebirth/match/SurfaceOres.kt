@@ -100,7 +100,10 @@ object SurfaceOres {
         player.awardStat(Stats.BLOCK_MINED.get(state.block))
         player.causeFoodExhaustion(0.005f)
         world.destroyBlock(pos, false, player)
-        val extra = Classes.isMiner(player) && world.random.nextFloat() < MatchRules.MINER_BONUS_CHANCE
+        val member = Match.member(player.uuid)
+        val extra = member != null &&
+            Classes.isMiner(member.classLocked, member.classId) &&
+            world.random.nextFloat() < MatchRules.MINER_BONUS_CHANCE
         for (stack in drops) {
             val smelted = smelt(stack)
             Block.popResource(world, pos, smelted)

@@ -13,6 +13,7 @@ import net.minecraft.world.level.BlockGetter
 import net.minecraft.world.level.Level
 import net.minecraft.world.level.block.state.BlockState
 import shina.wallwarRebirth.match.Classes
+import shina.wallwarRebirth.match.Match
 import shina.wallwarRebirth.match.MatchRules
 
 object BuildingMining {
@@ -35,13 +36,19 @@ object BuildingMining {
         val core = resolve(level, pos, state) ?: return false
         if (core.isAlly(player) || !player.mainHandItem.`is`(ItemTags.PICKAXES)) return false
         val miner = player as? ServerPlayer
-        val amount = if (miner != null) Classes.digDamage(miner) else MatchRules.DIG_DAMAGE
+        val amount = if (miner != null) digDamage(miner) else MatchRules.DIG_DAMAGE
         core.damage(amount, pos)
         level.playSound(null, pos, SoundEvents.PLAYER_ATTACK_STRONG, SoundSource.BLOCKS, 1f, 0.8f)
         if (miner != null) {
             miner.forceAddEffect(MobEffectInstance(MobEffects.GLOWING, MatchRules.GLOW_TICKS, 0, false, false, true), miner)
         }
         return false
+    }
+
+    private fun digDamage(player: ServerPlayer): Int {
+        val member = Match.member(player.uuid) ?: return MatchRules.DIG_DAMAGE
+        val now = player.level().server.overworld().gameTime
+        return Classes.digDamage(member.classLocked, member.classId, member.minerUntil, now)
     }
 
     fun resolve(level: BlockGetter, pos: BlockPos, state: BlockState): SiteCoreBlockEntity? {

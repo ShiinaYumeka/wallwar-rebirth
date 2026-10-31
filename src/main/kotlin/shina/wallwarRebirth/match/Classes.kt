@@ -1,7 +1,5 @@
 package shina.wallwarRebirth.match
 
-import net.minecraft.network.chat.Component
-import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
 
@@ -12,41 +10,32 @@ object Classes {
 
     fun name(id: String): String = if (id == MINER) "矿工" else "矿工"
 
-    fun isMiner(player: ServerPlayer): Boolean {
-        val member = Match.member(player.uuid) ?: return false
-        return member.classLocked && member.classId == MINER
+    fun isMiner(classLocked: Boolean, classId: String): Boolean = classLocked && classId == MINER
+
+    fun digDamage(classLocked: Boolean, classId: String, minerUntil: Long, now: Long): Int {
+        if (!isMiner(classLocked, classId) || minerUntil <= now) return MatchRules.DIG_DAMAGE
+        return MatchRules.MINER_DIG_DAMAGE
     }
 
-    fun digDamage(player: ServerPlayer): Int {
-        if (!isMiner(player)) return MatchRules.DIG_DAMAGE
-        val until = Match.member(player.uuid)?.minerUntil ?: return MatchRules.DIG_DAMAGE
-        return if (until > now(player)) MatchRules.MINER_DIG_DAMAGE else MatchRules.DIG_DAMAGE
-    }
+    class MinerCast(val message: String, val minerUntil: Long?)
 
-    fun castMiner(player: ServerPlayer, stack: ItemStack): Boolean {
-        val member = Match.member(player.uuid) ?: return false
-        if (!member.classLocked || member.classId != MINER) return false
-        if (!stack.`is`(Items.LAPIS_BLOCK)) return false
-        if (!Match.isFight()) {
-            player.sendSystemMessage(Component.literal("现在不能释放"))
-            return true
+    fun castMiner(
+        classLocked: Boolean,
+        classId: String,
+        minerUntil: Long,
+        fighting: Boolean,
+        now: Long,
+        stack: ItemStack,
+    ): MinerCast? {
+        if (!isMiner(classLocked, classId)) return null
+        if (!stack.`is`(Items.LAPIS_BLOCK)) return null
+        if (!fighting) return MinerCast("现在不能释放", null)
+        if (minerUntil > now) {
+            val seconds = ((minerUntil - now + 19) / 20).toInt()
+            return MinerCast("挖掘强化还剩 $seconds 秒", null)
         }
-        val time = now(player)
-        if (member.minerUntil > time) {
-            val seconds = ((member.minerUntil - time + 19) / 20).toInt()
-            player.sendSystemMessage(Component.literal("挖掘强化还剩 $seconds 秒"))
-            return true
-        }
-        if (stack.count < LAPIS_COST) {
-            player.sendSystemMessage(Component.literal("需要 $LAPIS_COST 个青金石块"))
-            return true
-        }
+        if (stack.count < LAPIS_COST) return MinerCast("需要 $LAPIS_COST 个青金石块", null)
         stack.shrink(LAPIS_COST)
-        member.minerUntil = time + ACTIVE_TICKS
-        player.sendSystemMessage(Component.literal("挖掘强化持续 ${ACTIVE_TICKS / MatchRules.TICKS_PER_SECOND} 秒"))
-        Match.remember(player)
-        return true
+        return MinerCast("挖掘强化持续 ${ACTIVE_TICKS / MatchRules.TICKS_PER_SECOND} 秒", now + ACTIVE_TICKS)
     }
-
-    private fun now(player: ServerPlayer): Long = player.level().server.overworld().gameTime
 }
