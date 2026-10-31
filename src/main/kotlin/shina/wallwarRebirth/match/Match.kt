@@ -185,6 +185,23 @@ object Match {
         tryBeginFight(player.level().server)
     }
 
+    fun chooseClass(player: ServerPlayer, classId: String) {
+        if (classId != Classes.MINER) return
+        if (phase != Phase.LOBBY) {
+            player.sendSystemMessage(Component.literal("现在不能选择职业"))
+            return
+        }
+        val member = members[player.uuid]
+        if (member == null || member.team.isEmpty()) {
+            player.sendSystemMessage(Component.literal("先加入队伍"))
+            return
+        }
+        member.classId = Classes.MINER
+        member.classLocked = true
+        save(player.level().server)
+        player.sendSystemMessage(Component.literal("职业：矿工"))
+    }
+
     fun reset(actor: ServerPlayer?) {
         val current = actor?.level()?.server ?: server ?: return
         if (actor != null && !Commands.LEVEL_GAMEMASTERS.check(actor.permissions())) {
@@ -320,18 +337,28 @@ object Match {
         return done to online.size
     }
 
-    fun canReset(player: ServerPlayer): Boolean = Commands.LEVEL_GAMEMASTERS.check(player.permissions())
-
     private fun tryBeginWatch(current: MinecraftServer) {
         if (phase != Phase.LOBBY || generating) return
         if (!teamDone(current, TestTeams.RED) { it.ready && it.classLocked }) return
         if (!teamDone(current, TestTeams.BLUE) { it.ready && it.classLocked }) return
         generating = true
+        val arena = current.getLevel(MatchRules.DIMENSION)
+        if (arena != null) {
+            val overworld = current.overworld()
+            for (player in current.playerList.players.toList()) {
+                if (player.level().dimension() != MatchRules.DIMENSION) continue
+                val spawn = overworld.respawnData.pos()
+                teleport(player, overworld, spawn.x + 0.5, spawn.y.toDouble(), spawn.z + 0.5, player.yRot)
+            }
+            if (!ArenaReset.wipe(arena)) {
+                abortReady(current, "地图重置失败")
+                return
+            }
+        }
         val built = MatchWorld.build(current)
         generating = false
         if (built == null) {
-            broadcast(current, "地图初始化失败")
-            save(current)
+            abortReady(current, "地图初始化失败")
             return
         }
         redBase = built.redBase
@@ -348,6 +375,14 @@ object Match {
         }
         broadcast(current, "地图已准备好，确认开始后进入战斗")
         save(current)
+    }
+
+    private fun abortReady(current: MinecraftServer, message: String) {
+        generating = false
+        for (member in members.values) member.ready = false
+        broadcast(current, message)
+        save(current)
+        for (player in onlineMembers(current)) MatchGui.open(player)
     }
 
     private fun tryBeginFight(current: MinecraftServer) {
