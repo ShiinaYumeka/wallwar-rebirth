@@ -7,6 +7,7 @@ import shina.wallwarRebirth.WallwarMod
 
 object MatchRules {
     const val MAP_SIZE = 100
+    const val MAP_SIZE_STEP = 20
     const val BASE_INSET = 16
     const val BASE_FORBID = 4
     const val PLATFORM_RADIUS = 3
@@ -19,50 +20,67 @@ object MatchRules {
     const val DAY_TIME = 1000L
     const val TICKS_PER_SECOND = 20
 
+    fun minimumMapSize(): Int {
+        val separation = SPAWN_DISTANCE.toInt() + PLATFORM_RADIUS * 2 + 1
+        val needed = separation + 3 + BASE_INSET * 2
+        var size = MAP_SIZE
+        while (size - MAP_SIZE_STEP >= needed) size -= MAP_SIZE_STEP
+        return size
+    }
+
     const val DIG_DAMAGE = 1
     const val MINER_DIG_DAMAGE = 2
     const val MINER_ACTIVE_TICKS = 30 * TICKS_PER_SECOND
-    const val MINER_LAPIS_BLOCKS = 4
+    const val MINER_LAPIS = 4
     const val MINER_BONUS_CHANCE = 0.5f
     const val GLOW_TICKS = 2 * TICKS_PER_SECOND
     const val MIN_PRODUCTION_TICKS = 1
+
+    fun secondsText(ticks: Int): String {
+        val tenths = ticks * 10 / TICKS_PER_SECOND
+        val whole = tenths / 10
+        val fraction = tenths % 10
+        return if (fraction == 0) whole.toString() else "$whole.$fraction"
+    }
 
     const val MODULE_LAPIS = 32
     const val MODULE_TWO_LAPIS = 32
 
     val REACTOR_HEALTH = listOf(20, 30, 40)
-    const val REACTOR_PRICE_IRON = 48
-    const val REACTOR_UPGRADE_2_IRON = 30
-    const val REACTOR_UPGRADE_2_COPPER = 30
-    const val REACTOR_UPGRADE_3_REDSTONE = 16
-    const val REACTOR_UPGRADE_3_LAPIS = 16
+    const val REACTOR_PRICE_IRON = 32
+    const val REACTOR_PRICE_COPPER = 32
+    const val REACTOR_UPGRADE_2_IRON = 32
+    const val REACTOR_UPGRADE_2_COPPER = 32
+    const val REACTOR_UPGRADE_3_IRON = 64
+    const val REACTOR_UPGRADE_3_COPPER = 64
     const val REACTOR_IRON_TICKS = 10 * TICKS_PER_SECOND
     const val REACTOR_IRON_COUNT = 2
     const val REACTOR_COPPER_COUNT = 2
-    const val REACTOR_REDSTONE_TICKS = 20 * TICKS_PER_SECOND
+    const val REACTOR_REDSTONE_TICKS = 10 * TICKS_PER_SECOND
     const val REACTOR_REDSTONE_COUNT = 1
     const val REACTOR_LAPIS_COUNT = 1
-    const val REACTOR_DIAMOND_TICKS = 60 * TICKS_PER_SECOND
+    const val REACTOR_DIAMOND_TICKS = 30 * TICKS_PER_SECOND
     const val REACTOR_DIAMOND_COUNT = 1
 
     val WALL_HEALTH = listOf(40, 70, 100)
-    const val WALL_PRICE_IRON = 24
-    const val WALL_UPGRADE_2_IRON = 32
-    const val WALL_UPGRADE_3_REDSTONE = 8
+    const val WALL_PRICE_COPPER = 24
+    const val WALL_UPGRADE_2_COPPER = 16
+    const val WALL_UPGRADE_3_COPPER = 16
 
     val TOWER_HEALTH = listOf(20, 30, 40)
     val TOWER_RANGE = listOf(12.0, 16.0, 20.0)
     val TOWER_SPEED = listOf(2f, 3f, 4f)
+    const val TOWER_ARROW_BASE_DAMAGE = 2.0
     val TOWER_INTERVAL = listOf(2 * TICKS_PER_SECOND, 2 * TICKS_PER_SECOND, 3 * TICKS_PER_SECOND / 2)
-    const val TOWER_PRICE_IRON = 32
-    const val TOWER_UPGRADE_2_IRON = 16
-    const val TOWER_UPGRADE_2_REDSTONE = 8
-    const val TOWER_UPGRADE_3_DIAMOND = 4
+    const val TOWER_PRICE_COPPER = 32
+    const val TOWER_UPGRADE_2_COPPER = 24
+    const val TOWER_UPGRADE_3_COPPER = 24
     const val TOWER_TIE_DISTANCE = 0.001
 
     val BARRACKS_HEALTH = listOf(24, 24, 36)
-    const val BARRACKS_PRICE_IRON = 48
-    const val BARRACKS_UPGRADE_2_REDSTONE = 16
+    const val BARRACKS_PRICE_IRON = 24
+    const val BARRACKS_UPGRADE_2_IRON = 32
+    const val BARRACKS_UPGRADE_3_IRON = 32
     const val BARRACKS_UPGRADE_3_DIAMOND = 4
 
     const val ZOMBIE_HEALTH = 40.0
@@ -78,28 +96,20 @@ object MatchRules {
     const val SMALL_BUILDING_DAMAGE = 1
     const val BUILDING_HIT_TICKS = TICKS_PER_SECOND
     const val BUILDING_ATTACK_RANGE = 2.0
-    const val ZOMBIE_DROP = 1
-    const val SKELETON_DROP = 2
-    const val GOLEM_DROP = 1
     const val ZOMBIE_COST_REDSTONE = 1
     const val SKELETON_COST_REDSTONE = 2
     const val GOLEM_COST_REDSTONE = 8
     const val GOLEM_COST_IRON = 32
-    const val ZOMBIE_PRODUCTION_TICKS = 30 * TICKS_PER_SECOND
-    const val SKELETON_PRODUCTION_TICKS = 30 * TICKS_PER_SECOND
-    const val GOLEM_PRODUCTION_TICKS = 120 * TICKS_PER_SECOND
+    const val ZOMBIE_PRODUCTION_TICKS = 15 * TICKS_PER_SECOND
+    const val SKELETON_PRODUCTION_TICKS = 15 * TICKS_PER_SECOND
+    const val GOLEM_PRODUCTION_TICKS = 30 * TICKS_PER_SECOND
 
-    const val SWORD_IRON = 16
-    const val HELMET_IRON = 20
-    const val CHEST_IRON = 32
-    const val LEGS_IRON = 28
-    const val BOOTS_IRON = 16
+    const val LOG_IRON = 4
     const val BOW_IRON = 16
     const val ARROW_COUNT = 16
     const val ARROW_IRON = 8
     const val BEEF_COUNT = 8
     const val BEEF_IRON = 6
-    const val DIAMOND_SWORD_COST = 3
 
     const val CORE_RETARGET_TICKS = 2 * TICKS_PER_SECOND
     const val STUCK_TICKS = 3 * TICKS_PER_SECOND

@@ -67,6 +67,7 @@ object BuildingCombat {
         val direction = aim.normalize()
         val muzzle = muzzle(site, level, origin, direction, aim.length()) ?: return
         val arrow = TowerArrow(ModMonsters.TOWER_ARROW, level)
+        arrow.setBaseDamage(MatchRules.TOWER_ARROW_BASE_DAMAGE)
         arrow.towerTeam = site.team
         val yaw = Math.toDegrees(atan2(-direction.x, direction.z)).toFloat()
         arrow.snapTo(muzzle.x, muzzle.y, muzzle.z, yaw, 0f)

@@ -57,9 +57,7 @@ class SummonedGolem(type: EntityType<out SummonedGolem>, level: Level) :
         return hit
     }
 
-    override fun dropCustomDeathLoot(level: ServerLevel, source: DamageSource, recentlyHit: Boolean) {
-        mind.dropLoot(level, source)
-    }
+    override fun dropCustomDeathLoot(level: ServerLevel, source: DamageSource, recentlyHit: Boolean) {}
 
     override fun customServerAiStep(level: ServerLevel) {
         if (shina.wallwarRebirth.match.Match.frozen(level)) return

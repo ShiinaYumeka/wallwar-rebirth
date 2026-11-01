@@ -10,8 +10,6 @@ import net.minecraft.world.entity.Entity
 import net.minecraft.world.entity.LivingEntity
 import net.minecraft.world.entity.Mob
 import net.minecraft.world.entity.animal.golem.IronGolem
-import net.minecraft.world.entity.player.Player
-import net.minecraft.world.item.ItemStack
 import net.minecraft.world.phys.Vec3
 import shina.wallwarRebirth.building.BuildingMining
 import shina.wallwarRebirth.building.Buildings
@@ -19,7 +17,6 @@ import shina.wallwarRebirth.building.SiteCoreBlockEntity
 import shina.wallwarRebirth.building.SiteCores
 import shina.wallwarRebirth.building.SitePartBlock
 import shina.wallwarRebirth.building.SiteStructureBlock
-import shina.wallwarRebirth.item.ModComponents
 import java.util.UUID
 import kotlin.math.hypot
 import kotlin.math.min
@@ -68,13 +65,6 @@ class SummonedBrain(private val mob: Mob, private val unit: SummonedUnit) {
 
     fun noteExchange() {
         ticksSinceExchange = 0
-    }
-
-    fun dropLoot(level: ServerLevel, source: DamageSource) {
-        val stack = ItemStack(stats.dropItem, stats.dropCount)
-        val killerTeam = killerTeam(source)
-        if (killerTeam != null) stack.set(ModComponents.DROP_TEAM, killerTeam)
-        mob.spawnAtLocation(level, stack)
     }
 
     fun save(output: net.minecraft.world.level.storage.ValueOutput) {
@@ -453,12 +443,6 @@ class SummonedBrain(private val mob: Mob, private val unit: SummonedUnit) {
     private fun distanceToEntity(entity: Entity): Double = mob.position().distanceTo(entity.position())
 
     private fun distanceToCore(pos: BlockPos): Double = mob.position().distanceTo(Vec3.atCenterOf(pos))
-
-    private fun killerTeam(source: DamageSource): String? = when (val killer = source.entity) {
-        is SummonedUnit -> killer.summonedTeam
-        is Player -> killer.team?.name ?: ""
-        else -> null
-    }
 
     private val stats: MonsterDefinition
         get() = Monsters.byId(unit.kindId) ?: Monsters.ZOMBIE

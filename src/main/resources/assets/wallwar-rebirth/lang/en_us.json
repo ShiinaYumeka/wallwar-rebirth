@@ -1,5 +1,6 @@
 {
   "material.wallwar.iron": "Iron",
+  "material.wallwar.copper": "Copper",
   "text.wallwar.shop.empty": "No shop layers are loaded",
   "text.wallwar.shop.team_repo.enabled": "Team storage will be used for shop costs",
   "text.wallwar.shop.team_repo.disabled": "Shop costs use your inventory only"

@@ -24,6 +24,7 @@ data class LevelNote(val minLevel: Int, val text: String)
 
 enum class Footprint {
     SQUARE_7,
+    SQUARE_1,
     WALL_9,
 }
 

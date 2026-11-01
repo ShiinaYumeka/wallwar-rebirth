@@ -15,9 +15,6 @@ data class MonsterDefinition(
     val buildingDamage: Int,
     val buildingIntervalTicks: Int,
     val attackRange: Double,
-    val dropItem: Item,
-    val dropCount: Int,
-    val dropName: String,
     val cost: List<MonsterCost>,
     val baseProductionTicks: Int,
     val egg: Item,
@@ -45,8 +42,7 @@ data class MonsterDefinition(
             lines.add("弓射程 ${bow.toInt()} 格，走位和拉弓间隔按原版骷髅，命中盔甲前伤害 ${playerAttack.toInt()}")
         }
         lines.add("消耗 ${costText()}")
-        lines.add("当前兵营产出间隔 ${productionTicks(barracksLevel) / 20} 秒")
-        lines.add("击杀掉落 $dropName ×$dropCount")
+        lines.add("当前兵营产出间隔 ${MatchRules.secondsText(productionTicks(barracksLevel))} 秒")
         return lines
     }
 }

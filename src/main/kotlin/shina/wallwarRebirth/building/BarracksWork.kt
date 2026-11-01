@@ -16,7 +16,7 @@ import kotlin.math.max
 
 object BarracksSlots {
     fun acceptsMaterial(stack: ItemStack): Boolean =
-        stack.`is`(Items.REDSTONE) || stack.`is`(Items.REDSTONE_BLOCK) || stack.`is`(Items.IRON_INGOT)
+        stack.`is`(Items.REDSTONE) || stack.`is`(Items.IRON_INGOT)
 
     fun acceptsEgg(stack: ItemStack): Boolean =
         stack.`is`(ModItems.EGG_ZOMBIE) || stack.`is`(ModItems.EGG_SKELETON) || stack.`is`(ModItems.EGG_GOLEM)

@@ -16,6 +16,7 @@ import net.minecraft.world.item.Items
 import shina.wallwarRebirth.gui.ItemStackBuilder
 import shina.wallwarRebirth.match.BaseShop
 import shina.wallwarRebirth.match.Match
+import shina.wallwarRebirth.match.MatchRules
 import shina.wallwarRebirth.monster.MonsterDefinition
 import shina.wallwarRebirth.monster.Monsters
 import shina.wallwarRebirth.shop.ShopSession
@@ -135,7 +136,7 @@ class BuildingPanelGui(
     private fun shopIcon(): ItemStack =
         ItemStackBuilder.of(Items.EMERALD)
             .setName(line("商店", ChatFormatting.GREEN))
-            .appendLore(line("装备、建筑核心、唤灵、强化"))
+            .appendLore(line("建筑核心、强化、装备"))
             .appendLore(line("只在战斗阶段可以购买"))
             .build()
 
@@ -166,7 +167,7 @@ class BuildingPanelGui(
             val monster = Monsters.byId(site.producedMonster) ?: Monsters.ZOMBIE
             builder.appendLore(line("当前生产：${monster.displayName}"))
             builder.appendLore(line(if (site.marching) "出怪：出征" else "出怪：休整"))
-            builder.appendLore(line("当前间隔：${monster.productionTicks(site.buildingLevel) / 20} 秒"))
+            builder.appendLore(line("当前间隔：${MatchRules.secondsText(monster.productionTicks(site.buildingLevel))} 秒"))
             builder.appendLore(line("左键打开生产页"))
         }
         return builder.build()
@@ -203,7 +204,7 @@ private class BuildingShopGui(
     session: ShopSession,
     player: ServerPlayer,
     layers: Collection<ShopLayer>,
-    private val heading: String,
+    heading: String,
 ) : ShopGui(session, player, layers, 1) {
     init {
         title = Component.literal(heading)
@@ -370,7 +371,7 @@ private class MineralPickerGui(
     private val site: SiteCoreBlockEntity,
     private val definition: BuildingDefinition,
     private val slot: ModuleSlot,
-    private val choices: List<MineralOutput>,
+    choices: List<MineralOutput>,
 ) : SimpleGui(MenuType.GENERIC_9x1, viewer, false) {
     init {
         title = Component.literal(if (slot == ModuleSlot.SECONDARY) "选择停止生成的矿物" else "选择强化的矿物")

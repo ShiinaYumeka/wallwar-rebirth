@@ -1,0 +1,11 @@
+{
+  "description": {
+    "translate": "material.wallwar.copper",
+    "color": "#E3D4D1"
+  },
+  "item_filter": {
+    "items": [
+      "minecraft:copper_ingot"
+    ]
+  }
+}

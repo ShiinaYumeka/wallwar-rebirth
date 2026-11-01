@@ -87,6 +87,7 @@ object ModMonsters {
                 .build(crossbowKey),
         )
         PolymerEntityUtils.registerType(TOWER_CROSSBOW)
+        TowerCrossbow.bind(TOWER_CROSSBOW)
     }
 
     private fun <T : net.minecraft.world.entity.Mob> register(

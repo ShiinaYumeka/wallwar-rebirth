@@ -18,14 +18,12 @@ object SurfaceOres {
     private val kinds = listOf(
         Blocks.IRON_ORE,
         Blocks.COPPER_ORE,
-        Blocks.REDSTONE_ORE,
-        Blocks.LAPIS_ORE,
-        Blocks.DIAMOND_ORE,
     )
 
     fun scatter(level: ServerLevel, red: BlockPos, blue: BlockPos) {
-        val min = -MatchRules.MAP_SIZE / 2
-        val max = min + MatchRules.MAP_SIZE - 1
+        val size = Match.mapSize
+        val min = -size / 2
+        val max = min + size - 1
         val columns = HashMap<Long, BlockPos>()
         for (x in min + 1 until max) {
             for (z in min + 1 until max) {
@@ -52,10 +50,12 @@ object SurfaceOres {
                 if (!vein.add(key) || key !in columns || key in used) continue
                 if (beside(key, used, vein)) continue
                 val pos = columns[key] ?: continue
-                if (!place(level, pos, ore)) continue
+                val room = minOf(MatchRules.SURFACE_ORE_VEIN - grown, target - placed)
+                val count = pile(level, pos, ore, random, room)
+                if (count == 0) continue
                 used.add(key)
-                placed++
-                grown++
+                placed += count
+                grown += count
                 for (near in around(key)) {
                     if (near in columns && near !in used && near !in vein) frontier.add(near)
                 }
@@ -63,13 +63,25 @@ object SurfaceOres {
         }
     }
 
-    private fun place(level: ServerLevel, pos: BlockPos, ore: Block): Boolean {
+    private fun pile(level: ServerLevel, pos: BlockPos, ore: Block, random: net.minecraft.util.RandomSource, room: Int): Int {
+        if (room <= 0) return 0
         val above = pos.above()
         val cover = level.getBlockState(above)
-        if (!cover.isAir && !plant(cover) && !cover.`is`(BlockTags.SNOW)) return false
+        if (!cover.isAir && !plant(cover) && !cover.`is`(BlockTags.SNOW) && !cover.`is`(BlockTags.LEAVES)) return 0
         if (!cover.isAir) level.setBlock(above, Blocks.AIR.defaultBlockState(), Block.UPDATE_NONE)
-        level.setBlock(pos, ore.defaultBlockState(), Block.UPDATE_NONE)
-        return true
+        val mode = random.nextInt(3)
+        val embed = mode != 1
+        val rise = mode != 0
+        var placed = 0
+        if (embed) {
+            level.setBlock(pos, ore.defaultBlockState(), Block.UPDATE_NONE)
+            placed++
+        }
+        if (rise && placed < room) {
+            level.setBlock(above, ore.defaultBlockState(), Block.UPDATE_NONE)
+            placed++
+        }
+        return placed
     }
 
     private fun beside(key: Long, used: Set<Long>, vein: Set<Long>): Boolean {

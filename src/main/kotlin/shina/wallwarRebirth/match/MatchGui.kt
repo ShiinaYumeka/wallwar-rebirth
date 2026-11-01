@@ -56,6 +56,16 @@ private class Board(private val viewer: ServerPlayer) : SimpleGui(MenuType.GENER
             close()
             ClassBoard(viewer).open()
         })
+        setSlot(24, GuiElement(sizeButton()) { _, click, _, _ ->
+            if (click.shift) return@GuiElement
+            val delta = when {
+                click.isLeft -> -MatchRules.MAP_SIZE_STEP
+                click.isRight -> MatchRules.MAP_SIZE_STEP
+                else -> return@GuiElement
+            }
+            Match.adjustMapSize(viewer, delta)
+            paint()
+        })
     }
 
     private fun status(): ItemStack {
@@ -105,6 +115,14 @@ private class Board(private val viewer: ServerPlayer) : SimpleGui(MenuType.GENER
             .build()
     }
 
+    private fun sizeButton(): ItemStack {
+        val open = Match.phase == Match.Phase.LOBBY
+        return ItemStackBuilder.of(Items.MAP)
+            .setName(line("边长 ${Match.mapSize}", ChatFormatting.GOLD))
+            .appendLore(line(if (open) "左键减小 20 格，右键增大 20 格" else "地图已经生成"))
+            .build()
+    }
+
     private fun phaseName(): String = when (Match.phase) {
         Match.Phase.LOBBY -> "组队与准备"
         Match.Phase.WATCH -> "观察"
@@ -137,8 +155,8 @@ private class ClassBoard(private val viewer: ServerPlayer) : SimpleGui(MenuType.
             .setName(line("矿工", ChatFormatting.AQUA))
             .appendLore(line(if (current) "当前职业" else "点击选择"))
             .appendLore(line("被动：挖掘矿石时 ${(MatchRules.MINER_BONUS_CHANCE * 100).toInt()}% 概率多掉一份"))
-            .appendLore(line("主动：消耗 ${MatchRules.MINER_LAPIS_BLOCKS} 个青金石块，${MatchRules.MINER_ACTIVE_TICKS / MatchRules.TICKS_PER_SECOND} 秒内挖建筑核心和结构零件伤害为 ${MatchRules.MINER_DIG_DAMAGE}"))
-            .appendLore(line("战斗中手持青金石块右键释放，持续期间不能再次释放"))
+            .appendLore(line("主动：消耗 ${MatchRules.MINER_LAPIS} 个青金石，${MatchRules.MINER_ACTIVE_TICKS / MatchRules.TICKS_PER_SECOND} 秒内挖建筑核心和结构零件伤害为 ${MatchRules.MINER_DIG_DAMAGE}"))
+            .appendLore(line("战斗中手持青金石右键释放，持续期间不能再次释放"))
             .build()
     }
 

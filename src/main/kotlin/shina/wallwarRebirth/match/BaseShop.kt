@@ -10,8 +10,6 @@ import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
 import shina.wallwarRebirth.WallwarMod
 import shina.wallwarRebirth.building.SiteCoreBlockEntity
-import shina.wallwarRebirth.monster.MonsterDefinition
-import shina.wallwarRebirth.monster.Monsters
 import shina.wallwarRebirth.gui.ItemStackBuilder
 import shina.wallwarRebirth.item.ModItems
 import shina.wallwarRebirth.shop.ShopSession
@@ -23,13 +21,11 @@ import shina.wallwarRebirth.shop.gui.ShopGui
 
 object BaseShop {
     enum class Page(val title: String) {
+        BUILDING("建筑核心和强化"),
         EQUIPMENT("装备"),
-        CORE("建筑核心"),
-        SUMMON("唤灵"),
-        MODULE("强化"),
     }
 
-    fun open(player: ServerPlayer, site: SiteCoreBlockEntity, page: Page = Page.EQUIPMENT) {
+    fun open(player: ServerPlayer, site: SiteCoreBlockEntity, page: Page = Page.BUILDING) {
         if (!Match.isFight()) {
             player.sendSystemMessage(Component.literal("商店只在战斗阶段可购买"))
             return
@@ -39,70 +35,42 @@ object BaseShop {
             return
         }
         val goods = when (page) {
+            Page.BUILDING -> building()
             Page.EQUIPMENT -> equipment()
-            Page.CORE -> cores()
-            Page.SUMMON -> summons()
-            Page.MODULE -> modules()
         }
         val items = ArrayList<ShopItemWithIndex>()
-        items.add(Tab(1, Page.EQUIPMENT, page, site))
-        items.add(Tab(3, Page.CORE, page, site))
-        items.add(Tab(5, Page.SUMMON, page, site))
-        items.add(Tab(7, Page.MODULE, page, site))
+        items.add(Tab(1, Page.BUILDING, page, site))
+        items.add(Tab(3, Page.EQUIPMENT, page, site))
         items.addAll(goods)
         PageGui(ShopSession(), player, listOf(ShopLayer(5, items)), page.title, site).open()
     }
 
     private fun equipment(): List<ShopItemWithIndex> = listOf(
-        priced(10, Items.IRON_SWORD, 1, iron(MatchRules.SWORD_IRON), "minecraft:iron_sword 1"),
-        priced(11, Items.IRON_HELMET, 1, iron(MatchRules.HELMET_IRON), "minecraft:iron_helmet 1"),
-        priced(12, Items.IRON_CHESTPLATE, 1, iron(MatchRules.CHEST_IRON), "minecraft:iron_chestplate 1"),
-        priced(13, Items.IRON_LEGGINGS, 1, iron(MatchRules.LEGS_IRON), "minecraft:iron_leggings 1"),
-        priced(14, Items.IRON_BOOTS, 1, iron(MatchRules.BOOTS_IRON), "minecraft:iron_boots 1"),
+        priced(10, Items.OAK_LOG, 1, iron(MatchRules.LOG_IRON), "minecraft:oak_log 1"),
         priced(15, Items.BOW, 1, iron(MatchRules.BOW_IRON), "minecraft:bow 1"),
         priced(16, Items.ARROW, MatchRules.ARROW_COUNT, iron(MatchRules.ARROW_IRON), "minecraft:arrow ${MatchRules.ARROW_COUNT}"),
         priced(19, Items.COOKED_BEEF, MatchRules.BEEF_COUNT, iron(MatchRules.BEEF_IRON), "minecraft:cooked_beef ${MatchRules.BEEF_COUNT}"),
-        priced(20, Items.DIAMOND_SWORD, 1, diamond(MatchRules.DIAMOND_SWORD_COST), "minecraft:diamond_sword 1"),
     )
 
-    private fun cores(): List<ShopItemWithIndex> = listOf(
-        give(10, ModItems.CORE_REACTOR, iron(MatchRules.REACTOR_PRICE_IRON)),
-        give(12, ModItems.CORE_WALL, iron(MatchRules.WALL_PRICE_IRON)),
-        give(14, ModItems.CORE_TOWER, iron(MatchRules.TOWER_PRICE_IRON)),
+    private fun building(): List<ShopItemWithIndex> = listOf(
+        give(
+            10,
+            ModItems.CORE_REACTOR,
+            mapOf(
+                WallwarMod.idOf("iron") to MatchRules.REACTOR_PRICE_IRON,
+                WallwarMod.idOf("copper") to MatchRules.REACTOR_PRICE_COPPER,
+            ),
+        ),
+        give(12, ModItems.CORE_WALL, copper(MatchRules.WALL_PRICE_COPPER)),
+        give(14, ModItems.CORE_TOWER, copper(MatchRules.TOWER_PRICE_COPPER)),
         give(16, ModItems.CORE_BARRACKS, iron(MatchRules.BARRACKS_PRICE_IRON)),
+        give(19, ModItems.REINFORCE, lapis(MatchRules.MODULE_LAPIS)),
+        give(21, ModItems.REINFORCE_TWO, lapis(MatchRules.MODULE_TWO_LAPIS)),
     )
-
-    private fun summons(): List<ShopItemWithIndex> = listOf(
-        give(10, ModItems.EGG_ZOMBIE, costOf(Monsters.ZOMBIE)),
-        give(12, ModItems.EGG_SKELETON, costOf(Monsters.SKELETON)),
-        give(14, ModItems.EGG_GOLEM, costOf(Monsters.GOLEM)),
-    )
-
-    private fun modules(): List<ShopItemWithIndex> = listOf(
-        give(10, ModItems.REINFORCE, lapis(MatchRules.MODULE_LAPIS)),
-        give(12, ModItems.REINFORCE_TWO, lapis(MatchRules.MODULE_TWO_LAPIS)),
-    )
-
-    private fun costOf(monster: MonsterDefinition): Map<Identifier, Int> {
-        val costs = HashMap<Identifier, Int>()
-        for (cost in monster.cost) {
-            val id = when (cost.item) {
-                Items.IRON_INGOT -> WallwarMod.idOf("iron")
-                Items.DIAMOND -> WallwarMod.idOf("diamond")
-                Items.REDSTONE_BLOCK -> WallwarMod.idOf("redstone_block")
-                Items.LAPIS_LAZULI -> WallwarMod.idOf("lapis")
-                else -> continue
-            }
-            costs[id] = cost.count
-        }
-        return costs
-    }
 
     private fun iron(count: Int) = mapOf(WallwarMod.idOf("iron") to count)
 
-    private fun diamond(count: Int) = mapOf(WallwarMod.idOf("diamond") to count)
-
-    private fun redstone(count: Int) = mapOf(WallwarMod.idOf("redstone_block") to count)
+    private fun copper(count: Int) = mapOf(WallwarMod.idOf("copper") to count)
 
     private fun lapis(count: Int) = mapOf(WallwarMod.idOf("lapis") to count)
 
@@ -122,7 +90,7 @@ private class PageGui(
     session: ShopSession,
     player: ServerPlayer,
     layers: Collection<ShopLayer>,
-    private val heading: String,
+    heading: String,
     private val site: SiteCoreBlockEntity,
 ) : ShopGui(session, player, layers, 5) {
     init {
@@ -159,10 +127,8 @@ private class Tab(
 
     private fun icon(): ItemStack {
         val item = when (page) {
-            BaseShop.Page.EQUIPMENT -> Items.IRON_CHESTPLATE
-            BaseShop.Page.CORE -> Items.BEACON
-            BaseShop.Page.SUMMON -> Items.ZOMBIE_SPAWN_EGG
-            BaseShop.Page.MODULE -> Items.LAPIS_LAZULI
+            BaseShop.Page.BUILDING -> Items.BEACON
+            BaseShop.Page.EQUIPMENT -> Items.BOW
         }
         val stack = ItemStackBuilder.of(item)
             .setName(Component.literal(page.title).withStyle { style -> style.withColor(net.minecraft.ChatFormatting.YELLOW).withItalic(false) })

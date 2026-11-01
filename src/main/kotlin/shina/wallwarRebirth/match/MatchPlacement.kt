@@ -18,7 +18,7 @@ object MatchPlacement {
         team: String,
     ): String? {
         if (!Match.isArena(level)) return null
-        if (!Match.isFight()) return "现在不能放置"
+        if (Match.phase != Match.Phase.LOBBY && !Match.isFight()) return "现在不能放置"
         if (team != TestTeams.RED && team != TestTeams.BLUE) return "没有队伍"
         val cells = BuildingFootprints.cells(definition, origin, facing)
         val bases = Match.bases()

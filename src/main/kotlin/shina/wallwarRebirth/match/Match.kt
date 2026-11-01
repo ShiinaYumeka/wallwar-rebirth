@@ -50,6 +50,7 @@ object Match {
 
     var phase: Phase = Phase.LOBBY
     var worldReady: Boolean = false
+    var mapSize: Int = MatchRules.MAP_SIZE
     var redBase: BlockPos = BlockPos.ZERO
     var blueBase: BlockPos = BlockPos.ZERO
     var redSpawn: Spawn = Spawn(0.5, 80.0, 0.5, 0f)
@@ -216,6 +217,20 @@ object Match {
         member.classLocked = true
         save(player.level().server)
         player.sendSystemMessage(Component.literal("职业：矿工"))
+    }
+
+    fun adjustMapSize(player: ServerPlayer, delta: Int) {
+        if (phase != Phase.LOBBY) {
+            player.sendSystemMessage(Component.literal("地图已经生成"))
+            return
+        }
+        val next = mapSize + delta
+        if (next < MatchRules.minimumMapSize()) {
+            player.sendSystemMessage(Component.literal("不能再小"))
+            return
+        }
+        mapSize = next
+        save(player.level().server)
     }
 
     fun reset(actor: ServerPlayer?) {
@@ -432,12 +447,10 @@ object Match {
         player.setItemSlot(EquipmentSlot.LEGS, ItemStack(Items.COPPER_LEGGINGS))
         player.setItemSlot(EquipmentSlot.FEET, ItemStack(Items.COPPER_BOOTS))
         for (item in listOf(
-            Items.COPPER_SWORD,
             Items.COPPER_AXE,
             Items.COPPER_PICKAXE,
             Items.COPPER_SHOVEL,
             Items.COPPER_HOE,
-            Items.COPPER_SPEAR,
         )) {
             val stack = ItemStack(item)
             if (!player.inventory.add(stack)) player.drop(stack, false)
@@ -489,6 +502,7 @@ object Match {
         val tag = CompoundTag()
         tag.putString("Phase", phase.name)
         tag.putBoolean("WorldReady", worldReady)
+        tag.putInt("MapSize", mapSize)
         tag.putLong("RedBase", redBase.asLong())
         tag.putLong("BlueBase", blueBase.asLong())
         writeSpawn(tag, "RedSpawn", redSpawn)
@@ -528,6 +542,12 @@ object Match {
         val tag = NbtIo.readCompressed(path, NbtAccounter.unlimitedHeap())
         phase = runCatching { Phase.valueOf(tag.getStringOr("Phase", Phase.LOBBY.name)) }.getOrDefault(Phase.LOBBY)
         worldReady = tag.getBooleanOr("WorldReady", false)
+        val loadedSize = tag.getIntOr("MapSize", MatchRules.MAP_SIZE)
+        mapSize = if (loadedSize >= MatchRules.minimumMapSize() && (loadedSize - MatchRules.MAP_SIZE) % MatchRules.MAP_SIZE_STEP == 0) {
+            loadedSize
+        } else {
+            MatchRules.MAP_SIZE
+        }
         redBase = BlockPos.of(tag.getLongOr("RedBase", 0L))
         blueBase = BlockPos.of(tag.getLongOr("BlueBase", 0L))
         redSpawn = readSpawn(tag, "RedSpawn")

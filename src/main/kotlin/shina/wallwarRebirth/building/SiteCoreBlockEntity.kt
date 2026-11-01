@@ -32,8 +32,8 @@ import shina.wallwarRebirth.util.playNotifySound
 import shina.wallwarRebirth.util.showTitle
 import java.util.UUID
 
-class SiteCoreBlockEntity(pos: BlockPos, state: BlockState) : BlockEntity(ModSites.TYPE, pos, state) {
-    var buildingId: String = ""
+class SiteCoreBlockEntity(pos: BlockPos, state: BlockState) : BlockEntity(ModSites.TYPE, pos, state), CrossbowSite {
+    override var buildingId: String = ""
     var buildingLevel: Int = 0
     var health: Int = 0
     var team: String = ""
@@ -44,7 +44,7 @@ class SiteCoreBlockEntity(pos: BlockPos, state: BlockState) : BlockEntity(ModSit
     var marching: Boolean = true
     var eggReleaseAge: Int = 0
     var healthDisplayId: UUID? = null
-    var crossbowId: UUID? = null
+    override var crossbowId: UUID? = null
     var reinforce: ItemStack = ItemStack.EMPTY
     var reinforceMineral: String = ""
     var reinforceTwo: ItemStack = ItemStack.EMPTY
@@ -123,7 +123,11 @@ class SiteCoreBlockEntity(pos: BlockPos, state: BlockState) : BlockEntity(ModSit
         return null
     }
 
-    fun facingDirection(): Direction = Direction.byName(facing) ?: Direction.SOUTH
+    override fun facingDirection(): Direction = Direction.byName(facing) ?: Direction.SOUTH
+
+    override fun crossbowPos(): BlockPos = blockPos
+
+    override fun crossbowLevel(): Level? = level
 
     fun isAlly(player: Player): Boolean = team.isNotEmpty() && (player.team?.name ?: "") == team
 
@@ -182,13 +186,13 @@ class SiteCoreBlockEntity(pos: BlockPos, state: BlockState) : BlockEntity(ModSit
         for (pos in parts) {
             val state = world.getBlockState(pos)
             if (state.block is SiteStructureBlock || state.block is SitePartBlock) {
-                world.setBlock(pos, net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(), net.minecraft.world.level.block.Block.UPDATE_ALL)
+                world.setBlock(pos, net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL)
             }
         }
         BuildingStructure.clearLegacy(world, blockPos)
         restoreCovered(world)
         if (world.getBlockState(blockPos).block is SiteCoreBlock) {
-            world.setBlock(blockPos, net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(), net.minecraft.world.level.block.Block.UPDATE_ALL)
+            world.setBlock(blockPos, net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL)
         }
     }
 
@@ -212,7 +216,7 @@ class SiteCoreBlockEntity(pos: BlockPos, state: BlockState) : BlockEntity(ModSit
             world.setBlock(
                 covered.pos,
                 covered.state,
-                net.minecraft.world.level.block.Block.UPDATE_ALL,
+                Block.UPDATE_ALL,
             )
         }
     }
@@ -390,14 +394,23 @@ class SiteCoreBlockEntity(pos: BlockPos, state: BlockState) : BlockEntity(ModSit
         crossbowId = input.getStringOr("Crossbow", "").takeIf { it.isNotEmpty() }?.let { runCatching { UUID.fromString(it) }.getOrNull() }
         reinforceMineral = input.getStringOr("ReinforceMineral", "")
         reinforceTwoMineral = input.getStringOr("ReinforceTwoMineral", "")
-        reinforce = input.read("Reinforce", ItemStack.OPTIONAL_CODEC).orElse(ItemStack.EMPTY)
-        reinforceTwo = input.read("ReinforceTwo", ItemStack.OPTIONAL_CODEC).orElse(ItemStack.EMPTY)
+        reinforce = input.read("Reinforce", ItemStack.OPTIONAL_CODEC).orElse(ItemStack.EMPTY) ?: ItemStack.EMPTY
+        reinforceTwo = input.read("ReinforceTwo", ItemStack.OPTIONAL_CODEC).orElse(ItemStack.EMPTY) ?: ItemStack.EMPTY
         partPositions.clear()
-        input.read("Parts", Codec.LONG.listOf()).orElse(emptyList()).forEach { partPositions.add(BlockPos.of(it)) }
+        val parts = input.read("Parts", Codec.LONG.listOf()).orElse(emptyList()) ?: emptyList()
+        for (packed in parts) {
+            if (packed != null) partPositions.add(BlockPos.of(packed))
+        }
         coveredBelow.clear()
-        coveredBelow.addAll(input.read("CoveredBelow", CoveredBlock.CODEC.listOf()).orElse(emptyList()))
+        val covered = input.read("CoveredBelow", CoveredBlock.CODEC.listOf()).orElse(emptyList()) ?: emptyList()
+        for (block in covered) {
+            if (block != null) coveredBelow.add(block)
+        }
         mineralAges.clear()
-        mineralAges.putAll(input.read("MineralAges", Codec.unboundedMap(Codec.STRING, Codec.INT)).orElse(emptyMap()))
+        val ages = input.read("MineralAges", Codec.unboundedMap(Codec.STRING, Codec.INT)).orElse(emptyMap()) ?: emptyMap()
+        for ((name, ticks) in ages) {
+            if (name != null && ticks != null) mineralAges[name] = ticks
+        }
         val items = input.read("Storage", ItemStack.OPTIONAL_CODEC.listOf()).orElse(emptyList())
         if (items != null) {
             items.forEachIndexed { slot, stack ->

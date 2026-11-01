@@ -35,7 +35,7 @@ object MatchHooks {
         }
         PlayerBlockBreakEvents.BEFORE.register { world, player, pos, state, _ ->
             if (player !is ServerPlayer) return@register true
-            if (Match.restricted(player)) return@register false
+            if (Match.phase != Match.Phase.LOBBY && Match.restricted(player)) return@register false
             SurfaceOres.harvest(world, player, pos, state)
         }
         UseItemCallback.EVENT.register { player, level, hand ->
@@ -52,7 +52,7 @@ object MatchHooks {
                 if (stack.isEmpty) player.setItemInHand(hand, ItemStack.EMPTY)
                 return@register InteractionResult.FAIL
             }
-            if (!Match.restricted(player)) return@register InteractionResult.PASS
+            if (Match.phase == Match.Phase.LOBBY || !Match.restricted(player)) return@register InteractionResult.PASS
             if (places(stack)) {
                 player.sendSystemMessage(net.minecraft.network.chat.Component.literal("现在不能放置"))
                 InteractionResult.FAIL

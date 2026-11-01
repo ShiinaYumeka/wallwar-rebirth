@@ -6,7 +6,6 @@ import net.minecraft.core.Direction
 import net.minecraft.core.Vec3i
 import net.minecraft.core.registries.Registries
 import net.minecraft.nbt.CompoundTag
-import net.minecraft.nbt.NbtAccounter
 import net.minecraft.nbt.NbtIo
 import net.minecraft.nbt.NbtUtils
 import net.minecraft.server.level.ServerLevel
@@ -53,7 +52,7 @@ object BuildingStyles {
         val lookup = level.registryAccess().lookupOrThrow(Registries.BLOCK)
         val pieces = piecesOf(tag, lookup, offset)
         val axis = when (definition.footprint) {
-            Footprint.SQUARE_7 -> {
+            Footprint.SQUARE_7, Footprint.SQUARE_1 -> {
                 if (pieces.any { !BuildingFootprints.inside(definition, it.x, it.z) }) return "样式超出占地"
                 "x"
             }
@@ -205,21 +204,22 @@ object BuildingStyles {
     private fun setCoreForm(level: ServerLevel, origin: BlockPos, definition: BuildingDefinition) {
         val state = level.getBlockState(origin)
         if (state.block !is SiteCoreBlock) return
-        val form = if (definition.id == Buildings.REACTOR.id) CoreForm.BLAST_FURNACE else CoreForm.BEACON
+        val form = when (definition.id) {
+            Buildings.REACTOR.id -> CoreForm.BLAST_FURNACE
+            Buildings.WALL.id -> CoreForm.COPPER_LANTERN
+            Buildings.TOWER.id -> CoreForm.FLETCHING_TABLE
+            Buildings.BARRACKS.id -> CoreForm.CRAFTER
+            else -> CoreForm.BEACON
+        }
         if (state.getValue(SiteCoreBlock.FORM) == form) return
         level.setBlock(origin, state.setValue(SiteCoreBlock.FORM, form), net.minecraft.world.level.block.Block.UPDATE_ALL)
     }
 
     private fun load(level: ServerLevel, definition: BuildingDefinition, rank: Int): Loaded? {
-        val runtime = folder(definition.id).resolve("level_$rank.nbt")
-        val tag = if (java.nio.file.Files.exists(runtime)) {
-            NbtIo.readCompressed(runtime, NbtAccounter.unlimitedHeap())
-        } else {
-            val template = level.structureManager.get(definition.structure(rank)).orElse(null) ?: return null
-            val saved = CompoundTag()
-            template.save(saved)
-            saved
-        }
+        val template = level.structureManager.get(definition.structure(rank)).orElse(null) ?: return null
+        val saved = CompoundTag()
+        template.save(saved)
+        val tag = saved
         val meta = readMeta(definition.id, rank)
         val lookup = level.registryAccess().lookupOrThrow(Registries.BLOCK)
         return Loaded(piecesOf(tag, lookup, BlockPos(meta.x, meta.y, meta.z)), meta.axis)
@@ -258,13 +258,9 @@ object BuildingStyles {
     private data class Meta(val x: Int, val y: Int, val z: Int, val axis: String)
 
     private fun readMeta(buildingId: String, rank: Int): Meta {
-        val runtime = folder(buildingId).resolve("level_$rank.json")
-        val text = if (java.nio.file.Files.exists(runtime)) {
-            runtime.toFile().readText()
-        } else {
-            BuildingStyles::class.java.getResourceAsStream("/data/wallwar-rebirth/building_style/$buildingId/level_$rank.json")
-                ?.bufferedReader()?.use { it.readText() }
-        } ?: return Meta(0, 0, 0, "x")
+        val text = BuildingStyles::class.java.getResourceAsStream("/data/wallwar-rebirth/building_style/$buildingId/level_$rank.json")
+            ?.bufferedReader()?.use { it.readText() }
+            ?: return Meta(0, 0, 0, "x")
         fun number(key: String): Int =
             Regex(""""$key"\s*:\s*(-?\d+)""").find(text)?.groupValues?.get(1)?.toIntOrNull() ?: 0
         val axis = Regex(""""axis"\s*:\s*"([^"]*)"""").find(text)?.groupValues?.get(1) ?: "x"

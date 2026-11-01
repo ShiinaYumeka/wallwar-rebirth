@@ -23,7 +23,7 @@ import shina.wallwarRebirth.item.core.PolymerInteractionType
 import shina.wallwarRebirth.match.Match
 
 class BuildingCoreItem(
-    properties: Item.Properties,
+    properties: Properties,
     polymerItem: Item,
     private val buildingId: String,
 ) : SimplePolymerItem(properties, polymerItem, false) {
@@ -38,7 +38,7 @@ class BuildingCoreItem(
             player.sendSystemMessage(Component.literal("只能放在对局地图里"))
             return InteractionResult.FAIL
         }
-        if (!Match.isFight()) {
+        if (Match.phase != Match.Phase.LOBBY && !Match.isFight()) {
             player.reportBuilding("现在不能放置")
             return InteractionResult.FAIL
         }

@@ -4,7 +4,6 @@ import eu.pb4.polymer.core.api.entity.PolymerEntity
 import net.minecraft.world.entity.Entity
 import net.minecraft.world.entity.EntityType
 import net.minecraft.world.entity.player.Player
-import net.minecraft.world.entity.projectile.arrow.AbstractArrow
 import net.minecraft.world.entity.projectile.arrow.Arrow
 import net.minecraft.world.level.Level
 import net.minecraft.world.level.storage.ValueInput
@@ -17,7 +16,7 @@ class TowerArrow(type: EntityType<out TowerArrow>, level: Level) : Arrow(type, l
 
     init {
         pickup = Pickup.DISALLOWED
-        isNoGravity = true
+        isNoGravity = false
     }
 
     override fun getPolymerEntityType(context: PacketContext): EntityType<*> = EntityType.ARROW
@@ -44,6 +43,6 @@ class TowerArrow(type: EntityType<out TowerArrow>, level: Level) : Arrow(type, l
         super.readAdditionalSaveData(input)
         towerTeam = input.getStringOr("TowerTeam", "")
         pickup = Pickup.DISALLOWED
-        isNoGravity = true
+        isNoGravity = false
     }
 }

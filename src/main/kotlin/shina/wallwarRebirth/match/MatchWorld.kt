@@ -6,6 +6,8 @@ import net.minecraft.server.MinecraftServer
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.world.level.block.Blocks
 import net.minecraft.world.level.block.Block
+import net.minecraft.world.level.block.LeavesBlock
+import net.minecraft.world.level.block.RotatedPillarBlock
 import net.minecraft.world.level.levelgen.Heightmap
 import net.minecraft.world.level.material.Fluids
 import net.minecraft.tags.BlockTags
@@ -28,11 +30,12 @@ object MatchWorld {
 
     fun build(server: MinecraftServer): Built? {
         val level = server.getLevel(MatchRules.DIMENSION) ?: return null
-        val min = -MatchRules.MAP_SIZE / 2
-        val max = min + MatchRules.MAP_SIZE - 1
+        val size = Match.mapSize
+        val min = -size / 2
+        val max = min + size - 1
         val border = level.worldBorder
         border.setCenter(min + (max - min) / 2.0, min + (max - min) / 2.0)
-        border.setSize(MatchRules.MAP_SIZE.toDouble())
+        border.setSize(size.toDouble())
         val chunkMin = Math.floorDiv(min, 16)
         val chunkMax = Math.floorDiv(max, 16)
         for (cx in chunkMin..chunkMax) {
@@ -52,6 +55,8 @@ object MatchWorld {
         val blueFacing = facing(blueCore, redCore)
         placeBase(level, redCore, TestTeams.RED, redFacing)
         placeBase(level, blueCore, TestTeams.BLUE, blueFacing)
+        placeRearTree(level, redCore, blueCore)
+        placeRearTree(level, blueCore, redCore)
         SurfaceOres.scatter(level, redCore, blueCore)
         level.dayTime = MatchRules.DAY_TIME
         level.setWeatherParameters(6000, 0, false, false)
@@ -140,6 +145,62 @@ object MatchWorld {
             state.`is`(Blocks.FERN) ||
             state.`is`(Blocks.LARGE_FERN) ||
             state.`is`(Blocks.BUSH)
+
+    private fun placeRearTree(level: ServerLevel, core: BlockPos, other: BlockPos) {
+        val stepX = direction(core.x - other.x)
+        val stepZ = direction(core.z - other.z)
+        if (stepX == 0 && stepZ == 0) return
+        val distance = MatchRules.PLATFORM_RADIUS + 1
+        val x = core.x + stepX * distance
+        val z = core.z + stepZ * distance
+        val ground = naturalGround(level, x, z)
+        for (y in ground + 1..ground + 8) {
+            val pos = BlockPos(x, y, z)
+            val state = level.getBlockState(pos)
+            if (state.isAir) continue
+            if (state.`is`(BlockTags.LOGS) || state.`is`(BlockTags.LEAVES) || plant(state)) {
+                level.setBlock(pos, Blocks.AIR.defaultBlockState(), Block.UPDATE_NONE)
+            }
+        }
+        val log = Blocks.OAK_LOG.defaultBlockState().setValue(RotatedPillarBlock.AXIS, Direction.Axis.Y)
+        val leaves = Blocks.OAK_LEAVES.defaultBlockState().setValue(LeavesBlock.PERSISTENT, true)
+        val trunk = ground + 1
+        for (dy in 0..3) level.setBlock(BlockPos(x, trunk + dy, z), log, Block.UPDATE_NONE)
+        for (dx in -2..2) {
+            for (dz in -2..2) {
+                if (abs(dx) == 2 && abs(dz) == 2) continue
+                for (dy in 2..3) {
+                    if (dx == 0 && dz == 0) continue
+                    putLeaf(level, BlockPos(x + dx, trunk + dy, z), leaves)
+                }
+            }
+        }
+        for (dx in -1..1) {
+            for (dz in -1..1) putLeaf(level, BlockPos(x + dx, trunk + 4, z), leaves)
+        }
+    }
+
+    private fun direction(delta: Int): Int = when {
+        delta > 0 -> 1
+        delta < 0 -> -1
+        else -> 0
+    }
+
+    private fun naturalGround(level: ServerLevel, x: Int, z: Int): Int {
+        var y = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z) - 1
+        var state = level.getBlockState(BlockPos(x, y, z))
+        while (y > level.dimensionType().minY() && (state.`is`(BlockTags.LOGS) || state.`is`(BlockTags.LEAVES) || plant(state))) {
+            y--
+            state = level.getBlockState(BlockPos(x, y, z))
+        }
+        return y
+    }
+
+    private fun putLeaf(level: ServerLevel, pos: BlockPos, leaves: net.minecraft.world.level.block.state.BlockState) {
+        val state = level.getBlockState(pos)
+        if (!state.isAir && !plant(state) && !state.`is`(BlockTags.LEAVES)) return
+        level.setBlock(pos, leaves, Block.UPDATE_NONE)
+    }
 
     private fun placeBase(level: ServerLevel, pos: BlockPos, team: String, facing: Direction) {
         val state = ModSites.CORE.defaultBlockState().setValue(SiteCoreBlock.FORM, CoreForm.BEACON)

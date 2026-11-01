@@ -5,19 +5,23 @@ import net.minecraft.core.Direction
 import net.minecraft.server.level.ServerLevel
 
 object BuildingFootprints {
-    fun cells(definition: BuildingDefinition, origin: BlockPos, facing: Direction): Set<BlockPos> {
-        val cells = HashSet<BlockPos>()
-        if (definition.footprint == Footprint.WALL_9) {
+    fun cells(definition: BuildingDefinition, origin: BlockPos, facing: Direction): Set<BlockPos> = when (definition.footprint) {
+        Footprint.SQUARE_1 -> setOf(origin)
+        Footprint.WALL_9 -> {
             val alongX = facing.axis == Direction.Axis.Z
+            val cells = HashSet<BlockPos>()
             for (index in -4..4) {
                 cells.add(if (alongX) origin.offset(index, 0, 0) else origin.offset(0, 0, index))
             }
-        } else {
+            cells
+        }
+        Footprint.SQUARE_7 -> {
+            val cells = HashSet<BlockPos>()
             for (dx in -3..3) {
                 for (dz in -3..3) cells.add(origin.offset(dx, 0, dz))
             }
+            cells
         }
-        return cells
     }
 
     fun rejection(
@@ -38,6 +42,7 @@ object BuildingFootprints {
 
     fun inside(definition: BuildingDefinition, x: Int, z: Int): Boolean = when (definition.footprint) {
         Footprint.SQUARE_7 -> x in -3..3 && z in -3..3
+        Footprint.SQUARE_1 -> x == 0 && z == 0
         Footprint.WALL_9 -> (z == 0 && x in -4..4) || (x == 0 && z in -4..4)
     }
 }

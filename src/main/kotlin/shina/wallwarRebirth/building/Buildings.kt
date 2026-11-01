@@ -29,15 +29,15 @@ object Buildings {
             UpgradeCost(
                 2,
                 listOf(
-                    ItemAmount(Items.IRON_INGOT, MatchRules.REACTOR_UPGRADE_2_IRON, "铁锭"),
                     ItemAmount(Items.COPPER_INGOT, MatchRules.REACTOR_UPGRADE_2_COPPER, "铜锭"),
+                    ItemAmount(Items.IRON_INGOT, MatchRules.REACTOR_UPGRADE_2_IRON, "铁锭"),
                 ),
             ),
             UpgradeCost(
                 3,
                 listOf(
-                    ItemAmount(Items.REDSTONE_BLOCK, MatchRules.REACTOR_UPGRADE_3_REDSTONE, "红石块"),
-                    ItemAmount(Items.LAPIS_BLOCK, MatchRules.REACTOR_UPGRADE_3_LAPIS, "青金石块"),
+                    ItemAmount(Items.IRON_INGOT, MatchRules.REACTOR_UPGRADE_3_IRON, "铁锭"),
+                    ItemAmount(Items.COPPER_INGOT, MatchRules.REACTOR_UPGRADE_3_COPPER, "铜锭"),
                 ),
             ),
         ),
@@ -54,8 +54,8 @@ object Buildings {
                 2,
                 MatchRules.REACTOR_REDSTONE_TICKS,
                 listOf(
-                    ItemAmount(Items.REDSTONE_BLOCK, MatchRules.REACTOR_REDSTONE_COUNT, "红石块"),
-                    ItemAmount(Items.LAPIS_BLOCK, MatchRules.REACTOR_LAPIS_COUNT, "青金石块"),
+            ItemAmount(Items.REDSTONE, MatchRules.REACTOR_REDSTONE_COUNT, "红石"),
+            ItemAmount(Items.LAPIS_LAZULI, MatchRules.REACTOR_LAPIS_COUNT, "青金石"),
                 ),
             ),
             ProductionRule(
@@ -78,8 +78,8 @@ object Buildings {
         maxLevel = 3,
         structure = { level -> WallwarMod.idOf("building/wall/level_$level") },
         upgrades = listOf(
-            UpgradeCost(2, listOf(ItemAmount(Items.IRON_INGOT, MatchRules.WALL_UPGRADE_2_IRON, "铁锭"))),
-            UpgradeCost(3, listOf(ItemAmount(Items.REDSTONE_BLOCK, MatchRules.WALL_UPGRADE_3_REDSTONE, "红石块"))),
+            UpgradeCost(2, listOf(ItemAmount(Items.COPPER_INGOT, MatchRules.WALL_UPGRADE_2_COPPER, "铜锭"))),
+            UpgradeCost(3, listOf(ItemAmount(Items.COPPER_INGOT, MatchRules.WALL_UPGRADE_3_COPPER, "铜锭"))),
         ),
         production = emptyList(),
         healthByLevel = MatchRules.WALL_HEALTH,
@@ -95,19 +95,14 @@ object Buildings {
         maxLevel = 3,
         structure = { level -> WallwarMod.idOf("building/tower/level_$level") },
         upgrades = listOf(
-            UpgradeCost(
-                2,
-                listOf(
-                    ItemAmount(Items.IRON_INGOT, MatchRules.TOWER_UPGRADE_2_IRON, "铁锭"),
-                    ItemAmount(Items.REDSTONE_BLOCK, MatchRules.TOWER_UPGRADE_2_REDSTONE, "红石块"),
-                ),
-            ),
-            UpgradeCost(3, listOf(ItemAmount(Items.DIAMOND, MatchRules.TOWER_UPGRADE_3_DIAMOND, "钻石"))),
+            UpgradeCost(2, listOf(ItemAmount(Items.COPPER_INGOT, MatchRules.TOWER_UPGRADE_2_COPPER, "铜锭"))),
+            UpgradeCost(3, listOf(ItemAmount(Items.COPPER_INGOT, MatchRules.TOWER_UPGRADE_3_COPPER, "铜锭"))),
         ),
         production = emptyList(),
         healthByLevel = MatchRules.TOWER_HEALTH,
         icon = Items.CROSSBOW,
         summary = "核心方块上平放一把弩，水平转向当前目标。射出不会被捡起的箭。优先最近的敌方唤灵怪物，没有怪物时打最近的敌方玩家。不打我方，不拆建筑，不消耗箭。",
+        footprint = Footprint.SQUARE_1,
         details = listOf(
             LevelNote(1, towerNote(0)),
             LevelNote(2, towerNote(1)),
@@ -122,8 +117,14 @@ object Buildings {
         maxLevel = 3,
         structure = { level -> WallwarMod.idOf("building/barracks/level_$level") },
         upgrades = listOf(
-            UpgradeCost(2, listOf(ItemAmount(Items.REDSTONE_BLOCK, MatchRules.BARRACKS_UPGRADE_2_REDSTONE, "红石块"))),
-            UpgradeCost(3, listOf(ItemAmount(Items.DIAMOND, MatchRules.BARRACKS_UPGRADE_3_DIAMOND, "钻石"))),
+            UpgradeCost(2, listOf(ItemAmount(Items.IRON_INGOT, MatchRules.BARRACKS_UPGRADE_2_IRON, "铁锭"))),
+            UpgradeCost(
+                3,
+                listOf(
+                    ItemAmount(Items.IRON_INGOT, MatchRules.BARRACKS_UPGRADE_3_IRON, "铁锭"),
+                    ItemAmount(Items.DIAMOND, MatchRules.BARRACKS_UPGRADE_3_DIAMOND, "钻石"),
+                ),
+            ),
         ),
         production = emptyList(),
         healthByLevel = MatchRules.BARRACKS_HEALTH,
@@ -148,7 +149,7 @@ object Buildings {
     private fun towerNote(index: Int): String {
         val range = MatchRules.TOWER_RANGE[index].toInt()
         val speed = MatchRules.TOWER_SPEED[index]
-        val damage = ceil(speed * 2.0).toInt()
+        val damage = ceil(speed * MatchRules.TOWER_ARROW_BASE_DAMAGE).toInt()
         val seconds = MatchRules.TOWER_INTERVAL[index].toDouble() / MatchRules.TICKS_PER_SECOND
         val interval = if (seconds == seconds.toInt().toDouble()) seconds.toInt().toString() else seconds.toString()
         return "射程 $range，箭速 ${speed.toInt()}，盔甲前伤害 $damage，间隔 $interval 秒"

@@ -58,9 +58,7 @@ class SummonedZombie(type: EntityType<out SummonedZombie>, level: Level) : Zombi
         return hit
     }
 
-    override fun dropCustomDeathLoot(level: ServerLevel, source: DamageSource, recentlyHit: Boolean) {
-        mind.dropLoot(level, source)
-    }
+    override fun dropCustomDeathLoot(level: ServerLevel, source: DamageSource, recentlyHit: Boolean) {}
 
     override fun customServerAiStep(level: ServerLevel) {
         if (Match.frozen(level)) return

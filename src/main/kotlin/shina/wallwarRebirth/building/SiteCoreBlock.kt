@@ -34,6 +34,9 @@ class SiteCoreBlock(properties: Properties) : BaseEntityBlock(properties), Polym
     override fun getPolymerBlockState(state: BlockState, context: PacketContext): BlockState = when (state.getValue(FORM)) {
         CoreForm.BEACON -> Blocks.BEACON.defaultBlockState()
         CoreForm.BLAST_FURNACE -> Blocks.BLAST_FURNACE.defaultBlockState()
+        CoreForm.FLETCHING_TABLE -> Blocks.FLETCHING_TABLE.defaultBlockState()
+        CoreForm.CRAFTER -> Blocks.CRAFTER.defaultBlockState()
+        CoreForm.COPPER_LANTERN -> Blocks.COPPER_LANTERN.unaffected().defaultBlockState()
     }
 
     override fun createBlockStateDefinition(builder: StateDefinition.Builder<Block, BlockState>) {
@@ -103,6 +106,9 @@ class SiteCoreBlock(properties: Properties) : BaseEntityBlock(properties), Polym
 enum class CoreForm : StringRepresentable {
     BEACON,
     BLAST_FURNACE,
+    FLETCHING_TABLE,
+    CRAFTER,
+    COPPER_LANTERN,
     ;
 
     override fun getSerializedName(): String = name.lowercase()
