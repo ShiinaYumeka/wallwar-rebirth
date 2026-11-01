@@ -19,6 +19,7 @@ object MatchRules {
     const val BARRIER_TOP = 128
     const val DAY_TIME = 1000L
     const val TICKS_PER_SECOND = 20
+    const val WATCH_TICKS = 10 * TICKS_PER_SECOND
 
     fun minimumMapSize(): Int {
         val separation = SPAWN_DISTANCE.toInt() + PLATFORM_RADIUS * 2 + 1

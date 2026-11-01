@@ -2,6 +2,7 @@ package shina.wallwarRebirth.util
 
 import net.minecraft.core.Holder
 import net.minecraft.network.chat.Component
+import net.minecraft.network.protocol.game.ClientboundClearTitlesPacket
 import net.minecraft.network.protocol.game.ClientboundSetSubtitleTextPacket
 import net.minecraft.network.protocol.game.ClientboundSetTitleTextPacket
 import net.minecraft.network.protocol.game.ClientboundSetTitlesAnimationPacket
@@ -31,4 +32,12 @@ fun ServerPlayer.showTitle(text: Component, fadeIn: Int = 5, stay: Int = 40, fad
     connection.send(ClientboundSetTitlesAnimationPacket(fadeIn, stay, fadeOut))
     connection.send(ClientboundSetSubtitleTextPacket(Component.empty()))
     connection.send(ClientboundSetTitleTextPacket(text))
+}
+
+fun ServerPlayer.clearTitle() {
+    connection.send(ClientboundClearTitlesPacket(true))
+}
+
+fun ServerPlayer.showActionBar(text: Component) {
+    displayClientMessage(text, true)
 }

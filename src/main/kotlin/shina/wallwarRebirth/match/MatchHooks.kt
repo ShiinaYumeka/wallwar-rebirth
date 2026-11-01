@@ -23,12 +23,13 @@ object MatchHooks {
         ServerPlayConnectionEvents.JOIN.register { handler, _, _ -> Match.onJoin(handler.player) }
         ServerPlayConnectionEvents.DISCONNECT.register { _, server -> Match.onLeave(server) }
         ServerLivingEntityEvents.ALLOW_DEATH.register { entity, _, _ ->
+            if (entity is ServerPlayer && Match.denyFightDeath(entity)) return@register false
             if (entity is ServerPlayer) Match.holdDeath(entity)
             true
         }
         ServerPlayerEvents.AFTER_RESPAWN.register { _, newPlayer, _ -> Match.restoreDeath(newPlayer) }
         ServerLivingEntityEvents.ALLOW_DAMAGE.register { entity, source, _ ->
-            if (Match.phase == Match.Phase.LOBBY || Match.isFight()) return@register true
+            if (Match.phase != Match.Phase.SETTLE) return@register true
             val attacker = source.entity as? ServerPlayer
             if (Match.isArena(entity.level())) return@register false
             attacker == null || !Match.restricted(attacker)

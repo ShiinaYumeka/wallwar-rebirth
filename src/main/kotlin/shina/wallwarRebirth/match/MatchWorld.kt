@@ -73,7 +73,7 @@ object MatchWorld {
         for (y in level.dimensionType().minY() until surface) {
             val pos = BlockPos(x, y, z)
             val state = level.getBlockState(pos)
-            if (state.`is`(Blocks.BEDROCK)) continue
+            if (state.`is`(Blocks.BEDROCK) || state.isAir) continue
             if (!buried(state)) continue
             val fill = if (y < 0) Blocks.DEEPSLATE else Blocks.STONE
             level.setBlock(pos, fill.defaultBlockState(), Block.UPDATE_NONE)
@@ -81,7 +81,6 @@ object MatchWorld {
     }
 
     private fun buried(state: net.minecraft.world.level.block.state.BlockState): Boolean {
-        if (state.isAir) return true
         if (state.`is`(Blocks.LAVA) || state.fluidState.`is`(Fluids.LAVA)) return true
         if (state.`is`(Blocks.SPAWNER)) return true
         val path = net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(state.block).path

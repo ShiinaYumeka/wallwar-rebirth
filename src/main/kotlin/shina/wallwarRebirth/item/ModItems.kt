@@ -16,6 +16,24 @@ import shina.wallwarRebirth.item.core.PolymerInteractionType
 
 object ModItems {
     @JvmField
+    val MENU: Item = register("match_menu") { properties ->
+        MatchMenuItem(
+            properties = properties.stacksTo(1)
+                .component(
+                    DataComponents.CUSTOM_NAME,
+                    Component.literal("菜单").withStyle { style -> style.withItalic(false).withColor(ChatFormatting.WHITE) },
+                )
+                .component(
+                    DataComponents.LORE,
+                    ItemLore(listOf(
+                        Component.literal("右键打开").withStyle { style -> style.withItalic(false).withColor(ChatFormatting.GRAY) },
+                    )),
+                ),
+            polymerItem = Items.COMPASS,
+        )
+    }
+
+    @JvmField
     val EXAMPLE_TOKEN: Item = register("example_token") { properties ->
         SimpleModdedItem(
             properties = properties.stacksTo(1),
@@ -73,6 +91,7 @@ object ModItems {
     val CORE_BARRACKS: Item = core("core_barracks", "兵营核心", Items.IRON_BARS, "barracks")
 
     fun init() {
+        MENU
         EXAMPLE_TOKEN
         REINFORCE
         REINFORCE_TWO

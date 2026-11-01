@@ -17,6 +17,10 @@ object MatchGui {
     fun open(player: ServerPlayer) {
         Board(player).open()
     }
+
+    fun openEntry(player: ServerPlayer) {
+        EntryBoard(player).open()
+    }
 }
 
 private class Board(private val viewer: ServerPlayer) : SimpleGui(MenuType.GENERIC_9x3, viewer, false) {
@@ -46,7 +50,6 @@ private class Board(private val viewer: ServerPlayer) : SimpleGui(MenuType.GENER
             if (!click.isLeft || click.shift) return@GuiElement
             when (Match.phase) {
                 Match.Phase.LOBBY -> Match.confirmReady(viewer)
-                Match.Phase.WATCH -> Match.confirmStart(viewer)
                 else -> viewer.sendSystemMessage(Component.literal(phaseName()))
             }
             paint()
@@ -72,15 +75,13 @@ private class Board(private val viewer: ServerPlayer) : SimpleGui(MenuType.GENER
         val server = viewer.level().server
         val readyRed = Match.counts(server, TestTeams.RED, readyFlag = true)
         val readyBlue = Match.counts(server, TestTeams.BLUE, readyFlag = true)
-        val startRed = Match.counts(server, TestTeams.RED, readyFlag = false)
-        val startBlue = Match.counts(server, TestTeams.BLUE, readyFlag = false)
         val member = Match.member(viewer.uuid)
         return ItemStackBuilder.of(Items.BOOK)
             .setName(line(phaseName(), ChatFormatting.YELLOW))
             .appendLore(line("队伍：${member?.team?.ifEmpty { "无" } ?: "无"}"))
             .appendLore(line("职业：${Classes.name(member?.classId ?: Classes.MINER)}"))
-            .appendLore(line("红队准备 ${readyRed.first}/${readyRed.second}，开始 ${startRed.first}/${startRed.second}"))
-            .appendLore(line("蓝队准备 ${readyBlue.first}/${readyBlue.second}，开始 ${startBlue.first}/${startBlue.second}"))
+            .appendLore(line("红队准备 ${readyRed.first}/${readyRed.second}"))
+            .appendLore(line("蓝队准备 ${readyBlue.first}/${readyBlue.second}"))
             .build()
     }
 
@@ -105,13 +106,18 @@ private class Board(private val viewer: ServerPlayer) : SimpleGui(MenuType.GENER
         val member = Match.member(viewer.uuid)
         val name = when (Match.phase) {
             Match.Phase.LOBBY -> if (member?.ready == true) "已准备" else "未准备"
-            Match.Phase.WATCH -> if (member?.started == true) "已确认开始" else "开始"
+            Match.Phase.WATCH -> "观察中"
             Match.Phase.FIGHT -> "战斗中"
             Match.Phase.SETTLE -> "已结算"
         }
+        val hint = if (Match.phase == Match.Phase.LOBBY) {
+            "该队当前在线成员全部确认后，这一队才算完成"
+        } else {
+            phaseName()
+        }
         return ItemStackBuilder.of(Items.LIME_DYE)
             .setName(line(name, ChatFormatting.GREEN))
-            .appendLore(line("该队当前在线成员全部确认后，这一队才算完成"))
+            .appendLore(line(hint))
             .build()
     }
 
@@ -163,6 +169,34 @@ private class ClassBoard(private val viewer: ServerPlayer) : SimpleGui(MenuType.
     private fun back(): ItemStack =
         ItemStackBuilder.of(Items.ARROW)
             .setName(line("返回", ChatFormatting.WHITE))
+            .build()
+}
+
+private class EntryBoard(private val viewer: ServerPlayer) : SimpleGui(MenuType.GENERIC_9x1, viewer, false) {
+    init {
+        title = Component.literal("菜单")
+        val glass = ItemStack(Items.GRAY_STAINED_GLASS_PANE).hideTooltip()
+        for (slot in 0 until size) setSlot(slot, GuiElement(glass, GuiElementInterface.EMPTY_CALLBACK))
+        setSlot(2, GuiElement(joinButton()) { _, click, _, _ ->
+            if (!click.isLeft || click.shift) return@GuiElement
+            close()
+            MatchGui.open(viewer)
+        })
+        setSlot(6, GuiElement(spectateButton()) { _, click, _, _ ->
+            if (!click.isLeft || click.shift) return@GuiElement
+            close()
+            Match.spectate(viewer)
+        })
+    }
+
+    private fun joinButton(): ItemStack =
+        ItemStackBuilder.of(Items.COMPASS)
+            .setName(line("加入游戏", ChatFormatting.GREEN))
+            .build()
+
+    private fun spectateButton(): ItemStack =
+        ItemStackBuilder.of(Items.SPYGLASS)
+            .setName(line("查看当前正在进行的游戏旁观", ChatFormatting.AQUA))
             .build()
 }
 

@@ -1,0 +1,6 @@
+{
+  "type": "minecraft:clamp",
+  "input": "minecraft:overworld/continents",
+  "min": -0.11,
+  "max": 0.3
+}

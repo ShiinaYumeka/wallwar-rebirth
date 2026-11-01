@@ -179,7 +179,8 @@ class SummonedBrain(private val mob: Mob, private val unit: SummonedUnit) {
             buildingCooldown = stats.buildingIntervalTicks
             mob.lookControl.setLookAt(Vec3.atCenterOf(hit.pos))
             swingAtBuilding()
-            hit.core.damageFromMonster(unit.summonedTeam, stats.buildingDamage, hit.pos)
+            val name = Monsters.byId(unit.kindId)?.displayName ?: unit.kindId
+            hit.core.damageFromMonster(unit.summonedTeam, stats.buildingDamage, hit.pos, name)
         }
     }
 

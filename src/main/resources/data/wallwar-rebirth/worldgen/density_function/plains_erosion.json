@@ -1,0 +1,6 @@
+{
+  "type": "minecraft:clamp",
+  "input": "minecraft:overworld/erosion",
+  "min": -0.2225,
+  "max": 1.0
+}

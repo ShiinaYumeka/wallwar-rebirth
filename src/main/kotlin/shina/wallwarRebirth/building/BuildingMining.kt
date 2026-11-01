@@ -37,7 +37,7 @@ object BuildingMining {
         if (core.isAlly(player) || !player.mainHandItem.`is`(ItemTags.PICKAXES)) return false
         val miner = player as? ServerPlayer
         val amount = if (miner != null) digDamage(miner) else MatchRules.DIG_DAMAGE
-        core.damage(amount, pos)
+        core.damage(amount, pos, player.scoreboardName)
         level.playSound(null, pos, SoundEvents.PLAYER_ATTACK_STRONG, SoundSource.BLOCKS, 1f, 0.8f)
         if (miner != null) {
             miner.forceAddEffect(MobEffectInstance(MobEffects.GLOWING, MatchRules.GLOW_TICKS, 0, false, false, true), miner)

@@ -20,6 +20,8 @@ import net.minecraft.world.level.Level
 import shina.wallwarRebirth.building.SiteCoreBlockEntity
 import shina.wallwarRebirth.item.ModItems
 import shina.wallwarRebirth.monster.TestTeams
+import shina.wallwarRebirth.util.clearTitle
+import shina.wallwarRebirth.util.showActionBar
 import shina.wallwarRebirth.util.showTitle
 import java.util.UUID
 import kotlin.math.hypot
@@ -57,6 +59,9 @@ object Match {
     var blueSpawn: Spawn = Spawn(0.5, 80.0, 0.5, 0f)
     private val members = HashMap<UUID, Member>()
     private var generating = false
+    private var watchBuildTick: Int = -1
+    private var watchEndsAt: Int = 0
+    private var watchSecond: Int = -1
     private var server: MinecraftServer? = null
 
     fun attach(current: MinecraftServer) {
@@ -74,13 +79,35 @@ object Match {
         if (arena != null) {
             if (ArenaReset.holding()) ArenaReset.forget(arena)
             if (arena.dayTime != MatchRules.DAY_TIME) arena.dayTime = MatchRules.DAY_TIME
-            if (arena.isRaining || arena.isThundering) arena.setWeatherParameters(6000, 0, false, false)
+            arena.setWeatherParameters(6000, 0, false, false)
+        }
+        if (watchBuildTick == current.tickCount) {
+            watchBuildTick = -1
+            buildWatch(current)
+        }
+        if (phase == Phase.WATCH) {
+            if (watchEndsAt == 0) watchEndsAt = current.tickCount + MatchRules.WATCH_TICKS
+            val left = watchEndsAt - current.tickCount
+            if (left <= 0) {
+                beginFight(current)
+            } else {
+                showWatchRemaining(current, left)
+            }
         }
         for (player in current.playerList.players) {
             val member = members[player.uuid] ?: continue
+            if (phase == Phase.FIGHT && member.respawnAt > current.tickCount) {
+                val left = member.respawnAt - current.tickCount
+                if (left % MatchRules.TICKS_PER_SECOND == 0) {
+                    val seconds = left / MatchRules.TICKS_PER_SECOND
+                    player.showTitle(Component.literal("复活倒计时 $seconds"), fadeIn = 0, stay = 25, fadeOut = 0)
+                }
+            }
             if (member.respawnAt == 0 || current.tickCount < member.respawnAt) continue
             member.respawnAt = 0
+            player.clearTitle()
             if (phase == Phase.FIGHT) {
+                player.health = player.maxHealth
                 enterFight(player, member)
             } else {
                 player.setGameMode(GameType.SPECTATOR)
@@ -129,6 +156,7 @@ object Match {
         member.team = team
         member.classId = Classes.MINER
         member.classLocked = true
+        MatchMenu.take(player)
         when (phase) {
             Phase.LOBBY -> player.setGameMode(GameType.ADVENTURE)
             Phase.WATCH -> {
@@ -180,26 +208,6 @@ object Match {
         player.sendSystemMessage(Component.literal("已准备"))
         save(player.level().server)
         tryBeginWatch(player.level().server)
-    }
-
-    fun confirmStart(player: ServerPlayer) {
-        if (phase != Phase.WATCH) {
-            player.sendSystemMessage(Component.literal("现在不是观察阶段"))
-            return
-        }
-        val member = members[player.uuid]
-        if (member == null || member.team.isEmpty()) {
-            player.sendSystemMessage(Component.literal("先加入队伍"))
-            return
-        }
-        if (member.started) {
-            player.sendSystemMessage(Component.literal("已确认开始"))
-            return
-        }
-        member.started = true
-        player.sendSystemMessage(Component.literal("已确认开始"))
-        save(player.level().server)
-        tryBeginFight(player.level().server)
     }
 
     fun chooseClass(player: ServerPlayer, classId: String) {
@@ -254,6 +262,10 @@ object Match {
         phase = Phase.LOBBY
         worldReady = false
         generating = false
+        watchBuildTick = -1
+        watchEndsAt = 0
+        watchSecond = -1
+        clearTerrainTitle(current)
         for (member in members.values) {
             member.classId = Classes.MINER
             member.classLocked = true
@@ -269,10 +281,15 @@ object Match {
         save(current)
         broadcast(current, "对局已重置")
         for (player in onlineMembers(current)) MatchGui.open(player)
+        for (player in current.playerList.players) offerMenu(player)
     }
 
     fun onJoin(player: ServerPlayer) {
-        val member = members[player.uuid] ?: return
+        val member = members[player.uuid]
+        if (member == null || member.team.isEmpty()) {
+            offerMenu(player)
+            return
+        }
         val current = player.level().server
         server = current
         when (phase) {
@@ -301,7 +318,38 @@ object Match {
     fun onLeave(current: MinecraftServer) {
         server = current
         if (phase == Phase.LOBBY) tryBeginWatch(current)
-        if (phase == Phase.WATCH) tryBeginFight(current)
+    }
+
+    fun denyFightDeath(player: ServerPlayer): Boolean {
+        if (phase != Phase.FIGHT) return false
+        val member = members[player.uuid] ?: return false
+        if (member.team != TestTeams.RED && member.team != TestTeams.BLUE) return false
+        player.health = player.maxHealth
+        player.removeAllEffects()
+        player.clearFire()
+        player.setGameMode(GameType.SPECTATOR)
+        member.respawnAt = player.level().server.tickCount + MatchRules.RESPAWN_TICKS
+        teleportSpawn(player, member.team)
+        val seconds = MatchRules.RESPAWN_TICKS / MatchRules.TICKS_PER_SECOND
+        player.showTitle(Component.literal("复活倒计时 $seconds"), fadeIn = 0, stay = 25, fadeOut = 0)
+        save(player.level().server)
+        return true
+    }
+
+    fun spectate(player: ServerPlayer) {
+        val member = members[player.uuid]
+        if (member != null && member.team.isNotEmpty()) return
+        val current = player.level().server
+        val arena = current.getLevel(MatchRules.DIMENSION)
+        if (!worldReady || arena == null) {
+            player.sendSystemMessage(Component.literal("现在没有对局"))
+            return
+        }
+        player.setGameMode(GameType.SPECTATOR)
+        val x = (redSpawn.x + blueSpawn.x) / 2.0
+        val y = (redSpawn.y + blueSpawn.y) / 2.0
+        val z = (redSpawn.z + blueSpawn.z) / 2.0
+        teleport(player, arena, x, y, z, player.yRot)
     }
 
     fun holdDeath(player: ServerPlayer) {
@@ -368,10 +416,56 @@ object Match {
         return done to online.size
     }
 
+    private fun offerMenu(player: ServerPlayer) {
+        val member = members[player.uuid]
+        if (member != null && member.team.isNotEmpty()) return
+        if (phase == Phase.LOBBY && player.isSpectator) player.setGameMode(GameType.ADVENTURE)
+        MatchMenu.give(player)
+    }
+
+    private fun showWatchRemaining(current: MinecraftServer, left: Int) {
+        val seconds = (left + MatchRules.TICKS_PER_SECOND - 1) / MatchRules.TICKS_PER_SECOND
+        if (seconds == watchSecond) return
+        watchSecond = seconds
+        val text = Component.literal("剩余 $seconds 秒")
+        for (player in current.playerList.players) {
+            val onTeam = members[player.uuid]?.team?.isNotEmpty() == true
+            if (!onTeam && !isArena(player.level())) continue
+            player.showActionBar(text)
+        }
+    }
+
+    private fun showTerrainTitle(current: MinecraftServer) {
+        val text = Component.literal("正在加载地形")
+        for ((player, _) in onlineTeam(current, TestTeams.RED) + onlineTeam(current, TestTeams.BLUE)) {
+            player.showTitle(text, fadeIn = 0, stay = 1200, fadeOut = 10)
+        }
+    }
+
+    private fun clearTerrainTitle(current: MinecraftServer) {
+        for ((player, _) in onlineTeam(current, TestTeams.RED) + onlineTeam(current, TestTeams.BLUE)) {
+            player.clearTitle()
+        }
+    }
+
     private fun tryBeginWatch(current: MinecraftServer) {
-        if (phase != Phase.LOBBY || generating) return
+        if (phase != Phase.LOBBY || generating || watchBuildTick >= 0) return
         if (!teamDone(current, TestTeams.RED) { it.ready && it.classLocked }) return
         if (!teamDone(current, TestTeams.BLUE) { it.ready && it.classLocked }) return
+        watchBuildTick = current.tickCount + 1
+        showTerrainTitle(current)
+    }
+
+    private fun buildWatch(current: MinecraftServer) {
+        if (phase != Phase.LOBBY || generating) return
+        if (!teamDone(current, TestTeams.RED) { it.ready && it.classLocked }) {
+            clearTerrainTitle(current)
+            return
+        }
+        if (!teamDone(current, TestTeams.BLUE) { it.ready && it.classLocked }) {
+            clearTerrainTitle(current)
+            return
+        }
         generating = true
         val arena = current.getLevel(MatchRules.DIMENSION)
         if (arena != null) {
@@ -398,28 +492,35 @@ object Match {
         blueSpawn = built.blueSpawn
         worldReady = true
         phase = Phase.WATCH
+        watchEndsAt = current.tickCount + MatchRules.WATCH_TICKS
+        watchSecond = -1
         for (member in members.values) member.started = false
+        clearTerrainTitle(current)
         for (player in onlineMembers(current)) {
             player.setGameMode(GameType.SPECTATOR)
             teleportSpawn(player, members[player.uuid]?.team ?: "")
             MatchGui.open(player)
         }
-        broadcast(current, "地图已准备好，确认开始后进入战斗")
+        showWatchRemaining(current, MatchRules.WATCH_TICKS)
+        broadcast(current, "地图已准备好")
         save(current)
     }
 
     private fun abortReady(current: MinecraftServer, message: String) {
         generating = false
+        watchEndsAt = 0
+        watchSecond = -1
         for (member in members.values) member.ready = false
+        clearTerrainTitle(current)
         broadcast(current, message)
         save(current)
         for (player in onlineMembers(current)) MatchGui.open(player)
     }
 
-    private fun tryBeginFight(current: MinecraftServer) {
+    private fun beginFight(current: MinecraftServer) {
         if (phase != Phase.WATCH) return
-        if (!teamDone(current, TestTeams.RED) { it.started && it.classLocked }) return
-        if (!teamDone(current, TestTeams.BLUE) { it.started && it.classLocked }) return
+        watchEndsAt = 0
+        watchSecond = -1
         phase = Phase.FIGHT
         for ((player, member) in onlineTeam(current, TestTeams.RED) + onlineTeam(current, TestTeams.BLUE)) {
             member.classLocked = true
@@ -574,7 +675,9 @@ object Match {
             for (itemIndex in 0 until items.size) {
                 val saved = items.getCompoundOrEmpty(itemIndex)
                 val stack = ItemStack.CODEC.parse(ops, saved).resultOrPartial { }.orElse(ItemStack.EMPTY)
-                stacks.add(stack)
+                if (stack != null) {
+                    stacks.add(stack)
+                }
             }
             member.heldItems = stacks
             members[id] = member

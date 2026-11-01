@@ -29,6 +29,7 @@ import shina.wallwarRebirth.match.Match
 import shina.wallwarRebirth.match.MatchPlacement
 import shina.wallwarRebirth.match.MatchRules
 import shina.wallwarRebirth.util.playNotifySound
+import shina.wallwarRebirth.util.showActionBar
 import shina.wallwarRebirth.util.showTitle
 import java.util.UUID
 
@@ -131,7 +132,7 @@ class SiteCoreBlockEntity(pos: BlockPos, state: BlockState) : BlockEntity(ModSit
 
     fun isAlly(player: Player): Boolean = team.isNotEmpty() && (player.team?.name ?: "") == team
 
-    fun damage(amount: Int, struck: BlockPos = blockPos) {
+    fun damage(amount: Int, struck: BlockPos = blockPos, attackerName: String? = null) {
         if (amount <= 0 || isRemoved || buildingId.isEmpty() || health <= 0) return
         val world = level as? ServerLevel
         if (world != null) {
@@ -140,6 +141,7 @@ class SiteCoreBlockEntity(pos: BlockPos, state: BlockState) : BlockEntity(ModSit
         }
         health -= amount
         if (health < 0) health = 0
+        if (attackerName != null && buildingId == Buildings.BASE.id) warnBase(attackerName)
         setChanged()
         if (health == 0) {
             if (buildingId == Buildings.BASE.id) Match.onBaseFallen(this)
@@ -172,9 +174,19 @@ class SiteCoreBlockEntity(pos: BlockPos, state: BlockState) : BlockEntity(ModSit
                 Buildings.byId(core.buildingId)?.category == BuildingCategory.WONDER
         }
 
-    fun damageFromMonster(attackerTeam: String, amount: Int, struck: BlockPos) {
+    fun damageFromMonster(attackerTeam: String, amount: Int, struck: BlockPos, attackerName: String) {
         if (attackerTeam == team) return
-        damage(amount, struck)
+        damage(amount, struck, attackerName)
+    }
+
+    private fun warnBase(attackerName: String) {
+        val world = level as? ServerLevel ?: return
+        val text = Component.literal("${attackerName}正在破坏我方核心 剩余生命 $health")
+        for (player in world.server.playerList.players) {
+            if ((player.team?.name ?: "") != team) continue
+            player.showActionBar(text)
+            player.playNotifySound(SoundEvents.NOTE_BLOCK_BELL.value(), SoundSource.PLAYERS, 1f, 1f)
+        }
     }
 
     fun destroy() {
