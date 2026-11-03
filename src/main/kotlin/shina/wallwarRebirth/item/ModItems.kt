@@ -9,7 +9,7 @@ import net.minecraft.network.chat.Component
 import net.minecraft.resources.ResourceKey
 import net.minecraft.world.item.Item
 import net.minecraft.world.item.Items
-import net.minecraft.world.item.component.CustomModelData
+import net.minecraft.world.level.block.Blocks
 import net.minecraft.world.item.component.ItemLore
 import shina.wallwarRebirth.WallwarMod
 import shina.wallwarRebirth.item.core.PolymerInteractionType
@@ -79,6 +79,9 @@ object ModItems {
     val EGG_GOLEM: Item = egg("summon_golem", "唤灵·铁傀儡", Items.IRON_GOLEM_SPAWN_EGG, "golem")
 
     @JvmField
+    val EGG_SPIDER: Item = egg("summon_spider", "唤灵·蜘蛛", Items.SPIDER_SPAWN_EGG, "spider")
+
+    @JvmField
     val CORE_REACTOR: Item = core("core_reactor", "矿物反应堆核心", Items.BLAST_FURNACE, "reactor")
 
     @JvmField
@@ -88,7 +91,10 @@ object ModItems {
     val CORE_TOWER: Item = core("core_tower", "弩架核心", Items.CROSSBOW, "tower")
 
     @JvmField
-    val CORE_BARRACKS: Item = core("core_barracks", "兵营核心", Items.IRON_BARS, "barracks")
+    val CORE_BARRACKS: Item = core("core_barracks", "兵营核心", Blocks.CRAFTER.asItem(), "barracks")
+
+    @JvmField
+    val CORE_CANNON: Item = core("core_cannon", "炮台核心", Items.DISPENSER, "cannon")
 
     fun init() {
         MENU
@@ -98,10 +104,12 @@ object ModItems {
         EGG_ZOMBIE
         EGG_SKELETON
         EGG_GOLEM
+        EGG_SPIDER
         CORE_REACTOR
         CORE_WALL
         CORE_TOWER
         CORE_BARRACKS
+        CORE_CANNON
     }
 
     private fun module(path: String, name: String, icon: Item, lore: List<String>): Item = register(path) { properties ->
@@ -111,7 +119,6 @@ object ModItems {
                     DataComponents.CUSTOM_NAME,
                     Component.literal(name).withStyle { style -> style.withItalic(false).withColor(ChatFormatting.AQUA) },
                 )
-                .component(DataComponents.CUSTOM_MODEL_DATA, CustomModelData(listOf(1f), emptyList(), emptyList(), emptyList()))
                 .component(DataComponents.LORE, ItemLore(lore.map { line ->
                     Component.literal(line).withStyle { style -> style.withItalic(false).withColor(ChatFormatting.GRAY) }
                 })),

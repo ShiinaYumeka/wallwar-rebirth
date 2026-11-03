@@ -15,11 +15,14 @@ import net.minecraft.sounds.SoundSource
 import net.minecraft.world.Container
 import net.minecraft.world.Containers
 import net.minecraft.world.SimpleContainer
+import net.minecraft.world.entity.LivingEntity
 import net.minecraft.world.entity.player.Player
 import net.minecraft.world.item.Item
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.Level
+import net.minecraft.tags.BlockTags
 import net.minecraft.world.level.block.Block
+import net.minecraft.world.level.block.Blocks
 import net.minecraft.world.level.block.LevelEvent
 import net.minecraft.world.level.block.entity.BlockEntity
 import net.minecraft.world.level.block.state.BlockState
@@ -28,10 +31,13 @@ import net.minecraft.world.level.storage.ValueOutput
 import shina.wallwarRebirth.match.Match
 import shina.wallwarRebirth.match.MatchPlacement
 import shina.wallwarRebirth.match.MatchRules
+import shina.wallwarRebirth.monster.SummonedUnit
 import shina.wallwarRebirth.util.playNotifySound
 import shina.wallwarRebirth.util.showActionBar
 import shina.wallwarRebirth.util.showTitle
 import java.util.UUID
+import kotlin.math.max
+import kotlin.math.min
 
 class SiteCoreBlockEntity(pos: BlockPos, state: BlockState) : BlockEntity(ModSites.TYPE, pos, state), CrossbowSite {
     override var buildingId: String = ""
@@ -40,6 +46,7 @@ class SiteCoreBlockEntity(pos: BlockPos, state: BlockState) : BlockEntity(ModSit
     var team: String = ""
     var facing: String = Direction.SOUTH.serializedName
     var age: Int = 0
+    var fallAge: Int = 0
     var actionAge: Int = 0
     var producedMonster: String = "zombie"
     var marching: Boolean = true
@@ -50,6 +57,13 @@ class SiteCoreBlockEntity(pos: BlockPos, state: BlockState) : BlockEntity(ModSit
     var reinforceMineral: String = ""
     var reinforceTwo: ItemStack = ItemStack.EMPTY
     var reinforceTwoMineral: String = ""
+    var releaseCount: Int = 0
+    var lastHurtAge: Int = -1
+    var dripAge: Int = 0
+    val barracksStock: MutableList<String> = ArrayList()
+    val dripQueue: MutableList<String> = ArrayList()
+    private var reflecting = false
+    private var relocating = false
     val partPositions: MutableList<BlockPos> = ArrayList()
     private val coveredBelow: MutableList<CoveredBlock> = ArrayList()
     private val mineralAges: MutableMap<String, Int> = HashMap()
@@ -62,10 +76,24 @@ class SiteCoreBlockEntity(pos: BlockPos, state: BlockState) : BlockEntity(ModSit
     val barracksEggs: SimpleContainer = SimpleContainer(BARRACKS_EGGS).also { container ->
         container.addListener { setChanged() }
     }
+    private val deferredDrops = ArrayList<ItemStack>()
 
     fun serverTick(level: ServerLevel) {
+        if (deferredDrops.isNotEmpty()) {
+            val pos = blockPos
+            for (stack in deferredDrops) {
+                Containers.dropItemStack(level, pos.x + 0.5, pos.y + 0.5, pos.z + 0.5, stack)
+            }
+            deferredDrops.clear()
+        }
         val definition = Buildings.byId(buildingId) ?: return
         if (buildingLevel <= 0) return
+        fallAge++
+        if (fallAge >= MatchRules.BUILDING_FALL_TICKS) {
+            fallAge = 0
+            setChanged()
+            if (descend(level, definition)) return
+        }
         if (buildingId == Buildings.TOWER.id) TowerCrossbows.ensure(this, level)
         if (Match.frozen(level)) {
             HealthBars.tick(this, level, definition)
@@ -106,6 +134,7 @@ class SiteCoreBlockEntity(pos: BlockPos, state: BlockState) : BlockEntity(ModSit
         team = teamName
         this.facing = facing.serializedName
         age = 0
+        fallAge = 0
         actionAge = 0
         producedMonster = "zombie"
         marching = true
@@ -132,21 +161,69 @@ class SiteCoreBlockEntity(pos: BlockPos, state: BlockState) : BlockEntity(ModSit
 
     fun isAlly(player: Player): Boolean = team.isNotEmpty() && (player.team?.name ?: "") == team
 
-    fun damage(amount: Int, struck: BlockPos = blockPos, attackerName: String? = null) {
+    fun encloses(pos: BlockPos): Boolean {
+        var minX = blockPos.x
+        var minY = blockPos.y
+        var minZ = blockPos.z
+        var maxX = minX
+        var maxY = minY
+        var maxZ = minZ
+        for (part in partPositions) {
+            minX = min(minX, part.x)
+            minY = min(minY, part.y)
+            minZ = min(minZ, part.z)
+            maxX = max(maxX, part.x)
+            maxY = max(maxY, part.y)
+            maxZ = max(maxZ, part.z)
+        }
+        return pos.x in minX..maxX && pos.y in minY..maxY && pos.z in minZ..maxZ
+    }
+
+    fun damage(amount: Int, struck: BlockPos = blockPos, attackerName: String? = null, attacker: LivingEntity? = null) {
         if (amount <= 0 || isRemoved || buildingId.isEmpty() || health <= 0) return
         val world = level as? ServerLevel
         if (world != null) {
             val state = world.getBlockState(struck)
             world.levelEvent(null, LevelEvent.PARTICLES_DESTROY_BLOCK, struck, Block.getId(state))
         }
+        val before = health
         health -= amount
         if (health < 0) health = 0
+        val dealt = before - health
+        if (dealt > 0 && buildingId == Buildings.WALL.id) {
+            lastHurtAge = age
+            if (!reflecting) {
+                reflecting = true
+                try {
+                    reflect(attacker, dealt)
+                } finally {
+                    reflecting = false
+                }
+            }
+        }
         if (attackerName != null && buildingId == Buildings.BASE.id) warnBase(attackerName)
         setChanged()
         if (health == 0) {
             if (buildingId == Buildings.BASE.id) Match.onBaseFallen(this)
             destroy()
         }
+    }
+
+    private fun reflect(attacker: LivingEntity?, dealt: Int) {
+        if (reinforceTwo.isEmpty || attacker == null || !attacker.isAlive || dealt <= 0) return
+        if (friendly(attacker)) return
+        val world = level as? ServerLevel ?: return
+        attacker.hurtServer(world, world.damageSources().thorns(attacker), MatchRules.WALL_THORNS_DAMAGE.toFloat())
+    }
+
+    private fun friendly(attacker: LivingEntity): Boolean {
+        if (team.isEmpty()) return false
+        val other = when (attacker) {
+            is Player -> attacker.team?.name ?: ""
+            is SummonedUnit -> attacker.summonedTeam
+            else -> return false
+        }
+        return other.isNotEmpty() && other == team
     }
 
     fun installBase(teamName: String, facing: Direction) {
@@ -174,9 +251,9 @@ class SiteCoreBlockEntity(pos: BlockPos, state: BlockState) : BlockEntity(ModSit
                 Buildings.byId(core.buildingId)?.category == BuildingCategory.WONDER
         }
 
-    fun damageFromMonster(attackerTeam: String, amount: Int, struck: BlockPos, attackerName: String) {
+    fun damageFromMonster(attacker: LivingEntity, attackerTeam: String, amount: Int, struck: BlockPos, attackerName: String) {
         if (attackerTeam == team) return
-        damage(amount, struck, attackerName)
+        damage(amount, struck, attackerName, attacker)
     }
 
     private fun warnBase(attackerName: String) {
@@ -189,22 +266,160 @@ class SiteCoreBlockEntity(pos: BlockPos, state: BlockState) : BlockEntity(ModSit
         }
     }
 
+    private fun descend(level: ServerLevel, definition: BuildingDefinition): Boolean {
+        if (health <= 0 || relocating) return false
+        val to = blockPos.below()
+        if (level.isOutsideBuildHeight(to)) return false
+        val supports = supportCells(level)
+        if (supports.isEmpty() || supports.any { level.isOutsideBuildHeight(it) }) return false
+        if (!unsupported(level, definition, supports) || !pathClear(level)) return false
+        for (pos in supports) {
+            if (!level.getBlockState(pos).`is`(BlockTags.PLANKS)) continue
+            level.setBlock(pos, Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL)
+            coveredBelow.removeIf { it.pos == pos }
+        }
+        val parts = partPositions.toList()
+        partPositions.clear()
+        for (pos in parts) {
+            val state = level.getBlockState(pos)
+            if (state.block is SiteStructureBlock || state.block is SitePartBlock) {
+                level.setBlock(pos, Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL)
+            }
+        }
+        val from = blockPos
+        val state = level.getBlockState(from)
+        level.setBlock(to, state, Block.UPDATE_ALL)
+        val moved = level.getBlockEntity(to) as? SiteCoreBlockEntity ?: return false
+        moved.absorb(this)
+        relocating = true
+        level.setBlock(from, Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL)
+        moved.partPositions.clear()
+        moved.partPositions.addAll(
+            BuildingStyles.apply(level, to, definition, moved.buildingLevel, moved.facingDirection(), emptyList(), moved::rememberCovered),
+        )
+        moved.repositionDisplays(level)
+        moved.setChanged()
+        return true
+    }
+
+    private fun supportCells(level: ServerLevel): List<BlockPos> {
+        val definition = Buildings.byId(buildingId) ?: return emptyList()
+        val cells = ArrayList<BlockPos>()
+        for (column in BuildingFootprints.cells(definition, blockPos, facingDirection())) {
+            var lowest = Int.MAX_VALUE
+            if (blockPos.x == column.x && blockPos.z == column.z) lowest = blockPos.y
+            for (part in partPositions) {
+                if (part.x == column.x && part.z == column.z && part.y < lowest) lowest = part.y
+            }
+            if (lowest == Int.MAX_VALUE) continue
+            val under = BlockPos(column.x, lowest - 1, column.z)
+            if (level.isOutsideBuildHeight(under)) return emptyList()
+            cells.add(under)
+        }
+        return cells
+    }
+
+    private fun pathClear(level: ServerLevel): Boolean {
+        val occupied = HashSet<BlockPos>()
+        occupied.add(blockPos)
+        occupied.addAll(partPositions)
+        for (pos in occupied) {
+            val under = pos.below()
+            if (under in occupied) continue
+            val state = level.getBlockState(under)
+            if (state.isAir || state.`is`(BlockTags.PLANKS)) continue
+            return false
+        }
+        return true
+    }
+
+    private fun unsupported(level: ServerLevel, definition: BuildingDefinition, supports: List<BlockPos>): Boolean {
+        if (definition.footprint == Footprint.SQUARE_1 && supports.size == 1) {
+            val state = level.getBlockState(supports[0])
+            if (state.`is`(BlockTags.PLANKS)) {
+                val under = supports[0].below()
+                if (level.isOutsideBuildHeight(under)) return false
+                val below = level.getBlockState(under)
+                return below.isAir || below.`is`(BlockTags.PLANKS)
+            }
+        }
+        return supports.all { pos ->
+            val state = level.getBlockState(pos)
+            state.isAir || state.`is`(BlockTags.PLANKS)
+        }
+    }
+
+    private fun absorb(from: SiteCoreBlockEntity) {
+        buildingId = from.buildingId
+        buildingLevel = from.buildingLevel
+        health = from.health
+        team = from.team
+        facing = from.facing
+        age = from.age
+        fallAge = 0
+        actionAge = from.actionAge
+        producedMonster = from.producedMonster
+        marching = from.marching
+        eggReleaseAge = from.eggReleaseAge
+        healthDisplayId = from.healthDisplayId
+        crossbowId = from.crossbowId
+        reinforce = from.reinforce.copy()
+        reinforceMineral = from.reinforceMineral
+        reinforceTwo = from.reinforceTwo.copy()
+        reinforceTwoMineral = from.reinforceTwoMineral
+        releaseCount = from.releaseCount
+        lastHurtAge = from.lastHurtAge
+        dripAge = from.dripAge
+        barracksStock.clear()
+        barracksStock.addAll(from.barracksStock)
+        dripQueue.clear()
+        dripQueue.addAll(from.dripQueue)
+        coveredBelow.clear()
+        coveredBelow.addAll(from.coveredBelow)
+        mineralAges.clear()
+        mineralAges.putAll(from.mineralAges)
+        copyItems(from.storage, storage)
+        copyItems(from.barracksMaterials, barracksMaterials)
+        copyItems(from.barracksEggs, barracksEggs)
+    }
+
+    private fun copyItems(from: SimpleContainer, to: SimpleContainer) {
+        for (slot in 0 until to.containerSize) {
+            val stack = if (slot < from.containerSize) from.getItem(slot).copy() else ItemStack.EMPTY
+            to.setItem(slot, stack)
+        }
+    }
+
+    private fun repositionDisplays(level: ServerLevel) {
+        healthDisplayId?.let { id ->
+            val label = level.getEntity(id) as? BuildingHealthLabel ?: return@let
+            label.corePos = blockPos
+            label.snapTo(blockPos.x + 0.5, blockPos.y + 1.2, blockPos.z + 0.5, 0f, 0f)
+        }
+        crossbowId?.let { id ->
+            val crossbow = level.getEntity(id) as? TowerCrossbow ?: return@let
+            crossbow.corePos = blockPos
+            crossbow.snapTo(blockPos.x + 0.5, blockPos.y + 1.02, blockPos.z + 0.5, crossbow.yRot, 0f)
+        }
+    }
+
     fun destroy() {
         HealthBars.discard(this)
         TowerCrossbows.discard(this)
         val world = level as? ServerLevel ?: return
+        BarracksWork.discardStock(this, world)
         val parts = partPositions.toList()
         partPositions.clear()
         for (pos in parts) {
             val state = world.getBlockState(pos)
             if (state.block is SiteStructureBlock || state.block is SitePartBlock) {
-                world.setBlock(pos, net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL)
+                world.setBlock(pos, Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL)
             }
         }
         BuildingStructure.clearLegacy(world, blockPos)
         restoreCovered(world)
         if (world.getBlockState(blockPos).block is SiteCoreBlock) {
-            world.setBlock(blockPos, net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL)
+            world.setBlock(blockPos, Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL)
         }
     }
 
@@ -334,10 +549,17 @@ class SiteCoreBlockEntity(pos: BlockPos, state: BlockState) : BlockEntity(ModSit
     }
 
     override fun preRemoveSideEffects(pos: BlockPos, state: BlockState) {
+        if (relocating) {
+            super.preRemoveSideEffects(pos, state)
+            return
+        }
         val world = level
         if (world != null) {
             val server = world as? ServerLevel
-            if (server != null) restoreCovered(server)
+            if (server != null) {
+                BarracksWork.discardStock(this, server)
+                restoreCovered(server)
+            }
             Containers.dropContents(world, pos, storage as Container)
             storage.clearContent()
             Containers.dropContents(world, pos, barracksMaterials as Container)
@@ -360,6 +582,7 @@ class SiteCoreBlockEntity(pos: BlockPos, state: BlockState) : BlockEntity(ModSit
         output.putString("Team", team)
         output.putString("Facing", facing)
         output.putInt("Age", age)
+        output.putInt("FallAge", fallAge)
         output.putInt("ActionAge", actionAge)
         output.putString("ProducedMonster", producedMonster)
         output.putBoolean("Marching", marching)
@@ -370,6 +593,11 @@ class SiteCoreBlockEntity(pos: BlockPos, state: BlockState) : BlockEntity(ModSit
         output.putString("ReinforceTwoMineral", reinforceTwoMineral)
         output.store("Reinforce", ItemStack.OPTIONAL_CODEC, reinforce)
         output.store("ReinforceTwo", ItemStack.OPTIONAL_CODEC, reinforceTwo)
+        output.putInt("ReleaseCount", releaseCount)
+        output.putInt("LastHurtAge", lastHurtAge)
+        output.putInt("DripAge", dripAge)
+        output.store("BarracksStock", Codec.STRING.listOf(), barracksStock.toList())
+        output.store("DripQueue", Codec.STRING.listOf(), dripQueue.toList())
         output.store("Parts", Codec.LONG.listOf(), partPositions.map { it.asLong() })
         output.store("CoveredBelow", CoveredBlock.CODEC.listOf(), coveredBelow.toList())
         output.store("MineralAges", Codec.unboundedMap(Codec.STRING, Codec.INT), mineralAges)
@@ -398,6 +626,7 @@ class SiteCoreBlockEntity(pos: BlockPos, state: BlockState) : BlockEntity(ModSit
         team = input.getStringOr("Team", "")
         facing = input.getStringOr("Facing", Direction.SOUTH.serializedName)
         age = input.getIntOr("Age", 0)
+        fallAge = input.getIntOr("FallAge", 0)
         actionAge = input.getIntOr("ActionAge", 0)
         producedMonster = input.getStringOr("ProducedMonster", "zombie")
         marching = input.getBooleanOr("Marching", true)
@@ -408,6 +637,13 @@ class SiteCoreBlockEntity(pos: BlockPos, state: BlockState) : BlockEntity(ModSit
         reinforceTwoMineral = input.getStringOr("ReinforceTwoMineral", "")
         reinforce = input.read("Reinforce", ItemStack.OPTIONAL_CODEC).orElse(ItemStack.EMPTY) ?: ItemStack.EMPTY
         reinforceTwo = input.read("ReinforceTwo", ItemStack.OPTIONAL_CODEC).orElse(ItemStack.EMPTY) ?: ItemStack.EMPTY
+        releaseCount = input.getIntOr("ReleaseCount", 0)
+        lastHurtAge = input.getIntOr("LastHurtAge", -1)
+        dripAge = input.getIntOr("DripAge", 0)
+        barracksStock.clear()
+        readIds(input, "BarracksStock", barracksStock)
+        dripQueue.clear()
+        readIds(input, "DripQueue", dripQueue)
         partPositions.clear()
         val parts = input.read("Parts", Codec.LONG.listOf()).orElse(emptyList()) ?: emptyList()
         for (packed in parts) {
@@ -456,6 +692,12 @@ class SiteCoreBlockEntity(pos: BlockPos, state: BlockState) : BlockEntity(ModSit
             ModuleSlot.PRIMARY -> unlocked.filter { itemKey(it.item) != reinforceTwoMineral }
             ModuleSlot.SECONDARY -> if (unlocked.size <= 1) emptyList() else unlocked
         }
+    }
+
+    fun chooseReleaseCount(count: Int) {
+        if (count !in MatchRules.BARRACKS_RELEASE_MIN..MatchRules.BARRACKS_RELEASE_MAX) return
+        releaseCount = count
+        setChanged()
     }
 
     fun setMineral(slot: ModuleSlot, item: Item) {
@@ -513,8 +755,13 @@ class SiteCoreBlockEntity(pos: BlockPos, state: BlockState) : BlockEntity(ModSit
                 if (stack.isEmpty) reinforceMineral = ""
             }
             ModuleSlot.SECONDARY -> {
+                val had = !reinforceTwo.isEmpty
                 reinforceTwo = stack
                 if (stack.isEmpty) reinforceTwoMineral = ""
+                if (had && buildingId == Buildings.BARRACKS.id) {
+                    val world = level as? ServerLevel
+                    if (world != null) BarracksWork.dumpStock(this, world)
+                }
             }
         }
         if (definition != null) sanitizeMinerals(definition)
@@ -546,6 +793,18 @@ class SiteCoreBlockEntity(pos: BlockPos, state: BlockState) : BlockEntity(ModSit
         reinforceTwo = ItemStack.EMPTY
         reinforceMineral = ""
         reinforceTwoMineral = ""
+        releaseCount = 0
+        lastHurtAge = -1
+        dripAge = 0
+        barracksStock.clear()
+        dripQueue.clear()
+    }
+
+    private fun readIds(input: ValueInput, key: String, into: MutableList<String>) {
+        val ids = input.read(key, Codec.STRING.listOf()).orElse(emptyList()) ?: return
+        for (id in ids) {
+            if (id != null) into.add(id)
+        }
     }
 
     private fun dropModule(world: Level, pos: BlockPos, stack: ItemStack) {
@@ -575,7 +834,9 @@ class SiteCoreBlockEntity(pos: BlockPos, state: BlockState) : BlockEntity(ModSit
         container.clearContent()
         val items = input.read(key, ItemStack.OPTIONAL_CODEC.listOf()).orElse(emptyList()) ?: return
         items.forEachIndexed { slot, stack ->
+            if (stack.isEmpty) return@forEachIndexed
             if (slot < container.containerSize) container.setItem(slot, stack)
+            else deferredDrops.add(stack.copy())
         }
     }
 
@@ -590,7 +851,7 @@ class SiteCoreBlockEntity(pos: BlockPos, state: BlockState) : BlockEntity(ModSit
 
     companion object {
         const val STORAGE_SIZE = 36
-        const val BARRACKS_MATERIALS = 20
+        const val BARRACKS_MATERIALS = 16
         const val BARRACKS_EGGS = 12
 
         fun itemKey(item: Item): String = BuiltInRegistries.ITEM.getKey(item).toString()

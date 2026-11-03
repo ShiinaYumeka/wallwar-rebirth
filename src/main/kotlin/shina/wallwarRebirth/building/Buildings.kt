@@ -4,6 +4,7 @@ import net.minecraft.world.item.Items
 import shina.wallwarRebirth.WallwarMod
 import shina.wallwarRebirth.match.MatchRules
 import kotlin.math.ceil
+import kotlin.math.floor
 
 object Buildings {
     val BASE = BuildingDefinition(
@@ -86,6 +87,7 @@ object Buildings {
         icon = Items.STONE_BRICKS,
         summary = "一截有碰撞的墙，用来让敌方怪物先打它，而不是直接打到后面的核心。没有攻击，没有产出。",
         footprint = Footprint.WALL_9,
+        acceptsModules = true,
     )
 
     val TOWER = BuildingDefinition(
@@ -108,6 +110,7 @@ object Buildings {
             LevelNote(2, towerNote(1)),
             LevelNote(3, towerNote(2)),
         ),
+        acceptsModules = true,
     )
 
     val BARRACKS = BuildingDefinition(
@@ -129,18 +132,54 @@ object Buildings {
         production = emptyList(),
         healthByLevel = MatchRules.BARRACKS_HEALTH,
         icon = Items.IRON_BARS,
-        summary = "用左侧材料生产选定的唤灵。出征会立刻放出，休整则把刷怪蛋留在右侧。材料不够时不计时。",
+        summary = "用左侧材料生产选定的唤灵，生产出来立刻放出。材料不够时不计时。",
         details = listOf(
             LevelNote(
                 1,
-                "僵尸和骷髅 ${MatchRules.ZOMBIE_PRODUCTION_TICKS / MatchRules.TICKS_PER_SECOND} 秒，铁傀儡 ${MatchRules.GOLEM_PRODUCTION_TICKS / MatchRules.TICKS_PER_SECOND} 秒",
+                "僵尸、骷髅和蜘蛛 ${MatchRules.ZOMBIE_PRODUCTION_TICKS / MatchRules.TICKS_PER_SECOND} 秒，铁傀儡 ${MatchRules.GOLEM_PRODUCTION_TICKS / MatchRules.TICKS_PER_SECOND} 秒",
             ),
             LevelNote(2, "产出速度加快 50%，间隔变为原来的 2/3"),
             LevelNote(3, "产出速度加快 100%，间隔变为原来的一半"),
         ),
+        acceptsModules = true,
     )
 
-    private val all = listOf(BASE, REACTOR, WALL, TOWER, BARRACKS)
+    val CANNON = BuildingDefinition(
+        id = "cannon",
+        displayName = "炮台",
+        category = BuildingCategory.NORMAL,
+        maxLevel = 3,
+        structure = { level -> WallwarMod.idOf("building/cannon/level_$level") },
+        upgrades = listOf(
+            UpgradeCost(
+                2,
+                listOf(
+                    ItemAmount(Items.COPPER_INGOT, MatchRules.CANNON_UPGRADE_2_COPPER, "铜锭"),
+                    ItemAmount(Items.IRON_INGOT, MatchRules.CANNON_UPGRADE_2_IRON, "铁锭"),
+                ),
+            ),
+            UpgradeCost(
+                3,
+                listOf(
+                    ItemAmount(Items.IRON_INGOT, MatchRules.CANNON_UPGRADE_3_IRON, "铁锭"),
+                    ItemAmount(Items.COPPER_INGOT, MatchRules.CANNON_UPGRADE_3_COPPER, "铜锭"),
+                ),
+            ),
+        ),
+        production = emptyList(),
+        healthByLevel = MatchRules.CANNON_HEALTH,
+        icon = Items.DISPENSER,
+        summary = "朝上的投掷器。发射带重力的 TNT，不消耗背包里的 TNT。先打最近的敌方唤灵，没有再打最近的敌方玩家，两类都没有时打敌方建筑。",
+        footprint = Footprint.SQUARE_1,
+        details = listOf(
+            LevelNote(1, cannonNote(0)),
+            LevelNote(2, cannonNote(1)),
+            LevelNote(3, cannonNote(2)),
+        ),
+        acceptsModules = true,
+    )
+
+    private val all = listOf(BASE, REACTOR, WALL, TOWER, BARRACKS, CANNON)
 
     fun byId(id: String): BuildingDefinition? = all.firstOrNull { it.id == id }
 
@@ -153,5 +192,12 @@ object Buildings {
         val seconds = MatchRules.TOWER_INTERVAL[index].toDouble() / MatchRules.TICKS_PER_SECOND
         val interval = if (seconds == seconds.toInt().toDouble()) seconds.toInt().toString() else seconds.toString()
         return "射程 $range，箭速 ${speed.toInt()}，盔甲前伤害 $damage，间隔 $interval 秒"
+    }
+
+    private fun cannonNote(index: Int): String {
+        val center = MatchRules.CANNON_CENTER_DAMAGE[index]
+        val building = floor(center * MatchRules.CANNON_BUILDING_FRACTION + 0.5).toInt()
+        val seconds = MatchRules.CANNON_INTERVAL / MatchRules.TICKS_PER_SECOND
+        return "射程 ${MatchRules.CANNON_RANGE.toInt()}，间隔 $seconds 秒，中心伤害 ${center.toInt()}，建筑伤害 $building"
     }
 }

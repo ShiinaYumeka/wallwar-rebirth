@@ -7,7 +7,6 @@ import eu.pb4.sgui.api.gui.SimpleGui
 import net.minecraft.ChatFormatting
 import net.minecraft.core.component.DataComponents
 import net.minecraft.network.chat.Component
-import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.inventory.MenuType
 import net.minecraft.world.inventory.Slot
@@ -84,13 +83,9 @@ class BuildingPanelGui(
         }
         if (barracks) {
             for (row in 0 until 4) {
-                for (column in 0 until 5) {
+                for (column in 0 until 4) {
                     val guiSlot = STORAGE_ORIGIN + row * 9 + column
-                    setSlotRedirect(guiSlot, FilterSlot(site.barracksMaterials, row * 5 + column) { BarracksSlots.acceptsMaterial(it) })
-                }
-                for (column in 6 until 9) {
-                    val guiSlot = STORAGE_ORIGIN + row * 9 + column
-                    setSlotRedirect(guiSlot, FilterSlot(site.barracksEggs, row * 3 + (column - 6)) { BarracksSlots.acceptsEgg(it) })
+                    setSlotRedirect(guiSlot, FilterSlot(site.barracksMaterials, row * 4 + column) { BarracksSlots.acceptsMaterial(it) })
                 }
             }
         }
@@ -122,15 +117,45 @@ class BuildingPanelGui(
             close()
             viewer.level().server.execute { UpgradePanelGui(viewer, site, definition).open() }
         })
-        setSlot(INFO_SLOT, GuiElement(infoIcon()) { _, clickType, _, _ ->
-            if (!barracks || !clickType.isLeft || clickType.shift) return@GuiElement
-            close()
-            viewer.level().server.execute { BarracksPageGui(viewer, site).open() }
-        })
+        setSlot(INFO_SLOT, GuiElement(infoIcon(), GuiElementInterface.EMPTY_CALLBACK))
         setSlot(DEMOLISH_SLOT, GuiElement(demolishIcon()) { _, clickType, _, _ ->
             if (!clickType.isLeft || clickType.shift) return@GuiElement
             if (site.demolish(viewer)) close()
         })
+        if (barracks) paintProduction()
+    }
+
+    private fun paintProduction() {
+        val monsters = Monsters.selectable()
+        monsters.forEachIndexed { index, monster ->
+            val slot = PRODUCTION_SLOTS.getOrElse(index) { return@forEachIndexed }
+            setSlot(slot, GuiElement(monsterIcon(monster)) { _, clickType, _, _ ->
+                if (!clickType.isLeft || clickType.shift) return@GuiElement
+                if (site.buildingLevel < monster.rank) {
+                    viewer.sendSystemMessage(Component.literal("兵营等级不够"))
+                    return@GuiElement
+                }
+                if (site.producedMonster != monster.id) {
+                    site.producedMonster = monster.id
+                    site.actionAge = 0
+                    site.setChanged()
+                    viewer.sendSystemMessage(Component.literal("已改为生产${monster.displayName}，这一轮重新计时"))
+                }
+                paintButtons()
+            })
+        }
+    }
+
+    private fun monsterIcon(monster: MonsterDefinition): ItemStack {
+        val selected = site.producedMonster == monster.id
+        val builder = ItemStackBuilder.of(monster.egg)
+            .setName(line(monster.displayName, if (selected) ChatFormatting.GREEN else ChatFormatting.YELLOW))
+        if (selected) builder.appendLore(line("当前生产", ChatFormatting.GREEN))
+        if (site.buildingLevel < monster.rank) builder.appendLore(line("兵营等级不够"))
+        for (text in monster.detailLines(site.buildingLevel)) builder.appendLore(line(text))
+        val stack = builder.build()
+        if (selected) stack.set(DataComponents.ENCHANTMENT_GLINT_OVERRIDE, true)
+        return stack
     }
 
     private fun shopIcon(): ItemStack =
@@ -166,9 +191,7 @@ class BuildingPanelGui(
         if (barracks) {
             val monster = Monsters.byId(site.producedMonster) ?: Monsters.ZOMBIE
             builder.appendLore(line("当前生产：${monster.displayName}"))
-            builder.appendLore(line(if (site.marching) "出怪：出征" else "出怪：休整"))
             builder.appendLore(line("当前间隔：${MatchRules.secondsText(monster.productionTicks(site.buildingLevel))} 秒"))
-            builder.appendLore(line("左键打开生产页"))
         }
         return builder.build()
     }
@@ -197,6 +220,7 @@ class BuildingPanelGui(
         const val INFO_SLOT = 4
         const val DEMOLISH_SLOT = 6
         const val STORAGE_ORIGIN = 18
+        val PRODUCTION_SLOTS = intArrayOf(23, 24, 25, 32)
     }
 }
 
@@ -310,14 +334,25 @@ private class UpgradePanelGui(
                 return
             }
             if (site.moduleStack(slot).isEmpty) return
-            val choices = site.choicesFor(slot, definition)
-            if (choices.isEmpty()) {
-                val message = if (slot == ModuleSlot.SECONDARY) "只剩一种矿物，不能停止" else "没有可以强化的矿物"
-                viewer.sendSystemMessage(Component.literal(message))
+            if (definition.id == Buildings.REACTOR.id) {
+                val choices = site.choicesFor(slot, definition)
+                if (choices.isEmpty()) {
+                    val message = if (slot == ModuleSlot.SECONDARY) "只剩一种矿物，不能停止" else "没有可以强化的矿物"
+                    viewer.sendSystemMessage(Component.literal(message))
+                    return
+                }
+                close()
+                viewer.level().server.execute { MineralPickerGui(viewer, site, definition, slot, choices).open() }
                 return
             }
-            close()
-            viewer.level().server.execute { MineralPickerGui(viewer, site, definition, slot, choices).open() }
+            if (definition.id == Buildings.BARRACKS.id && slot == ModuleSlot.SECONDARY) {
+                if (!site.isAlly(viewer)) {
+                    viewer.sendSystemMessage(Component.literal("敌方打不开"))
+                    return
+                }
+                close()
+                viewer.level().server.execute { ReleaseCountGui(viewer, site, definition).open() }
+            }
             return
         }
         val refusal = site.moduleRefusal(slot, cursor)
@@ -340,10 +375,47 @@ private class UpgradePanelGui(
         }
         builder.setName(line(label, ChatFormatting.YELLOW))
         builder.appendLore(line("左键放入${if (slot == ModuleSlot.PRIMARY) "强化模块" else "强化模块 2"}"))
-        builder.appendLore(line("放好后左键选择矿物"))
         builder.appendLore(line("Shift 或右键取出"))
-        builder.appendLore(line("当前：${site.mineralLabel(slot)}"))
+        for (text in effectLines(definition, slot)) builder.appendLore(line(text))
+        if (definition.id == Buildings.REACTOR.id) {
+            builder.appendLore(line("放好后左键选择矿物"))
+            builder.appendLore(line("当前：${site.mineralLabel(slot)}"))
+        }
+        if (definition.id == Buildings.BARRACKS.id && slot == ModuleSlot.SECONDARY) {
+            builder.appendLore(line("放好后左键选择只数"))
+            val count = site.releaseCount
+            val current = if (count in MatchRules.BARRACKS_RELEASE_MIN..MatchRules.BARRACKS_RELEASE_MAX) {
+                count.toString()
+            } else {
+                "未选择，按 1 只"
+            }
+            builder.appendLore(line("当前：$current"))
+        }
         return builder.build()
+    }
+
+    private fun effectLines(definition: BuildingDefinition, slot: ModuleSlot): List<String> = when (definition.id) {
+        Buildings.REACTOR.id -> when (slot) {
+            ModuleSlot.PRIMARY -> listOf("指定一种当前可生成的矿物，该矿物的生成速率乘以 2。")
+            ModuleSlot.SECONDARY -> listOf("指定一种当前可生成的矿物并停止生成它，其余当前可生成矿物的生成速率乘以 2。")
+        }
+        Buildings.WALL.id -> when (slot) {
+            ModuleSlot.PRIMARY -> listOf("没在挨打时，每秒回复自己和 ${MatchRules.WALL_HEAL_RANGE.toInt()} 格内的友方建筑各 ${MatchRules.WALL_HEAL_AMOUNT} 点。")
+            ModuleSlot.SECONDARY -> listOf("被攻击时按原版荆棘反伤，固定 ${MatchRules.WALL_THORNS_DAMAGE} 点。")
+        }
+        Buildings.TOWER.id -> when (slot) {
+            ModuleSlot.PRIMARY -> listOf("一支箭最多命中 ${MatchRules.TOWER_PIERCE_HITS} 个敌对目标，命中后继续飞。")
+            ModuleSlot.SECONDARY -> listOf("一次射出三支箭，左右各偏 ${MatchRules.TOWER_SPREAD_DEGREES.toInt()} 度。")
+        }
+        Buildings.BARRACKS.id -> when (slot) {
+            ModuleSlot.PRIMARY -> listOf("放出的怪物自带速度 I，直到消失。")
+            ModuleSlot.SECONDARY -> listOf("凑满选定只数再一起放出。没选时按 1 只。")
+        }
+        Buildings.CANNON.id -> when (slot) {
+            ModuleSlot.PRIMARY -> listOf("爆炸半径扩大 50%。威力半径 ${MatchRules.CANNON_POWER_WIDE.toInt()} 格，生物伤害在 ${MatchRules.CANNON_FALLOFF_WIDE.toInt()} 格归零。")
+            ModuleSlot.SECONDARY -> listOf("发射间隔减少 20%，变为 ${MatchRules.CANNON_INTERVAL * 4 / 5 / MatchRules.TICKS_PER_SECOND} 秒。")
+        }
+        else -> emptyList()
     }
 
     private fun spreadIcon(): ItemStack =
@@ -407,90 +479,46 @@ private class MineralPickerGui(
     }
 }
 
-private class BarracksPageGui(
+private class ReleaseCountGui(
     private val viewer: ServerPlayer,
     private val site: SiteCoreBlockEntity,
-) : SimpleGui(MenuType.GENERIC_9x3, viewer, false) {
+    private val definition: BuildingDefinition,
+) : SimpleGui(MenuType.GENERIC_9x1, viewer, false) {
     init {
-        title = Component.literal("兵营生产")
-        paint()
+        title = Component.literal("选择放出只数")
+        val glass = ItemStack(Items.GRAY_STAINED_GLASS_PANE).hideTooltip()
+        for (index in 0 until size) setSlot(index, GuiElement(glass, GuiElementInterface.EMPTY_CALLBACK))
+        for (count in MatchRules.BARRACKS_RELEASE_MIN..MatchRules.BARRACKS_RELEASE_MAX) {
+            setSlot(count - MatchRules.BARRACKS_RELEASE_MIN, GuiElement(choiceIcon(count)) { _, clickType, _, _ ->
+                if (!clickType.isLeft || clickType.shift) return@GuiElement
+                if (!site.isAlly(viewer)) {
+                    viewer.sendSystemMessage(Component.literal("敌方打不开"))
+                    return@GuiElement
+                }
+                site.chooseReleaseCount(count)
+                close()
+                viewer.level().server.execute { UpgradePanelGui(viewer, site, definition).open() }
+            })
+        }
     }
 
     override fun onTick() {
         super.onTick()
         val world = site.level
-        if (world == null || world.getBlockEntity(site.blockPos) !== site) {
-            close()
-            return
-        }
-        paint()
+        if (world == null || world.getBlockEntity(site.blockPos) !== site) close()
     }
 
-    private fun paint() {
-        val glass = ItemStack(Items.GRAY_STAINED_GLASS_PANE).hideTooltip()
-        for (slot in 0 until size) setSlot(slot, GuiElement(glass, GuiElementInterface.EMPTY_CALLBACK))
-        val monsters = Monsters.selectable()
-        val slots = intArrayOf(2, 4, 6)
-        monsters.forEachIndexed { index, monster ->
-            val slot = slots.getOrElse(index) { return@forEachIndexed }
-            setSlot(slot, GuiElement(monsterIcon(monster)) { _, clickType, _, _ ->
-                if (!clickType.isLeft || clickType.shift) return@GuiElement
-                if (site.buildingLevel < monster.minBarracksLevel) {
-                    viewer.sendSystemMessage(Component.literal("兵营等级不够"))
-                    return@GuiElement
-                }
-                if (site.producedMonster != monster.id) {
-                    site.producedMonster = monster.id
-                    site.actionAge = 0
-                    site.setChanged()
-                    viewer.sendSystemMessage(Component.literal("已改为生产${monster.displayName}，这一轮重新计时"))
-                }
-                paint()
+    private fun choiceIcon(count: Int): ItemStack {
+        val selected = site.releaseCount == count
+        val stack = ItemStackBuilder.of(Items.PAPER)
+            .setName(Component.literal("$count").withStyle { style ->
+                style.withColor(ChatFormatting.YELLOW).withItalic(false)
             })
-        }
-        setSlot(18, GuiElement(backIcon()) { _, clickType, _, _ ->
-            if (!clickType.isLeft || clickType.shift) return@GuiElement
-            close()
-            viewer.level().server.execute { BuildingPanelGui(viewer, site, Buildings.BARRACKS).open() }
-        })
-        setSlot(26, GuiElement(modeIcon()) { _, clickType, _, _ ->
-            if (!clickType.isLeft || clickType.shift) return@GuiElement
-            site.marching = !site.marching
-            site.setChanged()
-            val world = site.level as? ServerLevel
-            if (site.marching && world != null && !BarracksWork.releaseNow(site, world) && BarracksWork.hasEggs(site)) {
-                viewer.sendSystemMessage(Component.literal("附近没有可放置的位置，刷怪蛋会留到有位置再放"))
-            }
-            viewer.sendSystemMessage(Component.literal(if (site.marching) "已切换为出征" else "已切换为休整"))
-            paint()
-        })
-    }
-
-    private fun monsterIcon(monster: MonsterDefinition): ItemStack {
-        val selected = site.producedMonster == monster.id
-        val builder = ItemStackBuilder.of(monster.egg)
-            .setName(line(monster.displayName, if (selected) ChatFormatting.GREEN else ChatFormatting.YELLOW))
-        if (selected) builder.appendLore(line("当前生产", ChatFormatting.GREEN))
-        for (text in monster.detailLines(site.buildingLevel)) builder.appendLore(line(text))
-        val stack = builder.build()
+            .appendLore(Component.literal(if (selected) "当前选中" else "点击选定").withStyle { style ->
+                style.withColor(ChatFormatting.GRAY).withItalic(false)
+            })
+            .build()
         if (selected) stack.set(DataComponents.ENCHANTMENT_GLINT_OVERRIDE, true)
         return stack
     }
-
-    private fun modeIcon(): ItemStack {
-        val marching = site.marching
-        return ItemStackBuilder.of(if (marching) Items.LIME_DYE else Items.GRAY_DYE)
-            .setName(line(if (marching) "出征" else "休整", if (marching) ChatFormatting.GREEN else ChatFormatting.GRAY))
-            .appendLore(line(if (marching) "生产的怪物立刻放出。已有刷怪蛋每秒放一个。" else "生产的怪物留在右侧，成为刷怪蛋。"))
-            .appendLore(line("左键切换"))
-            .build()
-    }
-
-    private fun backIcon(): ItemStack =
-        ItemStackBuilder.of(Items.ARROW)
-            .setName(line("返回", ChatFormatting.YELLOW))
-            .build()
-
-    private fun line(text: String, color: ChatFormatting = ChatFormatting.GRAY): Component =
-        Component.literal(text).withStyle { style -> style.withColor(color).withItalic(false) }
 }

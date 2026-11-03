@@ -20,7 +20,6 @@ data class MonsterDefinition(
     val egg: Item,
     val bowRange: Double? = null,
     val undead: Boolean = false,
-    val minBarracksLevel: Int = 1,
 ) {
     fun productionTicks(barracksLevel: Int): Int = when {
         barracksLevel >= 3 -> baseProductionTicks / 2

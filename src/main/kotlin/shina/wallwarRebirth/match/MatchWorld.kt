@@ -4,6 +4,8 @@ import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
 import net.minecraft.server.MinecraftServer
 import net.minecraft.server.level.ServerLevel
+import net.minecraft.server.level.TicketType
+import net.minecraft.world.level.ChunkPos
 import net.minecraft.world.level.block.Blocks
 import net.minecraft.world.level.block.Block
 import net.minecraft.world.level.block.LeavesBlock
@@ -15,12 +17,16 @@ import shina.wallwarRebirth.building.CoreForm
 import shina.wallwarRebirth.building.ModSites
 import shina.wallwarRebirth.building.SiteCoreBlock
 import shina.wallwarRebirth.building.SiteCoreBlockEntity
+import shina.wallwarRebirth.mixin.ServerChunkCacheAccess
 import shina.wallwarRebirth.monster.TestTeams
 import kotlin.math.abs
 import kotlin.math.atan2
 import kotlin.math.hypot
 
 object MatchWorld {
+    private const val TICKET_RADIUS = 0
+    private var loading: List<ChunkPos> = emptyList()
+
     data class Built(
         val redBase: BlockPos,
         val blueBase: BlockPos,
@@ -28,19 +34,42 @@ object MatchWorld {
         val blueSpawn: Match.Spawn,
     )
 
+    fun prime(server: MinecraftServer): Boolean {
+        val level = server.getLevel(MatchRules.DIMENSION) ?: return false
+        val positions = chunkPositions()
+        val source = level.chunkSource
+        for (pos in positions) source.addTicketWithRadius(TicketType.FORCED, pos, TICKET_RADIUS)
+        (source as ServerChunkCacheAccess).wallwarRunDistanceManagerUpdates()
+        loading = positions
+        return true
+    }
+
+    fun loaded(server: MinecraftServer): Boolean {
+        if (loading.isEmpty()) return false
+        val level = server.getLevel(MatchRules.DIMENSION) ?: return false
+        val source = level.chunkSource
+        (source as ServerChunkCacheAccess).wallwarRunDistanceManagerUpdates()
+        return loading.all { source.getChunkNow(it.x, it.z) != null }
+    }
+
+    fun release(server: MinecraftServer) {
+        val level = server.getLevel(MatchRules.DIMENSION) ?: return
+        val positions = loading.ifEmpty { chunkPositions() }
+        val source = level.chunkSource
+        for (pos in positions) source.removeTicketWithRadius(TicketType.FORCED, pos, TICKET_RADIUS)
+        (source as ServerChunkCacheAccess).wallwarRunDistanceManagerUpdates()
+        loading = emptyList()
+    }
+
     fun build(server: MinecraftServer): Built? {
+        if (!loaded(server)) return null
         val level = server.getLevel(MatchRules.DIMENSION) ?: return null
         val size = Match.mapSize
         val min = -size / 2
         val max = min + size - 1
         val border = level.worldBorder
         border.setCenter(min + (max - min) / 2.0, min + (max - min) / 2.0)
-        border.setSize(size.toDouble())
-        val chunkMin = Math.floorDiv(min, 16)
-        val chunkMax = Math.floorDiv(max, 16)
-        for (cx in chunkMin..chunkMax) {
-            for (cz in chunkMin..chunkMax) level.getChunk(cx, cz)
-        }
+        border.size = size.toDouble()
         for (x in min..max) {
             for (z in min..max) seal(level, x, z)
         }
@@ -66,6 +95,19 @@ object MatchWorld {
             spawn(level, redCore, blueCore),
             spawn(level, blueCore, redCore),
         )
+    }
+
+    private fun chunkPositions(): List<ChunkPos> {
+        val size = Match.mapSize
+        val min = -size / 2
+        val max = min + size - 1
+        val chunkMin = Math.floorDiv(min, 16)
+        val chunkMax = Math.floorDiv(max, 16)
+        val positions = ArrayList<ChunkPos>((chunkMax - chunkMin + 1) * (chunkMax - chunkMin + 1))
+        for (cx in chunkMin..chunkMax) {
+            for (cz in chunkMin..chunkMax) positions.add(ChunkPos(cx, cz))
+        }
+        return positions
     }
 
     private fun seal(level: ServerLevel, x: Int, z: Int) {
@@ -170,12 +212,12 @@ object MatchWorld {
                 if (abs(dx) == 2 && abs(dz) == 2) continue
                 for (dy in 2..3) {
                     if (dx == 0 && dz == 0) continue
-                    putLeaf(level, BlockPos(x + dx, trunk + dy, z), leaves)
+                    putLeaf(level, BlockPos(x + dx, trunk + dy, z + dz), leaves)
                 }
             }
         }
         for (dx in -1..1) {
-            for (dz in -1..1) putLeaf(level, BlockPos(x + dx, trunk + 4, z), leaves)
+            for (dz in -1..1) putLeaf(level, BlockPos(x + dx, trunk + 4, z + dz), leaves)
         }
     }
 

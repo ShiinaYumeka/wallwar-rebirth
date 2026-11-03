@@ -11,9 +11,11 @@ import net.minecraft.world.entity.player.Player
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.Level
 import net.minecraft.util.StringRepresentable
+import net.minecraft.core.Direction
 import net.minecraft.world.level.block.BaseEntityBlock
 import net.minecraft.world.level.block.Block
 import net.minecraft.world.level.block.Blocks
+import net.minecraft.world.level.block.DispenserBlock
 import net.minecraft.world.level.block.RenderShape
 import net.minecraft.world.level.block.entity.BlockEntity
 import net.minecraft.world.level.block.entity.BlockEntityTicker
@@ -22,6 +24,7 @@ import net.minecraft.world.level.block.state.BlockState
 import net.minecraft.world.level.block.state.StateDefinition
 import net.minecraft.world.level.block.state.properties.EnumProperty
 import net.minecraft.world.phys.BlockHitResult
+import shina.wallwarRebirth.match.BaseShop
 import xyz.nucleoid.packettweaker.PacketContext
 
 class SiteCoreBlock(properties: Properties) : BaseEntityBlock(properties), PolymerBlock {
@@ -37,6 +40,7 @@ class SiteCoreBlock(properties: Properties) : BaseEntityBlock(properties), Polym
         CoreForm.FLETCHING_TABLE -> Blocks.FLETCHING_TABLE.defaultBlockState()
         CoreForm.CRAFTER -> Blocks.CRAFTER.defaultBlockState()
         CoreForm.COPPER_LANTERN -> Blocks.COPPER_LANTERN.unaffected().defaultBlockState()
+        CoreForm.DISPENSER -> Blocks.DISPENSER.defaultBlockState().setValue(DispenserBlock.FACING, Direction.UP)
     }
 
     override fun createBlockStateDefinition(builder: StateDefinition.Builder<Block, BlockState>) {
@@ -94,7 +98,11 @@ class SiteCoreBlock(properties: Properties) : BaseEntityBlock(properties), Polym
             serverPlayer.sendSystemMessage(net.minecraft.network.chat.Component.literal("敌方打不开"))
             return InteractionResult.SUCCESS
         }
-        BuildingMenus.open(serverPlayer, site)
+        if (site.buildingId == Buildings.BASE.id) {
+            BaseShop.open(serverPlayer, site)
+        } else {
+            BuildingMenus.open(serverPlayer, site)
+        }
         return InteractionResult.SUCCESS
     }
 
@@ -109,6 +117,7 @@ enum class CoreForm : StringRepresentable {
     FLETCHING_TABLE,
     CRAFTER,
     COPPER_LANTERN,
+    DISPENSER,
     ;
 
     override fun getSerializedName(): String = name.lowercase()

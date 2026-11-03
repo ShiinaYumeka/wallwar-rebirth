@@ -18,7 +18,7 @@ import shina.wallwarRebirth.match.MatchGui
 class MatchMenuItem(
     properties: Properties,
     polymerItem: Item,
-) : SimplePolymerItem(properties, polymerItem, true) {
+) : SimplePolymerItem(properties, polymerItem, false) {
     override fun use(level: Level, player: Player, hand: InteractionHand): InteractionResult {
         val serverPlayer = player as? ServerPlayer ?: return InteractionResult.PASS
         if (level.isClientSide) return InteractionResult.SUCCESS

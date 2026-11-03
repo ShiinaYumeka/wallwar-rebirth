@@ -185,7 +185,7 @@ private class EntryBoard(private val viewer: ServerPlayer) : SimpleGui(MenuType.
         setSlot(6, GuiElement(spectateButton()) { _, click, _, _ ->
             if (!click.isLeft || click.shift) return@GuiElement
             close()
-            Match.spectate(viewer)
+            Match.leaveAndSpectate(viewer)
         })
     }
 
@@ -196,7 +196,8 @@ private class EntryBoard(private val viewer: ServerPlayer) : SimpleGui(MenuType.
 
     private fun spectateButton(): ItemStack =
         ItemStackBuilder.of(Items.SPYGLASS)
-            .setName(line("查看当前正在进行的游戏旁观", ChatFormatting.AQUA))
+            .setName(line("旁观", ChatFormatting.AQUA))
+            .appendLore(line("退出当前队伍和准备"))
             .build()
 }
 

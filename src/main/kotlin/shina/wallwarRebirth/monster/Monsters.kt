@@ -25,7 +25,7 @@ object Monsters {
     val SKELETON = MonsterDefinition(
         id = "skeleton",
         displayName = "唤灵·骷髅",
-        rank = 2,
+        rank = 1,
         health = MatchRules.SKELETON_HEALTH,
         armor = MatchRules.SKELETON_ARMOR,
         playerAttack = MatchRules.SKELETON_ATTACK,
@@ -57,11 +57,26 @@ object Monsters {
         egg = ModItems.EGG_GOLEM,
     )
 
-    private val all = listOf(ZOMBIE, SKELETON, GOLEM)
+    val SPIDER = MonsterDefinition(
+        id = "spider",
+        displayName = "唤灵·蜘蛛",
+        rank = 2,
+        health = MatchRules.SPIDER_HEALTH,
+        armor = MatchRules.SPIDER_ARMOR,
+        playerAttack = MatchRules.SPIDER_ATTACK,
+        buildingDamage = MatchRules.SPIDER_BUILDING_DAMAGE,
+        buildingIntervalTicks = MatchRules.BUILDING_HIT_TICKS,
+        attackRange = MatchRules.BUILDING_ATTACK_RANGE,
+        cost = listOf(MonsterCost(Items.REDSTONE, MatchRules.SPIDER_COST_REDSTONE, "红石")),
+        baseProductionTicks = MatchRules.SPIDER_PRODUCTION_TICKS,
+        egg = ModItems.EGG_SPIDER,
+    )
+
+    private val all = listOf(ZOMBIE, SKELETON, GOLEM, SPIDER)
 
     fun byId(id: String): MonsterDefinition? = all.firstOrNull { it.id == id }
 
     fun byEgg(item: Item): MonsterDefinition? = all.firstOrNull { it.egg === item }
 
-    fun selectable(): List<MonsterDefinition> = all
+    fun selectable(): List<MonsterDefinition> = all.sortedBy { it.rank }
 }

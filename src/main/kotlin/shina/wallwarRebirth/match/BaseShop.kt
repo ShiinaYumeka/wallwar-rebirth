@@ -1,7 +1,11 @@
 package shina.wallwarRebirth.match
 
 import eu.pb4.sgui.api.ClickType
+import eu.pb4.sgui.api.elements.GuiElement
+import eu.pb4.sgui.api.elements.GuiElementInterface
+import net.minecraft.ChatFormatting
 import net.minecraft.core.component.DataComponents
+import net.minecraft.core.registries.BuiltInRegistries
 import net.minecraft.network.chat.Component
 import net.minecraft.resources.Identifier
 import net.minecraft.server.level.ServerPlayer
@@ -18,14 +22,19 @@ import shina.wallwarRebirth.shop.element.ShopItemWithIndex
 import shina.wallwarRebirth.shop.element.ShopLayer
 import shina.wallwarRebirth.shop.element.view.ShopItemViewModel
 import shina.wallwarRebirth.shop.gui.ShopGui
+import shina.wallwarRebirth.util.hideTooltip
 
 object BaseShop {
-    enum class Page(val title: String) {
-        BUILDING("建筑核心和强化"),
-        EQUIPMENT("装备"),
+    enum class Page(val title: String, val icon: ItemStack) {
+        WEAPON("武器", ItemStack(Items.IRON_SWORD)),
+        ARMOR("防具", ItemStack(Items.IRON_CHESTPLATE)),
+        BUILDING("建筑", ItemStack(Items.BEACON)),
     }
 
-    fun open(player: ServerPlayer, site: SiteCoreBlockEntity, page: Page = Page.BUILDING) {
+    private const val ROWS = 3
+    private const val PAGE_SLOT = 53
+
+    fun open(player: ServerPlayer, site: SiteCoreBlockEntity, page: Page = Page.WEAPON, sheet: Int = 0) {
         if (!Match.isFight()) {
             player.sendSystemMessage(Component.literal("商店只在战斗阶段可购买"))
             return
@@ -34,39 +43,86 @@ object BaseShop {
             player.sendSystemMessage(Component.literal("敌方打不开"))
             return
         }
-        val goods = when (page) {
-            Page.BUILDING -> building()
-            Page.EQUIPMENT -> equipment()
-        }
+        val goods = listings(page)
+        val sheets = (goods.maxOfOrNull { it.row / ROWS } ?: 0) + 1
+        val current = sheet.coerceIn(0, sheets - 1)
         val items = ArrayList<ShopItemWithIndex>()
-        items.add(Tab(1, Page.BUILDING, page, site))
-        items.add(Tab(3, Page.EQUIPMENT, page, site))
-        items.addAll(goods)
-        PageGui(ShopSession(), player, listOf(ShopLayer(5, items)), page.title, site).open()
+        Page.entries.forEachIndexed { index, tab ->
+            items.add(Tab(index, tab, page, site))
+        }
+        for (good in goods) {
+            if (good.row / ROWS != current) continue
+            items.add(Offer(slotOf(good.row % ROWS, good.column), good.item))
+        }
+        if (sheets > 1) items.add(PageTurn(PAGE_SLOT, site, page, current, sheets))
+        val reserved = items.map { it.index() }.toSet()
+        PageGui(ShopSession(), player, listOf(ShopLayer(6, items)), page.title, site, page, reserved).open()
     }
 
-    private fun equipment(): List<ShopItemWithIndex> = listOf(
-        priced(10, Items.OAK_LOG, 1, iron(MatchRules.LOG_IRON), "minecraft:oak_log 1"),
-        priced(15, Items.BOW, 1, iron(MatchRules.BOW_IRON), "minecraft:bow 1"),
-        priced(16, Items.ARROW, MatchRules.ARROW_COUNT, iron(MatchRules.ARROW_IRON), "minecraft:arrow ${MatchRules.ARROW_COUNT}"),
-        priced(19, Items.COOKED_BEEF, MatchRules.BEEF_COUNT, iron(MatchRules.BEEF_IRON), "minecraft:cooked_beef ${MatchRules.BEEF_COUNT}"),
-    )
+    private fun slotOf(row: Int, column: Int): Int = (row + 2) * 9 + column
 
-    private fun building(): List<ShopItemWithIndex> = listOf(
-        give(
-            10,
-            ModItems.CORE_REACTOR,
-            mapOf(
-                WallwarMod.idOf("iron") to MatchRules.REACTOR_PRICE_IRON,
-                WallwarMod.idOf("copper") to MatchRules.REACTOR_PRICE_COPPER,
+    private fun listings(page: Page): List<Listing> = when (page) {
+        Page.WEAPON -> listOf(
+            tool(0, 0, Items.IRON_SWORD, "iron", MatchRules.SWORD_MATERIAL),
+            tool(0, 1, Items.IRON_AXE, "iron", MatchRules.AXE_MATERIAL),
+            tool(0, 2, Items.IRON_PICKAXE, "iron", MatchRules.PICKAXE_MATERIAL),
+            tool(0, 3, Items.IRON_SHOVEL, "iron", MatchRules.SHOVEL_MATERIAL),
+            tool(0, 4, Items.IRON_SPEAR, "iron", MatchRules.SPEAR_MATERIAL),
+            tool(0, 5, Items.BOW, "iron", MatchRules.BOW_IRON),
+            tool(0, 6, Items.ARROW, "iron", MatchRules.ARROW_IRON, MatchRules.ARROW_COUNT),
+            tool(1, 0, Items.DIAMOND_SWORD, "diamond", MatchRules.SWORD_MATERIAL),
+            tool(1, 1, Items.DIAMOND_AXE, "diamond", MatchRules.AXE_MATERIAL),
+            tool(1, 2, Items.DIAMOND_PICKAXE, "diamond", MatchRules.PICKAXE_MATERIAL),
+            tool(1, 3, Items.DIAMOND_SHOVEL, "diamond", MatchRules.SHOVEL_MATERIAL),
+            tool(1, 4, Items.DIAMOND_SPEAR, "diamond", MatchRules.SPEAR_MATERIAL),
+            tool(1, 5, Items.CROSSBOW, "iron", MatchRules.CROSSBOW_IRON),
+            tool(1, 6, Items.COOKED_BEEF, "iron", MatchRules.BEEF_IRON, MatchRules.BEEF_COUNT),
+            tool(2, 6, Items.OAK_PLANKS, "iron", MatchRules.PLANK_IRON, MatchRules.PLANK_COUNT),
+        )
+        Page.ARMOR -> listOf(
+            tool(0, 0, Items.COPPER_HELMET, "copper", MatchRules.HELMET_MATERIAL),
+            tool(0, 1, Items.COPPER_CHESTPLATE, "copper", MatchRules.CHESTPLATE_MATERIAL),
+            tool(0, 2, Items.COPPER_LEGGINGS, "copper", MatchRules.LEGGINGS_MATERIAL),
+            tool(0, 3, Items.COPPER_BOOTS, "copper", MatchRules.BOOTS_MATERIAL),
+            tool(0, 4, Items.SHIELD, "diamond", MatchRules.SHIELD_DIAMOND),
+            tool(1, 0, Items.IRON_HELMET, "iron", MatchRules.HELMET_MATERIAL),
+            tool(1, 1, Items.IRON_CHESTPLATE, "iron", MatchRules.CHESTPLATE_MATERIAL),
+            tool(1, 2, Items.IRON_LEGGINGS, "iron", MatchRules.LEGGINGS_MATERIAL),
+            tool(1, 3, Items.IRON_BOOTS, "iron", MatchRules.BOOTS_MATERIAL),
+            tool(2, 0, Items.DIAMOND_HELMET, "diamond", MatchRules.HELMET_MATERIAL),
+            tool(2, 1, Items.DIAMOND_CHESTPLATE, "diamond", MatchRules.CHESTPLATE_MATERIAL),
+            tool(2, 2, Items.DIAMOND_LEGGINGS, "diamond", MatchRules.LEGGINGS_MATERIAL),
+            tool(2, 3, Items.DIAMOND_BOOTS, "diamond", MatchRules.BOOTS_MATERIAL),
+        )
+        Page.BUILDING -> listOf(
+            listing(0, 0, ItemStack(ModItems.CORE_WALL), copper(MatchRules.WALL_PRICE_COPPER)),
+            listing(
+                0,
+                1,
+                ItemStack(ModItems.CORE_REACTOR),
+                mapOf(
+                    WallwarMod.idOf("iron") to MatchRules.REACTOR_PRICE_IRON,
+                    WallwarMod.idOf("copper") to MatchRules.REACTOR_PRICE_COPPER,
+                ),
             ),
-        ),
-        give(12, ModItems.CORE_WALL, copper(MatchRules.WALL_PRICE_COPPER)),
-        give(14, ModItems.CORE_TOWER, copper(MatchRules.TOWER_PRICE_COPPER)),
-        give(16, ModItems.CORE_BARRACKS, iron(MatchRules.BARRACKS_PRICE_IRON)),
-        give(19, ModItems.REINFORCE, lapis(MatchRules.MODULE_LAPIS)),
-        give(21, ModItems.REINFORCE_TWO, lapis(MatchRules.MODULE_TWO_LAPIS)),
-    )
+            listing(0, 2, ItemStack(ModItems.CORE_BARRACKS), iron(MatchRules.BARRACKS_PRICE_IRON)),
+            listing(0, 3, ItemStack(ModItems.CORE_TOWER), copper(MatchRules.TOWER_PRICE_COPPER)),
+            listing(
+                0,
+                4,
+                ItemStack(ModItems.CORE_CANNON),
+                mapOf(
+                    WallwarMod.idOf("iron") to MatchRules.CANNON_PRICE_IRON,
+                    WallwarMod.idOf("copper") to MatchRules.CANNON_PRICE_COPPER,
+                ),
+            ),
+            listing(1, 0, ItemStack(ModItems.REINFORCE), lapis(MatchRules.MODULE_LAPIS)),
+            listing(1, 1, ItemStack(ModItems.REINFORCE_TWO), lapis(MatchRules.MODULE_TWO_LAPIS)),
+        )
+    }
+
+    private fun tool(row: Int, column: Int, item: Item, material: String, cost: Int, count: Int = 1) =
+        listing(row, column, ItemStack(item, count), mapOf(WallwarMod.idOf(material) to cost))
 
     private fun iron(count: Int) = mapOf(WallwarMod.idOf("iron") to count)
 
@@ -74,17 +130,22 @@ object BaseShop {
 
     private fun lapis(count: Int) = mapOf(WallwarMod.idOf("lapis") to count)
 
-    private fun priced(slot: Int, item: Item, count: Int, costs: Map<Identifier, Int>, give: String): Offer {
-        val icon = ItemStack(item, count)
-        val command = "give @s $give"
-        return Offer(slot, BaseShopItem(icon, costs, listOf(command), true, 0, false, Component.literal("商店只在战斗阶段可购买")))
-    }
-
-    private fun give(slot: Int, item: Item, costs: Map<Identifier, Int>): Offer {
-        val id = net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(item)
-        return Offer(slot, BaseShopItem(ItemStack(item), costs, listOf("give @s $id 1"), true, 0, false, Component.literal("商店只在战斗阶段可购买")))
+    private fun listing(row: Int, column: Int, stack: ItemStack, costs: Map<Identifier, Int>): Listing {
+        val id = BuiltInRegistries.ITEM.getKey(stack.item)
+        val item = BaseShopItem(
+            stack,
+            costs,
+            listOf("give @s $id ${stack.count}"),
+            true,
+            0,
+            false,
+            Component.literal("商店只在战斗阶段可购买"),
+        )
+        return Listing(row, column, item)
     }
 }
+
+private data class Listing(val row: Int, val column: Int, val item: BaseShopItem)
 
 private class PageGui(
     session: ShopSession,
@@ -92,9 +153,19 @@ private class PageGui(
     layers: Collection<ShopLayer>,
     heading: String,
     private val site: SiteCoreBlockEntity,
-) : ShopGui(session, player, layers, 5) {
+    page: BaseShop.Page,
+    reserved: Set<Int>,
+) : ShopGui(session, player, layers, 6) {
     init {
         title = Component.literal(heading)
+        val border = ItemStack(Items.GRAY_STAINED_GLASS_PANE).hideTooltip()
+        for (slot in 0 until size) {
+            if (slot !in reserved) setSlot(slot, GuiElement(border, GuiElementInterface.EMPTY_CALLBACK))
+        }
+        val barrier = ItemStack(Items.BARRIER).hideTooltip()
+        for (slot in 3..6) setSlot(slot, GuiElement(barrier, GuiElementInterface.EMPTY_CALLBACK))
+        val marker = ItemStack(Items.LIME_STAINED_GLASS_PANE).hideTooltip()
+        setSlot(9 + page.ordinal, GuiElement(marker, GuiElementInterface.EMPTY_CALLBACK))
     }
 
     fun stillOpen(): Boolean {
@@ -125,17 +196,40 @@ private class Tab(
         player.level().server.execute { BaseShop.open(player, site, page) }
     }
 
-    private fun icon(): ItemStack {
-        val item = when (page) {
-            BaseShop.Page.BUILDING -> Items.BEACON
-            BaseShop.Page.EQUIPMENT -> Items.BOW
-        }
-        val stack = ItemStackBuilder.of(item)
-            .setName(Component.literal(page.title).withStyle { style -> style.withColor(net.minecraft.ChatFormatting.YELLOW).withItalic(false) })
+    private fun icon(): ItemStack =
+        ItemStackBuilder.of(page.icon.copy())
+            .setName(Component.literal(page.title).withStyle { style ->
+                style.withColor(ChatFormatting.YELLOW).withItalic(false)
+            })
             .build()
-        if (page == current) stack.set(DataComponents.ENCHANTMENT_GLINT_OVERRIDE, true)
-        return stack
+}
+
+private class PageTurn(
+    private val slot: Int,
+    private val site: SiteCoreBlockEntity,
+    private val page: BaseShop.Page,
+    private val sheet: Int,
+    private val sheets: Int,
+) : ShopItemWithIndex {
+    override fun index(): Int = slot
+
+    override fun getDefaultIcon(): ItemStack = icon()
+
+    override fun getIcon(gui: ShopGui, viewModel: ShopItemViewModel): ItemStack = icon()
+
+    override fun getBaseItem(gui: ShopGui, clickType: ClickType, viewModel: ShopItemViewModel): BaseShopItem =
+        BaseShopItem(icon(), emptyMap(), emptyList(), false, 0, true, null)
+
+    override fun executeBuying(item: BaseShopItem, gui: ShopGui, clickType: ClickType, materialSuffix: Component?) {
+        val player = gui.player
+        gui.close()
+        player.level().server.execute { BaseShop.open(player, site, page, (sheet + 1) % sheets) }
     }
+
+    private fun icon(): ItemStack =
+        ItemStackBuilder.of(Items.ARROW)
+            .setName(Component.literal("翻页").withStyle { style -> style.withColor(ChatFormatting.WHITE).withItalic(false) })
+            .build()
 }
 
 private class Offer(
@@ -144,10 +238,9 @@ private class Offer(
 ) : ShopItemWithIndex {
     override fun index(): Int = slot
 
-    override fun getDefaultIcon(): ItemStack = offer.icon.copy()
+    override fun getDefaultIcon(): ItemStack = shown(null, locked = false)
 
-    override fun getIcon(gui: ShopGui, viewModel: ShopItemViewModel): ItemStack =
-        ItemStackBuilder.of(offer.icon).addCostInfo(gui.player, offer, isLocked(gui, offer)).build()
+    override fun getIcon(gui: ShopGui, viewModel: ShopItemViewModel): ItemStack = shown(gui, isLocked(gui, offer))
 
     override fun getBaseItem(gui: ShopGui, clickType: ClickType, viewModel: ShopItemViewModel): BaseShopItem = offer
 
@@ -156,5 +249,15 @@ private class Offer(
     override fun updateView(gui: ShopGui, viewModel: ShopItemViewModel) {
         val page = gui as? PageGui
         gui.session.valid = page?.stillOpen() == true
+    }
+
+    private fun shown(gui: ShopGui?, locked: Boolean): ItemStack {
+        val built = if (gui == null) {
+            ItemStackBuilder.of(offer.icon).build()
+        } else {
+            ItemStackBuilder.of(offer.icon).addCostInfo(gui.player, offer, locked).build()
+        }
+        built.remove(DataComponents.CUSTOM_MODEL_DATA)
+        return built
     }
 }

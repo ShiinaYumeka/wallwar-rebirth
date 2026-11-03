@@ -2,14 +2,18 @@ package shina.wallwarRebirth.building
 
 import net.minecraft.core.BlockPos
 import net.minecraft.server.level.ServerLevel
+import net.minecraft.tags.BlockTags
 import net.minecraft.world.entity.LivingEntity
 import net.minecraft.world.level.block.state.BlockState
 import net.minecraft.world.phys.AABB
 import net.minecraft.world.phys.Vec3
 import shina.wallwarRebirth.match.MatchRules
+import shina.wallwarRebirth.mixin.AbstractArrowAccess
 import shina.wallwarRebirth.monster.ModMonsters
 import shina.wallwarRebirth.monster.SummonedUnit
 import kotlin.math.atan2
+import kotlin.math.cos
+import kotlin.math.sin
 import kotlin.math.sqrt
 
 object BuildingCombat {
@@ -17,11 +21,30 @@ object BuildingCombat {
         val before = site.actionAge
         val beforeEgg = site.eggReleaseAge
         when (site.buildingId) {
+            Buildings.WALL.id -> tickWall(site, level)
             Buildings.TOWER.id -> tickTower(site, level)
+            Buildings.CANNON.id -> tickCannon(site, level)
             Buildings.BARRACKS.id -> BarracksWork.tick(site, level)
         }
         if (site.actionAge != before && (site.actionAge % 20 == 0 || site.actionAge == 30)) site.setChanged()
         if (site.eggReleaseAge != beforeEgg && site.eggReleaseAge == 0) site.setChanged()
+    }
+
+    private fun tickWall(site: SiteCoreBlockEntity, level: ServerLevel) {
+        if (site.reinforce.isEmpty || site.health <= 0) return
+        if (site.age % MatchRules.TICKS_PER_SECOND != 0) return
+        if (site.lastHurtAge >= site.age - MatchRules.TICKS_PER_SECOND) return
+        val origin = Vec3.atCenterOf(site.blockPos)
+        for (other in SiteCores.all()) {
+            if (other.level !== level || other.isRemoved || other.health <= 0 || other.buildingId.isEmpty()) continue
+            if (site.team.isEmpty() || other.team != site.team) continue
+            if (origin.distanceTo(Vec3.atCenterOf(other.blockPos)) > MatchRules.WALL_HEAL_RANGE) continue
+            val definition = Buildings.byId(other.buildingId) ?: continue
+            val maxHealth = definition.maxHealth(other.buildingLevel)
+            if (other.health >= maxHealth) continue
+            other.health = minOf(maxHealth, other.health + MatchRules.WALL_HEAL_AMOUNT)
+            other.setChanged()
+        }
     }
 
     private fun tickTower(site: SiteCoreBlockEntity, level: ServerLevel) {
@@ -35,6 +58,64 @@ object BuildingCombat {
         site.actionAge = 0
         site.setChanged()
         shoot(site, level, target, MatchRules.TOWER_SPEED[index])
+    }
+
+    private fun tickCannon(site: SiteCoreBlockEntity, level: ServerLevel) {
+        val index = (site.buildingLevel - 1).coerceIn(0, MatchRules.CANNON_CENTER_DAMAGE.lastIndex)
+        val interval = if (site.reinforceTwo.isEmpty) MatchRules.CANNON_INTERVAL else MatchRules.CANNON_INTERVAL * 4 / 5
+        val target = cannonTarget(site, level)
+        if (site.actionAge < interval) site.actionAge++
+        if (site.actionAge < interval || target == null) return
+        site.actionAge = 0
+        site.setChanged()
+        CannonShell.launch(level, site, target, MatchRules.CANNON_CENTER_DAMAGE[index], !site.reinforce.isEmpty)
+    }
+
+    private fun cannonTarget(site: SiteCoreBlockEntity, level: ServerLevel): Vec3? {
+        val origin = Vec3.atCenterOf(site.blockPos)
+        val range = MatchRules.CANNON_RANGE
+        val box = AABB.ofSize(origin, range * 2.0, range * 2.0, range * 2.0)
+        val monsters = level.getEntitiesOfClass(LivingEntity::class.java, box)
+            .filter {
+                it is SummonedUnit &&
+                    it.isAlive &&
+                    hostile(site.team, it.summonedTeam) &&
+                    distanceToBox(origin, it.boundingBox) <= range + MatchRules.CANNON_TIE_DISTANCE
+            }
+        pick(origin, monsters, MatchRules.CANNON_TIE_DISTANCE)?.let { return Vec3.atCenterOf(it.blockPosition()) }
+        val players = level.players()
+            .filter {
+                it.isAlive &&
+                    !it.isSpectator &&
+                    hostile(site.team, it.team?.name ?: "") &&
+                    distanceToBox(origin, it.boundingBox) <= range + MatchRules.CANNON_TIE_DISTANCE
+            }
+        pick(origin, players, MatchRules.CANNON_TIE_DISTANCE)?.let { return Vec3.atCenterOf(it.blockPosition()) }
+        val buildings = SiteCores.all().filter {
+            it.level === level &&
+                !it.isRemoved &&
+                it.health > 0 &&
+                it.blockPos != site.blockPos &&
+                it.buildingId.isNotEmpty() &&
+                hostile(site.team, it.team) &&
+                distanceToBox(origin, coreBox(level, it.blockPos)) <= range + MatchRules.CANNON_TIE_DISTANCE
+        }
+        val building = buildings.minWithOrNull(
+            compareBy<SiteCoreBlockEntity> {
+                (distanceToBox(origin, coreBox(level, it.blockPos)) / MatchRules.CANNON_TIE_DISTANCE).toLong()
+            }
+                .thenBy { it.health }
+                .thenBy { it.blockPos.x }
+                .thenBy { it.blockPos.z }
+                .thenBy { it.blockPos.y },
+        ) ?: return null
+        return Vec3.atCenterOf(building.blockPos)
+    }
+
+    private fun coreBox(level: ServerLevel, pos: BlockPos): AABB {
+        val shape = level.getBlockState(pos).getCollisionShape(level, pos)
+        if (shape.isEmpty) return AABB(pos)
+        return shape.bounds().move(pos.x.toDouble(), pos.y.toDouble(), pos.z.toDouble())
     }
 
     private fun nearestTarget(site: SiteCoreBlockEntity, level: ServerLevel, range: Double): LivingEntity? {
@@ -53,9 +134,9 @@ object BuildingCombat {
         return pick(origin, players)
     }
 
-    private fun <T : LivingEntity> pick(origin: Vec3, entities: List<T>): T? =
+    private fun <T : LivingEntity> pick(origin: Vec3, entities: List<T>, tie: Double = MatchRules.TOWER_TIE_DISTANCE): T? =
         entities.minWithOrNull(
-            compareBy<T> { (distanceToBox(origin, it.boundingBox) / MatchRules.TOWER_TIE_DISTANCE).toLong() }
+            compareBy<T> { (distanceToBox(origin, it.boundingBox) / tie).toLong() }
                 .thenBy { it.health }
                 .thenBy { it.id },
         )
@@ -66,13 +147,37 @@ object BuildingCombat {
         if (aim.lengthSqr() < 1.0e-6) return
         val direction = aim.normalize()
         val muzzle = muzzle(site, level, origin, direction, aim.length()) ?: return
+        val pierce = !site.reinforce.isEmpty
+        fire(site, level, muzzle, direction, speed, pierce)
+        if (site.reinforceTwo.isEmpty) return
+        fire(site, level, muzzle, yawTurn(direction, -MatchRules.TOWER_SPREAD_DEGREES), speed, pierce)
+        fire(site, level, muzzle, yawTurn(direction, MatchRules.TOWER_SPREAD_DEGREES), speed, pierce)
+    }
+
+    private fun fire(
+        site: SiteCoreBlockEntity,
+        level: ServerLevel,
+        muzzle: Vec3,
+        direction: Vec3,
+        speed: Float,
+        pierce: Boolean,
+    ) {
         val arrow = TowerArrow(ModMonsters.TOWER_ARROW, level)
         arrow.setBaseDamage(MatchRules.TOWER_ARROW_BASE_DAMAGE)
         arrow.towerTeam = site.team
+        if (pierce) (arrow as AbstractArrowAccess).wallwarSetPierceLevel((MatchRules.TOWER_PIERCE_HITS - 1).toByte())
         val yaw = Math.toDegrees(atan2(-direction.x, direction.z)).toFloat()
         arrow.snapTo(muzzle.x, muzzle.y, muzzle.z, yaw, 0f)
         arrow.shoot(direction.x, direction.y, direction.z, speed, 0f)
         level.addFreshEntity(arrow)
+    }
+
+    private fun yawTurn(direction: Vec3, degrees: Double): Vec3 {
+        val horizontal = sqrt(direction.x * direction.x + direction.z * direction.z)
+        val pitch = atan2(direction.y, horizontal)
+        val yaw = atan2(-direction.x, direction.z) + Math.toRadians(degrees)
+        val cosPitch = cos(pitch)
+        return Vec3(-sin(yaw) * cosPitch, sin(pitch), cos(yaw) * cosPitch)
     }
 
     private fun muzzle(
@@ -91,6 +196,10 @@ object BuildingCombat {
             if (owns(site, level, pos)) continue
             val state = level.getBlockState(pos)
             if (collisionEmpty(level, pos, state)) return cursor
+            if (state.`is`(BlockTags.PLANKS)) {
+                level.destroyBlock(pos, true)
+                return null
+            }
             return null
         }
         return cursor

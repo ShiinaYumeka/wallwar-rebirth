@@ -10,9 +10,11 @@ import net.minecraft.world.entity.EntityType
 import net.minecraft.world.entity.MobCategory
 import net.minecraft.world.entity.animal.golem.IronGolem
 import net.minecraft.world.entity.monster.skeleton.AbstractSkeleton
+import net.minecraft.world.entity.monster.spider.Spider
 import net.minecraft.world.entity.monster.zombie.Zombie
 import shina.wallwarRebirth.WallwarMod
 import shina.wallwarRebirth.building.BuildingHealthLabel
+import shina.wallwarRebirth.building.CannonShell
 import shina.wallwarRebirth.building.TowerArrow
 import shina.wallwarRebirth.building.TowerCrossbow
 
@@ -23,6 +25,8 @@ object ModMonsters {
         private set
     lateinit var GOLEM: EntityType<SummonedGolem>
         private set
+    lateinit var SPIDER: EntityType<SummonedSpider>
+        private set
     lateinit var SUMMON_ARROW: EntityType<SummonArrow>
         private set
     lateinit var TOWER_ARROW: EntityType<TowerArrow>
@@ -30,6 +34,8 @@ object ModMonsters {
     lateinit var HEALTH_LABEL: EntityType<BuildingHealthLabel>
         private set
     lateinit var TOWER_CROSSBOW: EntityType<TowerCrossbow>
+        private set
+    lateinit var CANNON_SHELL: EntityType<CannonShell>
         private set
 
     fun init() {
@@ -39,6 +45,8 @@ object ModMonsters {
         FabricDefaultAttributeRegistry.register(SKELETON, AbstractSkeleton.createAttributes())
         GOLEM = register("summoned_golem", ::SummonedGolem, MobCategory.MISC, 1.4f, 2.7f, 10)
         FabricDefaultAttributeRegistry.register(GOLEM, IronGolem.createAttributes())
+        SPIDER = register("summoned_spider", ::SummonedSpider, MobCategory.MONSTER, 1.4f, 0.9f, 8)
+        FabricDefaultAttributeRegistry.register(SPIDER, Spider.createAttributes())
         val arrowId = WallwarMod.idOf("summon_arrow")
         val arrowKey = ResourceKey.create(Registries.ENTITY_TYPE, arrowId)
         SUMMON_ARROW = Registry.register(
@@ -88,6 +96,18 @@ object ModMonsters {
         )
         PolymerEntityUtils.registerType(TOWER_CROSSBOW)
         TowerCrossbow.bind(TOWER_CROSSBOW)
+        val shellId = WallwarMod.idOf("cannon_shell")
+        val shellKey = ResourceKey.create(Registries.ENTITY_TYPE, shellId)
+        CANNON_SHELL = Registry.register(
+            BuiltInRegistries.ENTITY_TYPE,
+            shellId,
+            EntityType.Builder.of(::CannonShell, MobCategory.MISC)
+                .sized(0.98f, 0.98f)
+                .clientTrackingRange(16)
+                .updateInterval(1)
+                .build(shellKey),
+        )
+        PolymerEntityUtils.registerType(CANNON_SHELL)
     }
 
     private fun <T : net.minecraft.world.entity.Mob> register(

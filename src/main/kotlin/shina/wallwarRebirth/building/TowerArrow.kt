@@ -1,11 +1,14 @@
 package shina.wallwarRebirth.building
 
 import eu.pb4.polymer.core.api.entity.PolymerEntity
+import net.minecraft.server.level.ServerLevel
+import net.minecraft.tags.BlockTags
 import net.minecraft.world.entity.Entity
 import net.minecraft.world.entity.EntityType
 import net.minecraft.world.entity.player.Player
 import net.minecraft.world.entity.projectile.arrow.Arrow
 import net.minecraft.world.level.Level
+import net.minecraft.world.phys.BlockHitResult
 import net.minecraft.world.level.storage.ValueInput
 import net.minecraft.world.level.storage.ValueOutput
 import shina.wallwarRebirth.monster.SummonedUnit
@@ -32,6 +35,20 @@ class TowerArrow(type: EntityType<out TowerArrow>, level: Level) : Arrow(type, l
             else -> return false
         }
         return other != towerTeam
+    }
+
+    override fun onHitBlock(result: BlockHitResult) {
+        val server = level() as? ServerLevel
+        if (server != null) {
+            val pos = result.blockPos
+            val state = server.getBlockState(pos)
+            if (state.`is`(BlockTags.PLANKS)) {
+                server.destroyBlock(pos, true, this)
+                discard()
+                return
+            }
+        }
+        super.onHitBlock(result)
     }
 
     override fun addAdditionalSaveData(output: ValueOutput) {

@@ -23,11 +23,11 @@ import xyz.nucleoid.packettweaker.PacketContext
  * @property interactionType 控制交互与音效异常标记的组合
  */
 class SimpleModdedItem(
-    properties: Item.Properties,
+    properties: Properties,
     polymerItem: Item = Items.POPPED_CHORUS_FRUIT,
     private val modelProvider: ModelProvider? = null,
     private val interactionType: PolymerInteractionType = PolymerInteractionType.DEFAULT,
-) : SimplePolymerItem(properties, polymerItem, true) {
+) : SimplePolymerItem(properties, polymerItem, false) {
 
     override fun getPolymerItemModel(stack: ItemStack, context: PacketContext): Identifier? {
         if (modelProvider != null) {

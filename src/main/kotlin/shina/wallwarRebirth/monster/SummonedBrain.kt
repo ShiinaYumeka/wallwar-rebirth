@@ -180,7 +180,7 @@ class SummonedBrain(private val mob: Mob, private val unit: SummonedUnit) {
             mob.lookControl.setLookAt(Vec3.atCenterOf(hit.pos))
             swingAtBuilding()
             val name = Monsters.byId(unit.kindId)?.displayName ?: unit.kindId
-            hit.core.damageFromMonster(unit.summonedTeam, stats.buildingDamage, hit.pos, name)
+            hit.core.damageFromMonster(mob, unit.summonedTeam, stats.buildingDamage, hit.pos, name)
         }
     }
 

@@ -15,10 +15,11 @@ import net.minecraft.world.entity.EquipmentSlot
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
 import net.minecraft.world.level.GameType
+import net.minecraft.world.level.gamerules.GameRules
+import net.minecraft.world.level.storage.LevelData
 import net.minecraft.world.level.storage.LevelResource
 import net.minecraft.world.level.Level
 import shina.wallwarRebirth.building.SiteCoreBlockEntity
-import shina.wallwarRebirth.item.ModItems
 import shina.wallwarRebirth.monster.TestTeams
 import shina.wallwarRebirth.util.clearTitle
 import shina.wallwarRebirth.util.showActionBar
@@ -45,6 +46,7 @@ object Match {
         var started: Boolean = false
         var ironGiven: Boolean = false
         var respawnAt: Int = 0
+        var pendingReset: Boolean = false
         var heldItems: List<ItemStack> = emptyList()
         var heldLevel: Int = 0
         var heldProgress: Float = 0f
@@ -59,6 +61,7 @@ object Match {
     var blueSpawn: Spawn = Spawn(0.5, 80.0, 0.5, 0f)
     private val members = HashMap<UUID, Member>()
     private var generating = false
+    private var loadDeadline: Int = -1
     private var watchBuildTick: Int = -1
     private var watchEndsAt: Int = 0
     private var watchSecond: Int = -1
@@ -67,14 +70,21 @@ object Match {
     fun attach(current: MinecraftServer) {
         server = current
         load(current)
+        MatchWorld.release(current)
     }
 
     fun stop(current: MinecraftServer) {
+        MatchWorld.release(current)
         save(current)
     }
 
     fun tick(current: MinecraftServer) {
         server = current
+        for (level in current.allLevels) {
+            val rules = level.gameRules
+            if (rules.get(GameRules.IMMEDIATE_RESPAWN) == true) continue
+            rules.set(GameRules.IMMEDIATE_RESPAWN, true, current)
+        }
         val arena = current.getLevel(MatchRules.DIMENSION)
         if (arena != null) {
             if (ArenaReset.holding()) ArenaReset.forget(arena)
@@ -85,6 +95,7 @@ object Match {
             watchBuildTick = -1
             buildWatch(current)
         }
+        if (generating) finishWatch(current)
         if (phase == Phase.WATCH) {
             if (watchEndsAt == 0) watchEndsAt = current.tickCount + MatchRules.WATCH_TICKS
             val left = watchEndsAt - current.tickCount
@@ -94,26 +105,7 @@ object Match {
                 showWatchRemaining(current, left)
             }
         }
-        for (player in current.playerList.players) {
-            val member = members[player.uuid] ?: continue
-            if (phase == Phase.FIGHT && member.respawnAt > current.tickCount) {
-                val left = member.respawnAt - current.tickCount
-                if (left % MatchRules.TICKS_PER_SECOND == 0) {
-                    val seconds = left / MatchRules.TICKS_PER_SECOND
-                    player.showTitle(Component.literal("复活倒计时 $seconds"), fadeIn = 0, stay = 25, fadeOut = 0)
-                }
-            }
-            if (member.respawnAt == 0 || current.tickCount < member.respawnAt) continue
-            member.respawnAt = 0
-            player.clearTitle()
-            if (phase == Phase.FIGHT) {
-                player.health = player.maxHealth
-                enterFight(player, member)
-            } else {
-                player.setGameMode(GameType.SPECTATOR)
-            }
-            save(current)
-        }
+        tickRespawns(current)
     }
 
     fun frozen(level: Level): Boolean = level.dimension() == MatchRules.DIMENSION && phase != Phase.FIGHT
@@ -156,14 +148,17 @@ object Match {
         member.team = team
         member.classId = Classes.MINER
         member.classLocked = true
-        MatchMenu.take(player)
+        MatchMenu.give(player)
         when (phase) {
             Phase.LOBBY -> player.setGameMode(GameType.ADVENTURE)
             Phase.WATCH -> {
                 player.setGameMode(GameType.SPECTATOR)
                 teleportSpawn(player, team)
             }
-            Phase.FIGHT -> enterFight(player, member)
+            Phase.FIGHT -> {
+                if (!member.ironGiven) resetVitals(player)
+                enterFight(player, member)
+            }
             Phase.SETTLE -> player.setGameMode(GameType.SPECTATOR)
         }
         save(current)
@@ -256,12 +251,14 @@ object Match {
             }
             if (members.containsKey(player.uuid)) player.setGameMode(GameType.ADVENTURE)
         }
+        MatchWorld.release(current)
         if (arena != null && !ArenaReset.wipe(arena)) {
             actor?.sendSystemMessage(Component.literal("重置地形失败，请看服务器日志"))
         }
         phase = Phase.LOBBY
         worldReady = false
         generating = false
+        loadDeadline = -1
         watchBuildTick = -1
         watchEndsAt = 0
         watchSecond = -1
@@ -274,9 +271,15 @@ object Match {
             member.started = false
             member.ironGiven = false
             member.respawnAt = 0
+            member.pendingReset = member.team == TestTeams.RED || member.team == TestTeams.BLUE
             member.heldItems = emptyList()
             member.heldLevel = 0
             member.heldProgress = 0f
+        }
+        for (player in current.playerList.players) {
+            val member = members[player.uuid] ?: continue
+            applyBodyReset(player, member)
+            player.clearTitle()
         }
         save(current)
         broadcast(current, "对局已重置")
@@ -292,6 +295,7 @@ object Match {
         }
         val current = player.level().server
         server = current
+        if (applyBodyReset(player, member)) save(current)
         when (phase) {
             Phase.LOBBY -> player.setGameMode(GameType.ADVENTURE)
             Phase.WATCH -> {
@@ -303,8 +307,12 @@ object Match {
                 if (member.respawnAt > current.tickCount) {
                     player.setGameMode(GameType.SPECTATOR)
                     teleportSpawn(player, member.team)
+                    val left = member.respawnAt - current.tickCount
+                    val seconds = (left + MatchRules.TICKS_PER_SECOND - 1) / MatchRules.TICKS_PER_SECOND
+                    showRespawnTitle(player, seconds)
                 } else {
                     member.respawnAt = 0
+                    if (!member.ironGiven) resetVitals(player)
                     enterFight(player, member)
                 }
             }
@@ -313,6 +321,7 @@ object Match {
                 if (worldReady) teleportSpawn(player, member.team)
             }
         }
+        MatchMenu.give(player)
     }
 
     fun onLeave(current: MinecraftServer) {
@@ -320,20 +329,19 @@ object Match {
         if (phase == Phase.LOBBY) tryBeginWatch(current)
     }
 
-    fun denyFightDeath(player: ServerPlayer): Boolean {
-        if (phase != Phase.FIGHT) return false
-        val member = members[player.uuid] ?: return false
-        if (member.team != TestTeams.RED && member.team != TestTeams.BLUE) return false
-        player.health = player.maxHealth
-        player.removeAllEffects()
-        player.clearFire()
-        player.setGameMode(GameType.SPECTATOR)
-        member.respawnAt = player.level().server.tickCount + MatchRules.RESPAWN_TICKS
-        teleportSpawn(player, member.team)
-        val seconds = MatchRules.RESPAWN_TICKS / MatchRules.TICKS_PER_SECOND
-        player.showTitle(Component.literal("复活倒计时 $seconds"), fadeIn = 0, stay = 25, fadeOut = 0)
-        save(player.level().server)
-        return true
+    fun leaveAndSpectate(player: ServerPlayer) {
+        val current = player.level().server
+        val member = members[player.uuid]
+        if (member != null) {
+            member.team = ""
+            member.ready = false
+            member.started = false
+            current.scoreboard.removePlayerFromTeam(player.scoreboardName)
+            save(current)
+        }
+        MatchMenu.give(player)
+        if (phase == Phase.LOBBY) player.setGameMode(GameType.ADVENTURE)
+        spectate(player)
     }
 
     fun spectate(player: ServerPlayer) {
@@ -352,42 +360,29 @@ object Match {
         teleport(player, arena, x, y, z, player.yRot)
     }
 
-    fun holdDeath(player: ServerPlayer) {
-        if (phase != Phase.FIGHT) return
+    fun afterRespawn(player: ServerPlayer) {
         val member = members[player.uuid] ?: return
-        if (member.team != TestTeams.RED && member.team != TestTeams.BLUE) return
-        val items = ArrayList<ItemStack>()
-        for (slot in 0 until player.inventory.containerSize) items.add(player.inventory.getItem(slot).copy())
-        member.heldItems = items
-        member.heldLevel = player.experienceLevel
-        member.heldProgress = player.experienceProgress
-        player.inventory.clearContent()
-        player.experienceLevel = 0
-        player.experienceProgress = 0f
-        save(player.level().server)
-    }
-
-    fun restoreDeath(player: ServerPlayer) {
-        val member = members[player.uuid] ?: return
-        if (member.heldItems.isEmpty() && member.heldLevel == 0) {
-            if (phase != Phase.FIGHT) player.setGameMode(GameType.SPECTATOR)
-            return
-        }
-        for (slot in member.heldItems.indices) {
-            if (slot < player.inventory.containerSize) player.inventory.setItem(slot, member.heldItems[slot].copy())
-        }
-        player.experienceLevel = member.heldLevel
-        player.experienceProgress = member.heldProgress
         member.heldItems = emptyList()
         member.heldLevel = 0
         member.heldProgress = 0f
-        if (phase == Phase.FIGHT) {
-            player.setGameMode(GameType.SPECTATOR)
-            member.respawnAt = player.level().server.tickCount + MatchRules.RESPAWN_TICKS
-            teleportSpawn(player, member.team)
-        } else {
-            player.setGameMode(GameType.SPECTATOR)
-            member.respawnAt = 0
+        when (phase) {
+            Phase.FIGHT -> {
+                if (member.team == TestTeams.RED || member.team == TestTeams.BLUE) {
+                    startRespawnWait(player, member)
+                } else {
+                    member.respawnAt = 0
+                    player.clearTitle()
+                }
+            }
+            Phase.WATCH, Phase.SETTLE -> {
+                member.respawnAt = 0
+                player.setGameMode(GameType.SPECTATOR)
+                if (worldReady) teleportSpawn(player, member.team)
+            }
+            Phase.LOBBY -> {
+                member.respawnAt = 0
+                if (member.team.isNotEmpty()) player.setGameMode(GameType.ADVENTURE)
+            }
         }
         save(player.level().server)
     }
@@ -400,12 +395,17 @@ object Match {
         val winner = if (core.team == TestTeams.RED) TestTeams.BLUE else TestTeams.RED
         val text = "$winner 获胜"
         broadcast(current, text)
+        for (member in members.values) {
+            member.respawnAt = 0
+            if (member.team == TestTeams.RED || member.team == TestTeams.BLUE) member.pendingReset = true
+        }
         for (player in current.playerList.players) {
+            val member = members[player.uuid]
+            if (member != null) applyBodyReset(player, member)
             player.showTitle(Component.literal(text))
-            if (isArena(player.level()) || members.containsKey(player.uuid)) {
+            if (isArena(player.level()) || member != null) {
                 player.setGameMode(GameType.SPECTATOR)
             }
-            members[player.uuid]?.respawnAt = 0
         }
         save(current)
     }
@@ -417,8 +417,6 @@ object Match {
     }
 
     private fun offerMenu(player: ServerPlayer) {
-        val member = members[player.uuid]
-        if (member != null && member.team.isNotEmpty()) return
         if (phase == Phase.LOBBY && player.isSpectator) player.setGameMode(GameType.ADVENTURE)
         MatchMenu.give(player)
     }
@@ -475,17 +473,35 @@ object Match {
                 val spawn = overworld.respawnData.pos()
                 teleport(player, overworld, spawn.x + 0.5, spawn.y.toDouble(), spawn.z + 0.5, player.yRot)
             }
+            MatchWorld.release(current)
             if (!ArenaReset.wipe(arena)) {
                 abortReady(current, "地图重置失败")
                 return
             }
         }
+        if (!MatchWorld.prime(current)) {
+            abortReady(current, "地图初始化失败")
+            return
+        }
+        loadDeadline = current.tickCount + 30 * MatchRules.TICKS_PER_SECOND
+    }
+
+    private fun finishWatch(current: MinecraftServer) {
+        if (phase != Phase.LOBBY) {
+            abortReady(current, "地图初始化失败")
+            return
+        }
+        if (!MatchWorld.loaded(current)) {
+            if (loadDeadline in 0..current.tickCount) abortReady(current, "地图初始化失败")
+            return
+        }
         val built = MatchWorld.build(current)
-        generating = false
         if (built == null) {
             abortReady(current, "地图初始化失败")
             return
         }
+        generating = false
+        loadDeadline = -1
         redBase = built.redBase
         blueBase = built.blueBase
         redSpawn = built.redSpawn
@@ -503,11 +519,14 @@ object Match {
         }
         showWatchRemaining(current, MatchRules.WATCH_TICKS)
         broadcast(current, "地图已准备好")
+        MatchWorld.release(current)
         save(current)
     }
 
     private fun abortReady(current: MinecraftServer, message: String) {
         generating = false
+        loadDeadline = -1
+        MatchWorld.release(current)
         watchEndsAt = 0
         watchSecond = -1
         for (member in members.values) member.ready = false
@@ -524,25 +543,98 @@ object Match {
         phase = Phase.FIGHT
         for ((player, member) in onlineTeam(current, TestTeams.RED) + onlineTeam(current, TestTeams.BLUE)) {
             member.classLocked = true
+            member.respawnAt = 0
+            resetVitals(player)
+            player.clearTitle()
             enterFight(player, member)
         }
-        giveReactor(current, TestTeams.RED)
-        giveReactor(current, TestTeams.BLUE)
+        giveStartIngots(current, TestTeams.RED)
+        giveStartIngots(current, TestTeams.BLUE)
         broadcast(current, "战斗开始")
         save(current)
     }
 
+    private fun tickRespawns(current: MinecraftServer) {
+        var changed = false
+        for (player in current.playerList.players) {
+            val member = members[player.uuid] ?: continue
+            if (member.respawnAt <= 0) continue
+            val fighting = phase == Phase.FIGHT && (member.team == TestTeams.RED || member.team == TestTeams.BLUE)
+            if (!fighting) {
+                member.respawnAt = 0
+                changed = true
+                continue
+            }
+            if (member.respawnAt > current.tickCount + MatchRules.RESPAWN_TICKS) {
+                member.respawnAt = current.tickCount + MatchRules.RESPAWN_TICKS
+            }
+            val left = member.respawnAt - current.tickCount
+            if (left > 0) {
+                if (left % MatchRules.TICKS_PER_SECOND == 0) {
+                    showRespawnTitle(player, left / MatchRules.TICKS_PER_SECOND)
+                }
+                continue
+            }
+            member.respawnAt = 0
+            player.clearTitle()
+            player.health = player.maxHealth
+            player.removeAllEffects()
+            player.clearFire()
+            enterFight(player, member)
+            changed = true
+        }
+        if (changed) save(current)
+    }
+
+    private fun startRespawnWait(player: ServerPlayer, member: Member) {
+        player.removeAllEffects()
+        player.clearFire()
+        player.setGameMode(GameType.SPECTATOR)
+        member.respawnAt = player.level().server.tickCount + MatchRules.RESPAWN_TICKS
+        teleportSpawn(player, member.team)
+        showRespawnTitle(player, MatchRules.RESPAWN_TICKS / MatchRules.TICKS_PER_SECOND)
+    }
+
+    private fun showRespawnTitle(player: ServerPlayer, seconds: Int) {
+        player.showTitle(Component.literal("复活倒计时 $seconds"), fadeIn = 0, stay = 25, fadeOut = 0)
+    }
+
+    private fun applyBodyReset(player: ServerPlayer, member: Member): Boolean {
+        if (!member.pendingReset) return false
+        member.pendingReset = false
+        if (member.team != TestTeams.RED && member.team != TestTeams.BLUE) return true
+        resetVitals(player)
+        clearBelongings(player)
+        MatchMenu.give(player)
+        return true
+    }
+
+    private fun clearBelongings(player: ServerPlayer) {
+        player.inventory.clearContent()
+        player.containerMenu.carried = ItemStack.EMPTY
+        for (slot in EquipmentSlot.entries) player.setItemSlot(slot, ItemStack.EMPTY)
+    }
+
     private fun enterFight(player: ServerPlayer, member: Member) {
         player.setGameMode(GameType.SURVIVAL)
+        rememberSpawn(player, member.team)
         teleportSpawn(player, member.team)
         if (!member.ironGiven) {
             giveKit(player)
             member.ironGiven = true
         }
+        MatchMenu.give(player)
+    }
+
+    private fun resetVitals(player: ServerPlayer) {
+        player.health = player.maxHealth
+        val food = player.foodData
+        food.foodLevel = 20
+        food.setSaturation(5f)
     }
 
     private fun giveKit(player: ServerPlayer) {
-        player.inventory.clearContent()
+        clearBelongings(player)
         player.setItemSlot(EquipmentSlot.HEAD, ItemStack(Items.COPPER_HELMET))
         player.setItemSlot(EquipmentSlot.CHEST, ItemStack(Items.COPPER_CHESTPLATE))
         player.setItemSlot(EquipmentSlot.LEGS, ItemStack(Items.COPPER_LEGGINGS))
@@ -556,14 +648,28 @@ object Match {
             val stack = ItemStack(item)
             if (!player.inventory.add(stack)) player.drop(stack, false)
         }
+        MatchMenu.give(player)
     }
 
-    private fun giveReactor(current: MinecraftServer, team: String) {
+    private fun giveStartIngots(current: MinecraftServer, team: String) {
         val players = onlineTeam(current, team).map { it.first }
         if (players.isEmpty()) return
         val chosen = players[players.first().level().random.nextInt(players.size)]
-        val stack = ItemStack(ModItems.CORE_REACTOR)
-        if (!chosen.inventory.add(stack)) chosen.drop(stack, false)
+        for (stack in listOf(
+            ItemStack(Items.IRON_INGOT, MatchRules.START_IRON),
+            ItemStack(Items.COPPER_INGOT, MatchRules.START_COPPER),
+        )) {
+            if (!chosen.inventory.add(stack)) chosen.drop(stack, false)
+        }
+    }
+
+    private fun rememberSpawn(player: ServerPlayer, team: String) {
+        val spawn = spawnOf(team) ?: return
+        val pos = BlockPos.containing(spawn.x, spawn.y, spawn.z)
+        player.setRespawnPosition(
+            ServerPlayer.RespawnConfig(LevelData.RespawnData.of(MatchRules.DIMENSION, pos, spawn.yaw, 0f), true),
+            false,
+        )
     }
 
     private fun teleportSpawn(player: ServerPlayer, team: String) {
@@ -621,6 +727,7 @@ object Match {
             entry.putBoolean("Started", member.started)
             entry.putBoolean("IronGiven", member.ironGiven)
             entry.putInt("RespawnAt", member.respawnAt)
+            entry.putBoolean("PendingReset", member.pendingReset)
             entry.putInt("HeldLevel", member.heldLevel)
             entry.putFloat("HeldProgress", member.heldProgress)
             val items = ListTag()
@@ -668,6 +775,7 @@ object Match {
             member.started = entry.getBooleanOr("Started", false)
             member.ironGiven = entry.getBooleanOr("IronGiven", false)
             member.respawnAt = entry.getIntOr("RespawnAt", 0)
+            member.pendingReset = entry.getBooleanOr("PendingReset", false)
             member.heldLevel = entry.getIntOr("HeldLevel", 0)
             member.heldProgress = entry.getFloatOr("HeldProgress", 0f)
             val items = entry.getListOrEmpty("HeldItems")

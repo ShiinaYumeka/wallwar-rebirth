@@ -209,6 +209,7 @@ object BuildingStyles {
             Buildings.WALL.id -> CoreForm.COPPER_LANTERN
             Buildings.TOWER.id -> CoreForm.FLETCHING_TABLE
             Buildings.BARRACKS.id -> CoreForm.CRAFTER
+            Buildings.CANNON.id -> CoreForm.DISPENSER
             else -> CoreForm.BEACON
         }
         if (state.getValue(SiteCoreBlock.FORM) == form) return

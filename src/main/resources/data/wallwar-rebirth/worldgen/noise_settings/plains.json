@@ -29,7 +29,12 @@
     "preliminary_surface_level": {
       "type": "minecraft:find_top_surface",
       "cell_height": 8,
-      "density": "wallwar-rebirth:plains_cheese"
+      "lower_bound": 0,
+      "upper_bound": 192.0,
+      "density": {
+        "type": "minecraft:cache_once",
+        "argument": "wallwar-rebirth:plains_cheese"
+      }
     },
     "ridges": "minecraft:overworld/ridges",
     "temperature": 0.0,

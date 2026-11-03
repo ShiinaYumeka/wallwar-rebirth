@@ -5,6 +5,8 @@ import net.minecraft.core.Direction
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.InteractionHand
+import net.minecraft.world.effect.MobEffectInstance
+import net.minecraft.world.effect.MobEffects
 import net.minecraft.world.entity.Mob
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.context.BlockPlaceContext
@@ -20,6 +22,7 @@ object Summoning {
         y: Double,
         z: Double,
         yaw: Float,
+        swift: Boolean = false,
     ): Boolean {
         val mob = create(level, definition) ?: return false
         val unit = mob as SummonedUnit
@@ -27,6 +30,9 @@ object Summoning {
         unit.kindId = definition.id
         SummonedGear.applyStats(mob, definition, fill = true)
         SummonedGear.apply(mob, unit)
+        if (swift) {
+            mob.addEffect(MobEffectInstance(MobEffects.SPEED, MobEffectInstance.INFINITE_DURATION, 0, false, true))
+        }
         mob.snapTo(x, y, z, yaw, 0f)
         return level.addFreshEntity(mob)
     }
@@ -44,6 +50,7 @@ object Summoning {
     private fun create(level: ServerLevel, definition: MonsterDefinition): Mob? = when (definition.id) {
         Monsters.SKELETON.id -> SummonedSkeleton(ModMonsters.SKELETON, level)
         Monsters.GOLEM.id -> SummonedGolem(ModMonsters.GOLEM, level)
+        Monsters.SPIDER.id -> SummonedSpider(ModMonsters.SPIDER, level)
         Monsters.ZOMBIE.id -> SummonedZombie(ModMonsters.ZOMBIE, level)
         else -> null
     }

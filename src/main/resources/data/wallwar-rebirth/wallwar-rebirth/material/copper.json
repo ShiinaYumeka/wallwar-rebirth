@@ -1,6 +1,6 @@
 {
   "description": {
-    "translate": "material.wallwar.copper",
+    "text": "铜锭",
     "color": "#E3D4D1"
   },
   "item_filter": {
