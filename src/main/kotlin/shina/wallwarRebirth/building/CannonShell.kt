@@ -27,7 +27,6 @@ import kotlin.math.ceil
 import kotlin.math.cos
 import kotlin.math.floor
 import kotlin.math.max
-import kotlin.math.min
 import kotlin.math.sin
 import kotlin.math.sqrt
 
@@ -75,7 +74,7 @@ class CannonShell(type: EntityType<out CannonShell>, level: Level) : PrimedTnt(t
         if (hit != null) {
             setPos(hit.point)
             setDeltaMovement(velocity)
-            detonate(server, hit.cell)
+            detonate(server, hit.point)
             return
         }
         val next = from.add(velocity)
@@ -95,7 +94,7 @@ class CannonShell(type: EntityType<out CannonShell>, level: Level) : PrimedTnt(t
             val cell = BlockPos.containing(point)
             if (cell == corePos && !leftCore) return@repeat
             if (cell != corePos) leftCore = true
-            if (solidPoint(level, point)) return Impact(cell, point)
+            if (solidPoint(level, point)) return edge(level, point.subtract(step), point)
         }
         return null
     }
@@ -114,8 +113,17 @@ class CannonShell(type: EntityType<out CannonShell>, level: Level) : PrimedTnt(t
         return inside
     }
 
-    private fun detonate(level: ServerLevel, cell: BlockPos) {
-        val center = Vec3.atCenterOf(cell)
+    private fun edge(level: ServerLevel, outside: Vec3, inside: Vec3): Impact {
+        var air = outside
+        var solid = inside
+        repeat(16) {
+            val mid = Vec3((air.x + solid.x) / 2.0, (air.y + solid.y) / 2.0, (air.z + solid.z) / 2.0)
+            if (solidPoint(level, mid)) solid = mid else air = mid
+        }
+        return Impact(BlockPos.containing(solid), air)
+    }
+
+    private fun detonate(level: ServerLevel, center: Vec3) {
         val knocks = HashMap<ServerPlayer, Vec3>()
         val area = AABB.ofSize(center, (falloff + 2.0) * 2.0, (falloff + 2.0) * 2.0, (falloff + 2.0) * 2.0)
         for (entity in level.getEntities(this, area)) {
@@ -213,7 +221,7 @@ class CannonShell(type: EntityType<out CannonShell>, level: Level) : PrimedTnt(t
 
         fun launch(level: ServerLevel, site: SiteCoreBlockEntity, aim: Vec3, centerDamage: Double, wide: Boolean) {
             val origin = Vec3.atCenterOf(site.blockPos)
-            val motion = CannonFlight.velocity(origin, aim, MatchRules.CANNON_LAUNCH_SPEED) ?: return
+            val motion = CannonFlight.velocity(origin, aim) ?: return
             val shell = CannonShell(ModMonsters.CANNON_SHELL, level)
             shell.prime(
                 team = site.team,
@@ -245,78 +253,33 @@ class CannonShell(type: EntityType<out CannonShell>, level: Level) : PrimedTnt(t
 object CannonFlight {
     private const val HIT = 0.05
     private const val MAX_TICKS = 12000
+    private val ANGLE = Math.toRadians(MatchRules.CANNON_LAUNCH_ANGLE)
 
-    fun velocity(start: Vec3, aim: Vec3, baseSpeed: Double): Vec3? {
+    fun velocity(start: Vec3, aim: Vec3): Vec3? {
         val offset = aim.subtract(start)
         val distance = sqrt(offset.x * offset.x + offset.z * offset.z)
-        var speed = baseSpeed
-        if (highAngle(distance, offset.y, speed) == null) {
-            var ceiling = baseSpeed
-            var found = false
-            while (ceiling < 256.0) {
-                ceiling *= 2.0
-                if (highAngle(distance, offset.y, ceiling) != null) {
-                    found = true
-                    break
-                }
-            }
-            if (!found) return null
-            var low = baseSpeed
-            var high = ceiling
-            repeat(24) {
-                val mid = (low + high) / 2.0
-                if (highAngle(distance, offset.y, mid) != null) high = mid else low = mid
-            }
-            speed = high
-        }
-        val angle = highAngle(distance, offset.y, speed) ?: return null
-        val cosine = cos(angle)
-        val sine = sin(angle)
-        val dirX = if (distance < 1.0e-4) 0.0 else offset.x / distance
-        val dirZ = if (distance < 1.0e-4) 0.0 else offset.z / distance
-        return Vec3(dirX * speed * cosine, speed * sine, dirZ * speed * cosine)
+        if (distance < 1.0e-4) return null
+        val speed = speedFor(distance, offset.y) ?: return null
+        val cosine = cos(ANGLE)
+        val sine = sin(ANGLE)
+        return Vec3(offset.x / distance * speed * cosine, speed * sine, offset.z / distance * speed * cosine)
     }
 
-    private fun highAngle(distance: Double, height: Double, speed: Double): Double? {
-        if (distance < 1.0e-4) {
-            return if (height <= HIT || apex(speed) + HIT >= height) Math.PI / 2.0 else null
-        }
-        var peakAngle = 0.01
-        var peakY = arrivalY(distance, speed, peakAngle)
-        var theta = 0.03
-        while (theta < Math.PI / 2.0) {
-            val here = arrivalY(distance, speed, theta)
-            if (here > peakY) {
-                peakY = here
-                peakAngle = theta
-            }
-            theta += 0.02
-        }
-        if (peakY < height - HIT) return null
-        var low = peakAngle
-        var high = min(peakAngle + 0.02, Math.PI / 2.0 - 1.0e-4)
-        var steps = 0
-        while (arrivalY(distance, speed, high) >= height && high < Math.PI / 2.0 - 1.0e-3 && steps++ < 60) {
-            low = high
-            high = min(high + max(0.02, (Math.PI / 2.0 - high) * 0.5), Math.PI / 2.0 - 1.0e-4)
-        }
-        if (arrivalY(distance, speed, high) >= height) return low
-        repeat(28) {
+    private fun speedFor(distance: Double, height: Double): Double? {
+        val cosine = cos(ANGLE)
+        var low = distance / (MAX_TICKS * cosine)
+        if (low < 1.0e-3) low = 1.0e-3
+        var high = low
+        var guard = 0
+        while (arrivalY(distance, high, ANGLE) < height && high < 4096.0 && guard++ < 24) high *= 2.0
+        if (arrivalY(distance, high, ANGLE) < height - HIT) return null
+        repeat(40) {
             val mid = (low + high) / 2.0
-            if (arrivalY(distance, speed, mid) >= height) low = mid else high = mid
+            if (arrivalY(distance, mid, ANGLE) < height) low = mid else high = mid
         }
-        return low
-    }
-
-    private fun apex(speed: Double): Double {
-        var vertical = speed
-        var height = 0.0
-        repeat(MAX_TICKS) {
-            vertical -= MatchRules.CANNON_GRAVITY
-            if (vertical <= 0.0) return height
-            height += vertical
-        }
-        return height
+        val arrived = arrivalY(distance, high, ANGLE)
+        if (arrived < height - HIT || arrived > height + HIT) return null
+        return high
     }
 
     private fun arrivalY(distance: Double, speed: Double, theta: Double): Double {

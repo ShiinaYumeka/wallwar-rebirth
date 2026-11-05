@@ -371,8 +371,12 @@ class ItemStackBuilder private constructor(private val stack: ItemStack) {
     /**
      * 为物品添加材料信息
      */
-    fun addCostInfo(player: ServerPlayer, baseItem: BaseShopItem, locked: Boolean): ItemStackBuilder =
-        addCostInfo(player, baseItem, locked, null)
+    fun addCostInfo(
+        player: ServerPlayer,
+        baseItem: BaseShopItem,
+        locked: Boolean,
+        useTeamWarehouse: Boolean = false,
+    ): ItemStackBuilder = addCostInfo(player, baseItem, locked, null, useTeamWarehouse)
 
     /**
      * 为物品添加材料信息，[hasEnoughMaterialsOverride] 非 null 时使用它替代从 costs 计算的结果
@@ -381,10 +385,11 @@ class ItemStackBuilder private constructor(private val stack: ItemStack) {
         player: ServerPlayer,
         baseItem: BaseShopItem,
         locked: Boolean,
-        hasEnoughMaterialsOverride: Boolean?
+        hasEnoughMaterialsOverride: Boolean?,
+        useTeamWarehouse: Boolean = false,
     ): ItemStackBuilder = apply {
         val needsUnlock = baseItem.checkFurnaceLevel < 99 && locked
-        val shouldConsiderTeamRepo = PlayerShopSettings.of(player).shopTeamRepoEnabled
+        val shouldConsiderTeamRepo = useTeamWarehouse || PlayerShopSettings.of(player).shopTeamRepoEnabled
 
         var allAfford = !locked
         val costItems = baseItem.costs.map { (id, count) ->

@@ -102,7 +102,7 @@ object MatchRules {
     const val CANNON_UPGRADE_2_IRON = 32
     const val CANNON_UPGRADE_3_IRON = 64
     const val CANNON_UPGRADE_3_COPPER = 64
-    const val CANNON_LAUNCH_SPEED = 4.0
+    const val CANNON_LAUNCH_ANGLE = 60.0
     const val CANNON_GRAVITY = 0.04
     const val CANNON_POWER = 4.0
     const val CANNON_POWER_WIDE = 6.0

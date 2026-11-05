@@ -16,6 +16,7 @@ import shina.wallwarRebirth.monster.TestTeams
 import shina.wallwarRebirth.item.PolymerLoreListener
 import shina.wallwarRebirth.shop.ShopLayerRegistry
 import shina.wallwarRebirth.shop.ShopMaterialRegistry
+import shina.wallwarRebirth.shop.TeamWarehouses
 import shina.wallwarRebirth.shop.branch.BranchGroupRegistry
 
 class WallwarRebirth : ModInitializer {
@@ -26,6 +27,7 @@ class WallwarRebirth : ModInitializer {
         ModMonsters.init()
         PolymerLoreListener.register()
         ShopMaterialRegistry.init()
+        TeamWarehouses.init()
         ShopLayerRegistry.init()
         BranchGroupRegistry.init()
         FluxGuiRegistry.init()

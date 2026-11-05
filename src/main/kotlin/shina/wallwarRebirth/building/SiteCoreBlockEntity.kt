@@ -32,6 +32,7 @@ import shina.wallwarRebirth.match.Match
 import shina.wallwarRebirth.match.MatchPlacement
 import shina.wallwarRebirth.match.MatchRules
 import shina.wallwarRebirth.monster.SummonedUnit
+import shina.wallwarRebirth.shop.TeamWarehouses
 import shina.wallwarRebirth.util.playNotifySound
 import shina.wallwarRebirth.util.showActionBar
 import shina.wallwarRebirth.util.showTitle
@@ -486,7 +487,8 @@ class SiteCoreBlockEntity(pos: BlockPos, state: BlockState) : BlockEntity(ModSit
             return false
         }
         val next = definition.upgradeTo(buildingLevel + 1) ?: return false
-        if (!InventoryCosts.has(player, storage, next.costs)) {
+        val warehouse = TeamWarehouses.of(team)
+        if (!InventoryCosts.has(player, storage, warehouse, next.costs)) {
             player.sendSystemMessage(Component.literal("材料不足"))
             return false
         }
@@ -496,7 +498,7 @@ class SiteCoreBlockEntity(pos: BlockPos, state: BlockState) : BlockEntity(ModSit
             player.reportBuilding(style)
             return false
         }
-        InventoryCosts.take(player, storage, next.costs)
+        InventoryCosts.take(player, storage, warehouse, next.costs)
         val oldMax = definition.maxHealth(buildingLevel)
         buildingLevel += 1
         val newMax = definition.maxHealth(buildingLevel)

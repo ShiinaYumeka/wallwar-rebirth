@@ -122,7 +122,15 @@ class BuildingPanelGui(
             if (!clickType.isLeft || clickType.shift) return@GuiElement
             if (site.demolish(viewer)) close()
         })
-        if (barracks) paintProduction()
+        if (barracks) {
+            paintProduction()
+            setSlot(MARCH_SLOT, GuiElement(marchIcon()) { _, clickType, _, _ ->
+                if (!clickType.isLeft || clickType.shift) return@GuiElement
+                site.marching = !site.marching
+                site.setChanged()
+                paintButtons()
+            })
+        }
     }
 
     private fun paintProduction() {
@@ -212,6 +220,14 @@ class BuildingPanelGui(
             .appendLore(line("不返还购买或升级花掉的材料，容器物品掉在地上"))
             .build()
 
+    private fun marchIcon(): ItemStack {
+        val marching = site.marching
+        return ItemStackBuilder.of(if (marching) Items.EMERALD else Items.REDSTONE)
+            .setName(line(if (marching) "出征" else "休整", if (marching) ChatFormatting.GREEN else ChatFormatting.RED))
+            .appendLore(line(if (marching) "正在出征，点击切换为休整" else "已停摆，点击切换为出征"))
+            .build()
+    }
+
     private fun line(text: String, color: ChatFormatting = ChatFormatting.GRAY): Component =
         Component.literal(text).withStyle { style -> style.withColor(color).withItalic(false) }
 
@@ -220,6 +236,7 @@ class BuildingPanelGui(
         const val INFO_SLOT = 4
         const val DEMOLISH_SLOT = 6
         const val STORAGE_ORIGIN = 18
+        const val MARCH_SLOT = 53
         val PRODUCTION_SLOTS = intArrayOf(23, 24, 25, 32)
     }
 }
@@ -322,12 +339,14 @@ private class UpgradePanelGui(
     private fun handleModule(slot: ModuleSlot, clickType: ClickType) {
         val cursor = viewer.containerMenu.carried
         if (clickType.shift || clickType.isRight) {
-            val error = site.takeModule(slot, viewer)
-            if (error != null) viewer.sendSystemMessage(Component.literal(error))
-            paint()
+            if (!site.moduleStack(slot).isEmpty) viewer.sendSystemMessage(Component.literal("这个模块不能拆卸"))
             return
         }
         if (!clickType.isLeft || clickType.shift) return
+        if (!cursor.isEmpty && !site.moduleStack(slot).isEmpty) {
+            viewer.sendSystemMessage(Component.literal("这个模块不能拆卸"))
+            return
+        }
         if (cursor.isEmpty) {
             if (!definition.acceptsModules) {
                 viewer.sendSystemMessage(Component.literal("这座建筑不能装模块"))
@@ -374,8 +393,9 @@ private class UpgradePanelGui(
             ItemStackBuilder.of(filled)
         }
         builder.setName(line(label, ChatFormatting.YELLOW))
-        builder.appendLore(line("左键放入${if (slot == ModuleSlot.PRIMARY) "强化模块" else "强化模块 2"}"))
-        builder.appendLore(line("Shift 或右键取出"))
+        if (filled.isEmpty) {
+            builder.appendLore(line("左键放入${if (slot == ModuleSlot.PRIMARY) "强化模块" else "强化模块 2"}"))
+        }
         for (text in effectLines(definition, slot)) builder.appendLore(line(text))
         if (definition.id == Buildings.REACTOR.id) {
             builder.appendLore(line("放好后左键选择矿物"))

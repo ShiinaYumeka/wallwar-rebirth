@@ -116,7 +116,7 @@ object MatchHooks {
                 return@register InteractionResult.FAIL
             }
             val placeAt = placementPos(player, hand, stack, hit)
-            if (placeAt != null && world is ServerLevel && SiteCores.insideCoreBuilding(world, placeAt)) {
+            if (placeAt != null && world is ServerLevel && SiteCores.insideBuilding(world, placeAt)) {
                 player.sendSystemMessage(Component.literal("这个位置不能放置"))
                 return@register InteractionResult.FAIL
             }

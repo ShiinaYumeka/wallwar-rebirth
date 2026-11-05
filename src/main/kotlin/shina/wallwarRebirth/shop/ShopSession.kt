@@ -13,6 +13,7 @@ class ShopSession(
     var supportsFurnaceUpgrade: Boolean = false,
     var snowCount: Int = 0,
     var canAcceptSnow: Boolean = false,
+    var useTeamWarehouse: Boolean = false,
     private val onUpgrade: ((ShopSession) -> Boolean)? = null,
 ) {
     fun isValid(): Boolean = valid

@@ -20,6 +20,7 @@ import net.minecraft.world.level.storage.LevelData
 import net.minecraft.world.level.storage.LevelResource
 import net.minecraft.world.level.Level
 import shina.wallwarRebirth.building.SiteCoreBlockEntity
+import shina.wallwarRebirth.shop.TeamWarehouses
 import shina.wallwarRebirth.monster.TestTeams
 import shina.wallwarRebirth.util.clearTitle
 import shina.wallwarRebirth.util.showActionBar
@@ -55,6 +56,9 @@ object Match {
     var phase: Phase = Phase.LOBBY
     var worldReady: Boolean = false
     var mapSize: Int = MatchRules.MAP_SIZE
+
+    @JvmField
+    var terrainSeed: Long = 0
     var redBase: BlockPos = BlockPos.ZERO
     var blueBase: BlockPos = BlockPos.ZERO
     var redSpawn: Spawn = Spawn(0.5, 80.0, 0.5, 0f)
@@ -281,6 +285,7 @@ object Match {
             applyBodyReset(player, member)
             player.clearTitle()
         }
+        TeamWarehouses.clear()
         save(current)
         broadcast(current, "对局已重置")
         for (player in onlineMembers(current)) MatchGui.open(player)
@@ -479,6 +484,9 @@ object Match {
                 return
             }
         }
+        terrainSeed = System.currentTimeMillis()
+        MatchWorld.reseed(current, terrainSeed)
+        save(current)
         if (!MatchWorld.prime(current)) {
             abortReady(current, "地图初始化失败")
             return
@@ -541,6 +549,7 @@ object Match {
         watchEndsAt = 0
         watchSecond = -1
         phase = Phase.FIGHT
+        TeamWarehouses.clear()
         for ((player, member) in onlineTeam(current, TestTeams.RED) + onlineTeam(current, TestTeams.BLUE)) {
             member.classLocked = true
             member.respawnAt = 0
@@ -710,6 +719,7 @@ object Match {
         tag.putString("Phase", phase.name)
         tag.putBoolean("WorldReady", worldReady)
         tag.putInt("MapSize", mapSize)
+        tag.putLong("TerrainSeed", terrainSeed)
         tag.putLong("RedBase", redBase.asLong())
         tag.putLong("BlueBase", blueBase.asLong())
         writeSpawn(tag, "RedSpawn", redSpawn)
@@ -739,6 +749,7 @@ object Match {
             list.add(entry)
         }
         tag.put("Members", list)
+        TeamWarehouses.write(tag, ops)
         val path = file(current)
         java.nio.file.Files.createDirectories(path.parent)
         NbtIo.writeCompressed(tag, path)
@@ -756,12 +767,15 @@ object Match {
         } else {
             MatchRules.MAP_SIZE
         }
+        terrainSeed = tag.getLongOr("TerrainSeed", 0L)
+        if (terrainSeed != 0L) MatchWorld.reseed(current, terrainSeed)
         redBase = BlockPos.of(tag.getLongOr("RedBase", 0L))
         blueBase = BlockPos.of(tag.getLongOr("BlueBase", 0L))
         redSpawn = readSpawn(tag, "RedSpawn")
         blueSpawn = readSpawn(tag, "BlueSpawn")
         members.clear()
         val ops = current.registryAccess().createSerializationContext(NbtOps.INSTANCE)
+        TeamWarehouses.read(tag, ops)
         val list = tag.getListOrEmpty("Members")
         for (index in 0 until list.size) {
             val entry = list.getCompoundOrEmpty(index)

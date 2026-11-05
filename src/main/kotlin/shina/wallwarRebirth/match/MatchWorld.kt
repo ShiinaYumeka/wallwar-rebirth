@@ -2,6 +2,7 @@ package shina.wallwarRebirth.match
 
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
+import net.minecraft.core.registries.Registries
 import net.minecraft.server.MinecraftServer
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.TicketType
@@ -11,17 +12,21 @@ import net.minecraft.world.level.block.Block
 import net.minecraft.world.level.block.LeavesBlock
 import net.minecraft.world.level.block.RotatedPillarBlock
 import net.minecraft.world.level.levelgen.Heightmap
+import net.minecraft.world.level.levelgen.NoiseBasedChunkGenerator
+import net.minecraft.world.level.levelgen.RandomState
 import net.minecraft.world.level.material.Fluids
 import net.minecraft.tags.BlockTags
 import shina.wallwarRebirth.building.CoreForm
 import shina.wallwarRebirth.building.ModSites
 import shina.wallwarRebirth.building.SiteCoreBlock
 import shina.wallwarRebirth.building.SiteCoreBlockEntity
+import shina.wallwarRebirth.mixin.ChunkMapAccess
 import shina.wallwarRebirth.mixin.ServerChunkCacheAccess
 import shina.wallwarRebirth.monster.TestTeams
 import kotlin.math.abs
 import kotlin.math.atan2
 import kotlin.math.hypot
+import kotlin.math.min
 
 object MatchWorld {
     private const val TICKET_RADIUS = 0
@@ -61,12 +66,21 @@ object MatchWorld {
         loading = emptyList()
     }
 
+    fun reseed(server: MinecraftServer, seed: Long) {
+        val level = server.getLevel(MatchRules.DIMENSION) ?: return
+        val generator = level.chunkSource.generator as? NoiseBasedChunkGenerator ?: return
+        val noises = level.registryAccess().lookupOrThrow(Registries.NOISE)
+        val state = RandomState.create(generator.generatorSettings().value(), noises, seed)
+        (level.chunkSource.chunkMap as ChunkMapAccess).wallwarSetRandomState(state)
+    }
+
     fun build(server: MinecraftServer): Built? {
         if (!loaded(server)) return null
         val level = server.getLevel(MatchRules.DIMENSION) ?: return null
         val size = Match.mapSize
         val min = -size / 2
         val max = min + size - 1
+        ease(level, min, max)
         val border = level.worldBorder
         border.setCenter(min + (max - min) / 2.0, min + (max - min) / 2.0)
         border.size = size.toDouble()
@@ -108,6 +122,61 @@ object MatchWorld {
             for (cz in chunkMin..chunkMax) positions.add(ChunkPos(cx, cz))
         }
         return positions
+    }
+
+    private fun ease(level: ServerLevel, min: Int, max: Int) {
+        val span = max - min + 1
+        val height = IntArray(span * span)
+        fun index(x: Int, z: Int) = (x - min) * span + (z - min)
+        for (x in min..max) {
+            for (z in min..max) height[index(x, z)] = naturalGround(level, x, z)
+        }
+        var changed = true
+        while (changed) {
+            changed = false
+            for (x in min..max) {
+                for (z in min..max) {
+                    val at = index(x, z)
+                    var cap = height[at]
+                    if (x > min) cap = min(cap, height[index(x - 1, z)] + 1)
+                    if (x < max) cap = min(cap, height[index(x + 1, z)] + 1)
+                    if (z > min) cap = min(cap, height[index(x, z - 1)] + 1)
+                    if (z < max) cap = min(cap, height[index(x, z + 1)] + 1)
+                    if (cap < height[at]) {
+                        height[at] = cap
+                        changed = true
+                    }
+                }
+            }
+        }
+        for (x in min..max) {
+            for (z in min..max) cutColumn(level, x, z, height[index(x, z)])
+        }
+    }
+
+    private fun cutColumn(level: ServerLevel, x: Int, z: Int, surface: Int) {
+        val old = naturalGround(level, x, z)
+        if (surface >= old) return
+        val top = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z)
+        for (y in surface + 1..top) {
+            level.setBlock(BlockPos(x, y, z), Blocks.AIR.defaultBlockState(), Block.UPDATE_NONE)
+        }
+        val minY = level.dimensionType().minY()
+        fun place(y: Int, block: Block) {
+            if (y < minY) return
+            level.setBlock(BlockPos(x, y, z), block.defaultBlockState(), Block.UPDATE_NONE)
+        }
+        place(surface, Blocks.GRASS_BLOCK)
+        place(surface - 1, Blocks.DIRT)
+        for (dy in 2..4) place(surface - dy, Blocks.STONE)
+        for (dy in 5..8) place(surface - dy, Blocks.BEDROCK)
+        var y = surface - 9
+        while (y >= minY) {
+            val pos = BlockPos(x, y, z)
+            if (level.getBlockState(pos).isAir) break
+            level.setBlock(pos, Blocks.AIR.defaultBlockState(), Block.UPDATE_NONE)
+            y--
+        }
     }
 
     private fun seal(level: ServerLevel, x: Int, z: Int) {

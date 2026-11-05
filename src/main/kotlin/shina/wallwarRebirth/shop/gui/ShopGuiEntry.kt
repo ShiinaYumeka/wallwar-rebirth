@@ -34,6 +34,9 @@ class ShopGuiEntry(shopItem: ShopItemWithIndex, private val gui: ShopGui) : GuiE
 
     override fun getPlayer(): ServerPlayer = gui.player
 
+    override fun shouldConsiderTeamRepo(): Boolean =
+        gui.session.useTeamWarehouse || super.shouldConsiderTeamRepo()
+
     private fun handleBranchEntryClick() {
         val branchGroupId = viewModel.getBranchGroupId() ?: return
         val branchGroup = BranchGroupRegistry.get(branchGroupId) ?: return

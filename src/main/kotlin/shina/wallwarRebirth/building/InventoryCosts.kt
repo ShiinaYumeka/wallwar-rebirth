@@ -27,25 +27,50 @@ object InventoryCosts {
     }
 
     fun hasAll(container: Container, costs: List<ItemAmount>): Boolean =
-        costs.all { count(container, it.item) >= it.count }
+        hasAll(container, null, costs)
+
+    fun hasAll(primary: Container, extra: Container?, costs: List<ItemAmount>): Boolean =
+        costs.all { count(primary, it.item) + stored(extra, it.item) >= it.count }
 
     fun takeAll(container: Container, costs: List<ItemAmount>) {
-        for (cost in costs) take(container, cost.item, cost.count)
+        takeAll(container, null, costs)
     }
 
-    fun has(player: ServerPlayer, container: Container, costs: List<ItemAmount>): Boolean =
-        costs.all { count(player, it.item) + count(container, it.item) >= it.count }
-
-    fun take(player: ServerPlayer, container: Container, costs: List<ItemAmount>) {
+    fun takeAll(primary: Container, extra: Container?, costs: List<ItemAmount>) {
         for (cost in costs) {
-            val fromStorage = minOf(cost.count, count(container, cost.item))
-            take(container, cost.item, fromStorage)
-            val rest = cost.count - fromStorage
-            if (rest > 0) take(player, cost.item, rest)
+            val fromPrimary = minOf(cost.count, count(primary, cost.item))
+            takeExact(primary, cost.item, fromPrimary)
+            val rest = cost.count - fromPrimary
+            if (rest > 0) takeStored(extra, cost.item, rest)
         }
     }
 
-    private fun take(container: Container, item: Item, amount: Int) {
+    fun has(player: ServerPlayer, container: Container, extra: Container?, costs: List<ItemAmount>): Boolean =
+        costs.all { count(player, it.item) + count(container, it.item) + stored(extra, it.item) >= it.count }
+
+    fun take(player: ServerPlayer, container: Container, extra: Container?, costs: List<ItemAmount>) {
+        for (cost in costs) {
+            var left = cost.count
+            val fromPlayer = minOf(left, count(player, cost.item))
+            take(player, cost.item, fromPlayer)
+            left -= fromPlayer
+            val fromContainer = minOf(left, count(container, cost.item))
+            takeExact(container, cost.item, fromContainer)
+            left -= fromContainer
+            if (left > 0) takeStored(extra, cost.item, left)
+        }
+    }
+
+    private fun stored(container: Container?, item: Item): Int =
+        if (container == null) 0 else count(container, item)
+
+    private fun takeStored(container: Container?, item: Item, amount: Int) {
+        val target = container ?: return
+        if (amount <= 0) return
+        takeExact(target, item, amount)
+    }
+
+    private fun takeExact(container: Container, item: Item, amount: Int) {
         var left = amount
         for (slot in 0 until container.containerSize) {
             if (left <= 0) return

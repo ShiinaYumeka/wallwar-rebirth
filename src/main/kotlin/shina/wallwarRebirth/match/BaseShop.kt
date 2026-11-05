@@ -9,6 +9,7 @@ import net.minecraft.core.registries.BuiltInRegistries
 import net.minecraft.network.chat.Component
 import net.minecraft.resources.Identifier
 import net.minecraft.server.level.ServerPlayer
+import net.minecraft.world.inventory.Slot
 import net.minecraft.world.item.Item
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
@@ -17,6 +18,7 @@ import shina.wallwarRebirth.building.SiteCoreBlockEntity
 import shina.wallwarRebirth.gui.ItemStackBuilder
 import shina.wallwarRebirth.item.ModItems
 import shina.wallwarRebirth.shop.ShopSession
+import shina.wallwarRebirth.shop.TeamWarehouses
 import shina.wallwarRebirth.shop.element.BaseShopItem
 import shina.wallwarRebirth.shop.element.ShopItemWithIndex
 import shina.wallwarRebirth.shop.element.ShopLayer
@@ -29,6 +31,7 @@ object BaseShop {
         WEAPON("武器", ItemStack(Items.IRON_SWORD)),
         ARMOR("防具", ItemStack(Items.IRON_CHESTPLATE)),
         BUILDING("建筑", ItemStack(Items.BEACON)),
+        WAREHOUSE("团队仓库", ItemStack(Items.CHEST)),
     }
 
     private const val ROWS = 3
@@ -44,7 +47,7 @@ object BaseShop {
             return
         }
         val goods = listings(page)
-        val sheets = (goods.maxOfOrNull { it.row / ROWS } ?: 0) + 1
+        val sheets = if (page == Page.WAREHOUSE) 2 else (goods.maxOfOrNull { it.row / ROWS } ?: 0) + 1
         val current = sheet.coerceIn(0, sheets - 1)
         val items = ArrayList<ShopItemWithIndex>()
         Page.entries.forEachIndexed { index, tab ->
@@ -56,7 +59,7 @@ object BaseShop {
         }
         if (sheets > 1) items.add(PageTurn(PAGE_SLOT, site, page, current, sheets))
         val reserved = items.map { it.index() }.toSet()
-        PageGui(ShopSession(), player, listOf(ShopLayer(6, items)), page.title, site, page, reserved).open()
+        PageGui(ShopSession(useTeamWarehouse = true), player, listOf(ShopLayer(6, items)), page.title, site, page, current, reserved).open()
     }
 
     private fun slotOf(row: Int, column: Int): Int = (row + 2) * 9 + column
@@ -94,6 +97,7 @@ object BaseShop {
             tool(2, 2, Items.DIAMOND_LEGGINGS, "diamond", MatchRules.LEGGINGS_MATERIAL),
             tool(2, 3, Items.DIAMOND_BOOTS, "diamond", MatchRules.BOOTS_MATERIAL),
         )
+        Page.WAREHOUSE -> emptyList()
         Page.BUILDING -> listOf(
             listing(0, 0, ItemStack(ModItems.CORE_WALL), copper(MatchRules.WALL_PRICE_COPPER)),
             listing(
@@ -154,6 +158,7 @@ private class PageGui(
     heading: String,
     private val site: SiteCoreBlockEntity,
     page: BaseShop.Page,
+    sheet: Int,
     reserved: Set<Int>,
 ) : ShopGui(session, player, layers, 6) {
     init {
@@ -163,9 +168,21 @@ private class PageGui(
             if (slot !in reserved) setSlot(slot, GuiElement(border, GuiElementInterface.EMPTY_CALLBACK))
         }
         val barrier = ItemStack(Items.BARRIER).hideTooltip()
-        for (slot in 3..6) setSlot(slot, GuiElement(barrier, GuiElementInterface.EMPTY_CALLBACK))
+        for (slot in BaseShop.Page.entries.size..6) setSlot(slot, GuiElement(barrier, GuiElementInterface.EMPTY_CALLBACK))
         val marker = ItemStack(Items.LIME_STAINED_GLASS_PANE).hideTooltip()
         setSlot(9 + page.ordinal, GuiElement(marker, GuiElementInterface.EMPTY_CALLBACK))
+        if (page == BaseShop.Page.WAREHOUSE) fillWarehouse(sheet)
+    }
+
+    private fun fillWarehouse(sheet: Int) {
+        val box = TeamWarehouses.of(site.team) ?: return
+        val width = 35
+        val start = sheet * width
+        for (offset in 0 until width) {
+            val index = start + offset
+            if (index >= box.containerSize) break
+            setSlotRedirect(18 + offset, Slot(box, index, 0, 0))
+        }
     }
 
     fun stillOpen(): Boolean {
@@ -255,7 +272,7 @@ private class Offer(
         val built = if (gui == null) {
             ItemStackBuilder.of(offer.icon).build()
         } else {
-            ItemStackBuilder.of(offer.icon).addCostInfo(gui.player, offer, locked).build()
+            ItemStackBuilder.of(offer.icon).addCostInfo(gui.player, offer, locked, useTeamWarehouse = true).build()
         }
         built.remove(DataComponents.CUSTOM_MODEL_DATA)
         return built

@@ -19,11 +19,9 @@ object SiteCores {
         return ArrayList(cores)
     }
 
-    fun insideCoreBuilding(level: Level, pos: BlockPos): Boolean {
+    fun insideBuilding(level: Level, pos: BlockPos): Boolean {
         for (core in all()) {
             if (core.level !== level || core.isRemoved || core.buildingId.isEmpty()) continue
-            val definition = Buildings.byId(core.buildingId) ?: continue
-            if (definition.category != BuildingCategory.CORE) continue
             if (core.encloses(pos)) return true
         }
         return false

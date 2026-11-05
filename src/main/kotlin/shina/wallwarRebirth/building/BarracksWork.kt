@@ -7,6 +7,7 @@ import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
 import shina.wallwarRebirth.item.ModItems
 import shina.wallwarRebirth.match.MatchRules
+import shina.wallwarRebirth.shop.TeamWarehouses
 import shina.wallwarRebirth.monster.MonsterDefinition
 import shina.wallwarRebirth.monster.Monsters
 import shina.wallwarRebirth.match.MatchPlacement
@@ -34,11 +35,7 @@ object BarracksSlots {
 object BarracksWork {
     fun tick(site: SiteCoreBlockEntity, level: ServerLevel) {
         if (Monsters.byId(site.producedMonster) == null) site.producedMonster = Monsters.ZOMBIE.id
-        if (!site.marching) {
-            site.marching = true
-            site.eggReleaseAge = MatchRules.TICKS_PER_SECOND
-            site.setChanged()
-        }
+        if (!site.marching) return
         val definition = Monsters.byId(site.producedMonster) ?: Monsters.ZOMBIE
         produce(site, level, definition)
         drip(site, level)
@@ -61,14 +58,15 @@ object BarracksWork {
     private fun produce(site: SiteCoreBlockEntity, level: ServerLevel, definition: MonsterDefinition) {
         if (site.buildingLevel < definition.rank) return
         val costs = definition.cost.map { ItemAmount(it.item, it.count, it.name) }
-        if (!InventoryCosts.hasAll(site.barracksMaterials, costs)) return
+        val warehouse = TeamWarehouses.of(site.team)
+        if (!InventoryCosts.hasAll(site.barracksMaterials, warehouse, costs)) return
         val interval = definition.productionTicks(site.buildingLevel)
         if (site.actionAge < interval) {
             site.actionAge++
             if (site.actionAge < interval) return
         }
         if (!site.reinforceTwo.isEmpty) {
-            InventoryCosts.takeAll(site.barracksMaterials, costs)
+            InventoryCosts.takeAll(site.barracksMaterials, warehouse, costs)
             site.barracksStock.add(definition.id)
             site.actionAge = 0
             site.setChanged()
@@ -85,7 +83,7 @@ object BarracksWork {
             spawnPreferred(site, level, definition)
         }
         if (!delivered) return
-        InventoryCosts.takeAll(site.barracksMaterials, costs)
+        InventoryCosts.takeAll(site.barracksMaterials, warehouse, costs)
         site.actionAge = 0
         site.setChanged()
     }
