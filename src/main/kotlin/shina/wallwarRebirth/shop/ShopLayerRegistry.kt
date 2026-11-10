@@ -23,7 +23,7 @@ import kotlin.jvm.optionals.getOrNull
 import kotlin.properties.Delegates
 
 object ShopLayerRegistry {
-    private val logger = LoggerFactory.getLogger("hgwar/ShopLayerRegistry")
+    private val logger = LoggerFactory.getLogger("wallwar/ShopLayerRegistry")
     private val ID = WallwarMod.idOf("shop_layer")
     private val REGISTRY_KEY: ResourceKey<Registry<ShopLayer>> = ResourceKey.createRegistryKey(ID)
     private var dataLoader: ShopLayerDataLoader by Delegates.notNull()

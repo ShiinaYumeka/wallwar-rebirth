@@ -1,9 +1,9 @@
 package shina.wallwarRebirth.building
 
-import net.minecraft.resources.Identifier
 import net.minecraft.world.item.Items
 import shina.wallwarRebirth.WallwarMod
-import shina.wallwarRebirth.match.MatchRules
+import shina.wallwarRebirth.bootstrap.LegacyDatapacks
+import shina.wallwarRebirth.rules.MatchRules
 import kotlin.math.ceil
 import kotlin.math.floor
 
@@ -13,45 +13,45 @@ object Buildings {
         displayName = "基地",
         category = BuildingCategory.CORE,
         maxLevel = 3,
-        structure = { level -> WallwarMod.idOf("building/reactor/level_$level") },
+        structure = { level -> WallwarMod.idOf("building/base/level_$level") },
         upgrades = listOf(
             UpgradeCost(
                 2,
                 listOf(
-                    ItemAmount(Items.COPPER_INGOT, MatchRules.REACTOR_UPGRADE_2_COPPER, "铜锭"),
-                    ItemAmount(Items.IRON_INGOT, MatchRules.REACTOR_UPGRADE_2_IRON, "铁锭"),
+                    ItemAmount(Items.COPPER_INGOT, MatchRules.BASE_UPGRADE_2_COPPER, "铜锭"),
+                    ItemAmount(Items.IRON_INGOT, MatchRules.BASE_UPGRADE_2_IRON, "铁锭"),
                 ),
             ),
             UpgradeCost(
                 3,
                 listOf(
-                    ItemAmount(Items.IRON_INGOT, MatchRules.REACTOR_UPGRADE_3_IRON, "铁锭"),
-                    ItemAmount(Items.COPPER_INGOT, MatchRules.REACTOR_UPGRADE_3_COPPER, "铜锭"),
+                    ItemAmount(Items.IRON_INGOT, MatchRules.BASE_UPGRADE_3_IRON, "铁锭"),
+                    ItemAmount(Items.COPPER_INGOT, MatchRules.BASE_UPGRADE_3_COPPER, "铜锭"),
                 ),
             ),
         ),
         production = listOf(
             ProductionRule(
                 1,
-                MatchRules.REACTOR_IRON_TICKS,
+                MatchRules.BASE_IRON_TICKS,
                 listOf(
-                    ItemAmount(Items.IRON_INGOT, MatchRules.REACTOR_IRON_COUNT, "铁锭"),
-                    ItemAmount(Items.COPPER_INGOT, MatchRules.REACTOR_COPPER_COUNT, "铜锭"),
+                    ItemAmount(Items.IRON_INGOT, MatchRules.BASE_IRON_COUNT, "铁锭"),
+                    ItemAmount(Items.COPPER_INGOT, MatchRules.BASE_COPPER_COUNT, "铜锭"),
                 ),
             ),
             ProductionRule(
                 2,
-                MatchRules.REACTOR_REDSTONE_TICKS,
+                MatchRules.BASE_REDSTONE_TICKS,
                 listOf(
-                    ItemAmount(Items.REDSTONE, MatchRules.REACTOR_REDSTONE_COUNT, "红石"),
-                    ItemAmount(Items.LAPIS_LAZULI, MatchRules.REACTOR_LAPIS_COUNT, "青金石"),
+                    ItemAmount(Items.REDSTONE, MatchRules.BASE_REDSTONE_COUNT, "红石"),
+                    ItemAmount(Items.LAPIS_LAZULI, MatchRules.BASE_LAPIS_COUNT, "青金石"),
                 ),
             ),
             ProductionRule(
                 3,
-                MatchRules.REACTOR_DIAMOND_TICKS,
-                listOf(ItemAmount(Items.DIAMOND, MatchRules.REACTOR_DIAMOND_COUNT, "钻石")),
-                chancePercent = MatchRules.REACTOR_DIAMOND_PERCENT,
+                MatchRules.BASE_DIAMOND_TICKS,
+                listOf(ItemAmount(Items.DIAMOND, MatchRules.BASE_DIAMOND_COUNT, "钻石")),
+                chancePercent = MatchRules.BASE_DIAMOND_PERCENT,
             ),
         ),
         healthByLevel = List(3) { MatchRules.BASE_HEALTH },
@@ -110,7 +110,7 @@ object Buildings {
         displayName = "特斯拉塔",
         category = BuildingCategory.NORMAL,
         maxLevel = 3,
-        structure = { _ -> Identifier.fromNamespaceAndPath("wallwar", "electric") },
+        structure = { _ -> LegacyDatapacks.TESLA },
         upgrades = listOf(
             UpgradeCost(2, listOf(ItemAmount(Items.COPPER_INGOT, MatchRules.TESLA_UPGRADE_2_COPPER, "铜锭"))),
             UpgradeCost(3, listOf(ItemAmount(Items.COPPER_INGOT, MatchRules.TESLA_UPGRADE_3_COPPER, "铜锭"))),
@@ -200,7 +200,7 @@ object Buildings {
         displayName = "传输装置",
         category = BuildingCategory.NORMAL,
         maxLevel = 1,
-        structure = { _ -> Identifier.fromNamespaceAndPath("wallwar", "trans") },
+        structure = { _ -> LegacyDatapacks.RELAY },
         upgrades = emptyList(),
         production = emptyList(),
         healthByLevel = listOf(MatchRules.RELAY_HEALTH),

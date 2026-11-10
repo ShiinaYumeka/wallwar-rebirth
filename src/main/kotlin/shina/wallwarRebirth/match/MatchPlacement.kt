@@ -1,11 +1,12 @@
 package shina.wallwarRebirth.match
+import shina.wallwarRebirth.rules.MatchRules
 
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
 import net.minecraft.server.level.ServerLevel
 import shina.wallwarRebirth.building.BuildingDefinition
 import shina.wallwarRebirth.building.BuildingFootprints
-import shina.wallwarRebirth.monster.TestTeams
+import shina.wallwarRebirth.contract.WallwarTeams
 import kotlin.math.abs
 import kotlin.math.max
 
@@ -19,7 +20,7 @@ object MatchPlacement {
     ): String? {
         if (!Match.isArena(level)) return null
         if (Match.phase != Match.Phase.LOBBY && !Match.isFight()) return "现在不能放置"
-        if (team != TestTeams.RED && team != TestTeams.BLUE) return "没有队伍"
+        if (team != WallwarTeams.RED && team != WallwarTeams.BLUE) return "没有队伍"
         val cells = BuildingFootprints.cells(definition, origin, facing)
         val bases = Match.bases()
         if (bases.isEmpty()) return "基地还没放好"

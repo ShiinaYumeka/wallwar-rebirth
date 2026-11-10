@@ -1,4 +1,6 @@
 package shina.wallwarRebirth.match
+import shina.wallwarRebirth.profession.Classes
+import shina.wallwarRebirth.rules.MatchRules
 
 import eu.pb4.sgui.api.elements.GuiElement
 import eu.pb4.sgui.api.elements.GuiElementInterface
@@ -10,7 +12,7 @@ import net.minecraft.world.inventory.MenuType
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
 import shina.wallwarRebirth.gui.ItemStackBuilder
-import shina.wallwarRebirth.monster.TestTeams
+import shina.wallwarRebirth.contract.WallwarTeams
 import shina.wallwarRebirth.util.hideTooltip
 
 object MatchGui {
@@ -38,13 +40,13 @@ private class Board(private val viewer: ServerPlayer) : SimpleGui(MenuType.GENER
         val glass = ItemStack(Items.GRAY_STAINED_GLASS_PANE).hideTooltip()
         for (slot in 0 until size) setSlot(slot, GuiElement(glass, GuiElementInterface.EMPTY_CALLBACK))
         setSlot(13, GuiElement(status(), GuiElementInterface.EMPTY_CALLBACK))
-        setSlot(20, GuiElement(teamButton(TestTeams.RED, Items.RED_WOOL, ChatFormatting.RED)) { _, click, _, _ ->
+        setSlot(20, GuiElement(teamButton(WallwarTeams.RED, Items.RED_WOOL, ChatFormatting.RED)) { _, click, _, _ ->
             if (!click.isLeft || click.shift) return@GuiElement
-            Match.assign(viewer, TestTeams.RED)
+            Match.assign(viewer, WallwarTeams.RED)
         })
-        setSlot(21, GuiElement(teamButton(TestTeams.BLUE, Items.BLUE_WOOL, ChatFormatting.BLUE)) { _, click, _, _ ->
+        setSlot(21, GuiElement(teamButton(WallwarTeams.BLUE, Items.BLUE_WOOL, ChatFormatting.BLUE)) { _, click, _, _ ->
             if (!click.isLeft || click.shift) return@GuiElement
-            Match.assign(viewer, TestTeams.BLUE)
+            Match.assign(viewer, WallwarTeams.BLUE)
         })
         setSlot(22, GuiElement(actionButton()) { _, click, _, _ ->
             if (!click.isLeft || click.shift) return@GuiElement
@@ -73,8 +75,8 @@ private class Board(private val viewer: ServerPlayer) : SimpleGui(MenuType.GENER
 
     private fun status(): ItemStack {
         val server = viewer.level().server
-        val readyRed = Match.counts(server, TestTeams.RED, readyFlag = true)
-        val readyBlue = Match.counts(server, TestTeams.BLUE, readyFlag = true)
+        val readyRed = Match.counts(server, WallwarTeams.RED, readyFlag = true)
+        val readyBlue = Match.counts(server, WallwarTeams.BLUE, readyFlag = true)
         val member = Match.member(viewer.uuid)
         return ItemStackBuilder.of(Items.BOOK)
             .setName(line(phaseName(), ChatFormatting.YELLOW))

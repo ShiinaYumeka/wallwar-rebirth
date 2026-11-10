@@ -9,14 +9,17 @@ import net.minecraft.world.damagesource.DamageSource
 import net.minecraft.world.entity.Entity
 import net.minecraft.world.entity.LivingEntity
 import net.minecraft.world.entity.Mob
-import net.minecraft.world.entity.animal.golem.IronGolem
 import net.minecraft.world.phys.Vec3
 import shina.wallwarRebirth.building.BuildingMining
 import shina.wallwarRebirth.building.Relay
-import shina.wallwarRebirth.match.MatchRules
-import shina.wallwarRebirth.match.SurfaceOres
+import shina.wallwarRebirth.rules.MatchRules
+import shina.wallwarRebirth.world.SurfaceOres
 import shina.wallwarRebirth.building.Buildings
 import shina.wallwarRebirth.building.SiteCoreBlockEntity
+import shina.wallwarRebirth.targeting.CounterTargeting
+import shina.wallwarRebirth.targeting.SpiderTargeting
+import shina.wallwarRebirth.targeting.SummonDefaultTargeting
+import shina.wallwarRebirth.targeting.TargetWorlds
 import shina.wallwarRebirth.building.SiteCores
 import shina.wallwarRebirth.building.SitePartBlock
 import shina.wallwarRebirth.building.SiteStructureBlock
@@ -63,34 +66,46 @@ class SummonedBrain(private val mob: Mob, private val unit: SummonedUnit) {
         mob.navigation.stop()
     }
 
-    fun tick(level: ServerLevel) {
-        if (!mob.isAlive) return
+    internal var ignoreDefensiveBuildings: Boolean = false
+
+    internal fun tickCombat(level: ServerLevel) {
+        if (!prepare(level)) return
+        when (phase) {
+            Phase.COUNTER -> tickCounter(level)
+            else -> tickSeek(level)
+        }
+    }
+
+    internal fun tickMinerWork(level: ServerLevel) {
+        if (!prepare(level)) return
+        if (phase == Phase.COUNTER) tickCounter(level) else tickMiner(level)
+    }
+
+    internal fun armCreeper() {
+        (mob as? SummonedCreeper)?.arm(fuseLive, fuseBuilding)
+    }
+
+    private fun prepare(level: ServerLevel): Boolean {
+        if (!mob.isAlive) return false
         fuseLive = false
         fuseBuilding = null
         SummonedUnits.add(unit)
         if (meleeCooldown > 0) meleeCooldown--
         ticksSinceExchange++
-        if (stats.miner && phase != Phase.COUNTER) {
-            tickMiner(level)
-            armCreeper()
-            return
-        }
-        when (phase) {
-            Phase.COUNTER -> tickCounter(level)
-            else -> tickSeek(level)
-        }
-        armCreeper()
-    }
-
-    private fun armCreeper() {
-        (mob as? SummonedCreeper)?.arm(fuseLive, fuseBuilding)
+        return true
     }
 
     fun onDamaged(level: ServerLevel, source: DamageSource) {
-        val enemies = enemiesInRadius(level)
-        if (enemies.isEmpty()) return
         val attacker = source.entity as? LivingEntity
-        val chosen = if (attacker != null && enemies.any { it === attacker }) attacker else nearestEnemy(enemies)
+        val chosen = CounterTargeting.select(
+            TargetWorlds.world,
+            level,
+            mob.position(),
+            unit.summonedTeam,
+            chaseRadius,
+            mob,
+            attacker,
+        )
         if (chosen == null) return
         phase = Phase.COUNTER
         counterSourceId = attacker?.uuid
@@ -393,13 +408,13 @@ class SummonedBrain(private val mob: Mob, private val unit: SummonedUnit) {
         }
     }
 
+    internal var buildingSwing: (ServerLevel) -> Unit = { _ ->
+        mob.swing(InteractionHand.MAIN_HAND)
+    }
+
     private fun swingAtBuilding() {
         val world = mob.level() as? ServerLevel ?: return
-        if (mob is IronGolem) {
-            world.broadcastEntityEvent(mob, 4.toByte())
-        } else {
-            mob.swing(InteractionHand.MAIN_HAND)
-        }
+        buildingSwing(world)
     }
 
     private fun nearestSiegeTarget(): SiegeHit? {
@@ -548,21 +563,14 @@ class SummonedBrain(private val mob: Mob, private val unit: SummonedUnit) {
     }
 
     private fun chooseCore(level: ServerLevel, withinRadius: Boolean): SiteCoreBlockEntity? {
-        val choices = ArrayList<CoreChoice>()
-        for (core in SiteCores.all()) {
-            if (core.level !== level || !isHostileCore(core)) continue
-            val distance = distanceToCore(core.blockPos)
-            if (withinRadius && distance > chaseRadius) continue
-            choices.add(CoreChoice(core, distance))
-        }
-        return choices.minWithOrNull(
-            compareBy<CoreChoice> { (it.distance * 1000.0).toLong() }
-                .thenBy { it.core.health }
-                .thenBy { if (it.core.buildingId == Buildings.BASE.id) 0 else 1 }
-                .thenBy { it.core.blockPos.x }
-                .thenBy { it.core.blockPos.z }
-                .thenBy { it.core.blockPos.y },
-        )?.core
+        val origin = mob.position()
+        val radius = if (withinRadius) chaseRadius else null
+        val picked = if (ignoreDefensiveBuildings) {
+            SpiderTargeting.chooseCore(TargetWorlds.world, level, origin, unit.summonedTeam, radius)
+        } else {
+            SummonDefaultTargeting.chooseCore(TargetWorlds.world, level, origin, unit.summonedTeam, radius, skipDefensive = false)
+        } ?: return null
+        return SiteCores.all().firstOrNull { it.level === level && it.blockPos == picked.pos && !it.isRemoved }
     }
 
     private fun currentCore(level: ServerLevel): SiteCoreBlockEntity? {
@@ -599,17 +607,26 @@ class SummonedBrain(private val mob: Mob, private val unit: SummonedUnit) {
     private fun preferredMonster(level: ServerLevel): SummonedUnit? {
         val current = living(level, focusId) as? SummonedUnit
         if (current != null && current !== unit && inReach(current.living())) return current
-        return monstersInRadius(level).minWithOrNull(
-            compareBy<SummonedUnit> { distanceToEntity(it.living()) }.thenBy { it.living().id },
-        )
+        return SummonDefaultTargeting.nearestSummon(
+            TargetWorlds.world,
+            level,
+            mob.position(),
+            unit.summonedTeam,
+            chaseRadius,
+            mob,
+        ) as? SummonedUnit
     }
 
     private fun preferredPlayer(level: ServerLevel): ServerPlayer? {
         val current = living(level, focusId) as? ServerPlayer
         if (current != null && inReach(current)) return current
-        return playersInRadius(level).minWithOrNull(
-            compareBy<ServerPlayer> { distanceToEntity(it) }.thenBy { it.id },
-        )
+        return SummonDefaultTargeting.nearestPlayer(
+            TargetWorlds.world,
+            level,
+            mob.position(),
+            unit.summonedTeam,
+            chaseRadius,
+        ) as? ServerPlayer
     }
 
     private fun monstersInRadius(level: ServerLevel): List<SummonedUnit> = SummonedUnits.all().filter { other ->
@@ -645,8 +662,8 @@ class SummonedBrain(private val mob: Mob, private val unit: SummonedUnit) {
     }
 
     private fun isHostilePlayer(player: ServerPlayer): Boolean {
-        if (!player.isAlive || player.isSpectator || player.isCreative || player.isRemoved) return false
-        return unit.summonedTeam != (player.team?.name ?: "")
+        if (!player.isAlive || player.isRemoved) return false
+        return shina.wallwarRebirth.contract.WallwarTeams.hostile(unit.summonedTeam, player.team?.name ?: "")
     }
 
     private fun isHostileCore(core: SiteCoreBlockEntity): Boolean {
@@ -655,7 +672,7 @@ class SummonedBrain(private val mob: Mob, private val unit: SummonedUnit) {
     }
 
     private fun skipsDefensive(core: SiteCoreBlockEntity): Boolean {
-        if (!stats.ignoresDefensive) return false
+        if (!ignoreDefensiveBuildings) return false
         return Buildings.byId(core.buildingId)?.defensive == true
     }
 

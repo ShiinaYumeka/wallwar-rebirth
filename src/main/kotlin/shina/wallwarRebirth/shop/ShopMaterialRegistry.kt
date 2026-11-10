@@ -16,7 +16,7 @@ import java.util.concurrent.ConcurrentHashMap
 import kotlin.jvm.optionals.getOrNull
 
 object ShopMaterialRegistry {
-    private val logger = LoggerFactory.getLogger("hgwar/ShopMaterialRegistry")
+    private val logger = LoggerFactory.getLogger("wallwar/ShopMaterialRegistry")
 
     private val cache = ConcurrentHashMap<Identifier, Holder.Reference<Material>>()
     private val missing: ConcurrentHashMap.KeySetView<Identifier, Boolean> = ConcurrentHashMap.newKeySet()

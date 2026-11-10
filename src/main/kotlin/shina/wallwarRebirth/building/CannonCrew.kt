@@ -1,4 +1,5 @@
 package shina.wallwarRebirth.building
+import shina.wallwarRebirth.rules.MatchRules
 
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
@@ -119,7 +120,7 @@ object CannonCrew {
     }
 
     fun settle(server: MinecraftServer, killRiders: Boolean) {
-        val arena = server.getLevel(shina.wallwarRebirth.match.MatchRules.DIMENSION) ?: return
+        val arena = server.getLevel(shina.wallwarRebirth.rules.MatchRules.DIMENSION) ?: return
         val shells = ArrayList<CannonShell>()
         for (entity in arena.allEntities) {
             val shell = entity as? CannonShell ?: continue

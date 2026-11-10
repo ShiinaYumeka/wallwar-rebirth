@@ -24,7 +24,7 @@ import net.minecraft.world.level.block.state.BlockState
 import net.minecraft.world.level.block.state.StateDefinition
 import net.minecraft.world.level.block.state.properties.EnumProperty
 import net.minecraft.world.phys.BlockHitResult
-import shina.wallwarRebirth.match.BaseShop
+import shina.wallwarRebirth.shop.match.BaseShop
 import xyz.nucleoid.packettweaker.PacketContext
 
 class SiteCoreBlock(properties: Properties) : BaseEntityBlock(properties), PolymerBlock {
@@ -39,7 +39,7 @@ class SiteCoreBlock(properties: Properties) : BaseEntityBlock(properties), Polym
         CoreForm.BLAST_FURNACE -> Blocks.BLAST_FURNACE.defaultBlockState()
         CoreForm.FLETCHING_TABLE -> Blocks.FLETCHING_TABLE.defaultBlockState()
         CoreForm.CRAFTER -> Blocks.CRAFTER.defaultBlockState()
-        CoreForm.COPPER_LANTERN -> Blocks.COPPER_LANTERN.unaffected().defaultBlockState()
+        CoreForm.COPPER_BULB -> Blocks.WAXED_COPPER_BULB.defaultBlockState()
         CoreForm.DISPENSER -> Blocks.DISPENSER.defaultBlockState().setValue(DispenserBlock.FACING, Direction.UP)
         CoreForm.HOPPER -> Blocks.HOPPER.defaultBlockState()
         CoreForm.LIGHTNING_ROD -> Blocks.LIGHTNING_ROD.defaultBlockState()
@@ -119,7 +119,7 @@ enum class CoreForm : StringRepresentable {
     BLAST_FURNACE,
     FLETCHING_TABLE,
     CRAFTER,
-    COPPER_LANTERN,
+    COPPER_BULB,
     DISPENSER,
     HOPPER,
     LIGHTNING_ROD,

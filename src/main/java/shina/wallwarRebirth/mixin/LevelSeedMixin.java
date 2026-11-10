@@ -8,7 +8,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import shina.wallwarRebirth.match.Match;
-import shina.wallwarRebirth.match.MatchRules;
+import shina.wallwarRebirth.rules.MatchRules;
 
 @Mixin(ServerLevel.class)
 public class LevelSeedMixin {

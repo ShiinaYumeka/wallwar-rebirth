@@ -52,7 +52,7 @@ sealed interface BranchDetectionStrategy {
         }
     }
 
-    /** 通过 hgwar itemUpgrade 命令查询玩家的升级等级和 fork，不依赖物品位置 */
+    /** 通过升级命令查询玩家的升级等级和分支，不依赖物品位置 */
     data class CommandForkDetect(
         val upgradeType: String,
         val expectedLevel: Int,

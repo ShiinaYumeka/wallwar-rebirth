@@ -68,7 +68,7 @@ class SummonedSkeleton(type: EntityType<out SummonedSkeleton>, level: Level) :
     override fun customServerAiStep(level: ServerLevel) {
         if (shina.wallwarRebirth.match.Match.frozen(level)) return
         super.customServerAiStep(level)
-        mind.tick(level)
+        shina.wallwarRebirth.monster.ai.SkeletonAi.tick(this, level)
     }
 
     override fun addAdditionalSaveData(output: net.minecraft.world.level.storage.ValueOutput) {

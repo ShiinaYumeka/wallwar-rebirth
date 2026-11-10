@@ -19,7 +19,7 @@ import net.minecraft.world.level.ServerExplosion
 import net.minecraft.world.phys.AABB
 import net.minecraft.world.phys.Vec3
 import shina.wallwarRebirth.match.Match
-import shina.wallwarRebirth.match.MatchRules
+import shina.wallwarRebirth.rules.MatchRules
 import shina.wallwarRebirth.monster.ModMonsters
 import shina.wallwarRebirth.monster.SummonedUnit
 import xyz.nucleoid.packettweaker.PacketContext
@@ -153,7 +153,7 @@ class CannonShell(type: EntityType<out CannonShell>, level: Level) : PrimedTnt(t
         val living = entity as? LivingEntity ?: return false
         if (!living.isAlive) return false
         val other = when (living) {
-            is Player -> if (living.isSpectator) return false else living.team?.name ?: ""
+            is Player -> living.team?.name ?: ""
             is SummonedUnit -> living.summonedTeam
             else -> return false
         }
@@ -288,7 +288,7 @@ class CannonShell(type: EntityType<out CannonShell>, level: Level) : PrimedTnt(t
     }
 
     private fun teamOf(entity: LivingEntity): String? = when (entity) {
-        is Player -> if (entity.isSpectator) null else entity.team?.name ?: ""
+        is Player -> entity.team?.name ?: ""
         is SummonedUnit -> entity.summonedTeam
         else -> null
     }

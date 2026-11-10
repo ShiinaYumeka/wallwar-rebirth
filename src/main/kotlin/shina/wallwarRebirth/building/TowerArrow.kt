@@ -27,10 +27,7 @@ class TowerArrow(type: EntityType<out TowerArrow>, level: Level) : Arrow(type, l
     override fun canHitEntity(target: Entity): Boolean {
         if (!super.canHitEntity(target)) return false
         val other = when (target) {
-            is Player -> {
-                if (target.isSpectator) return false
-                target.team?.name ?: ""
-            }
+            is Player -> target.team?.name ?: ""
             is SummonedUnit -> target.summonedTeam
             else -> return false
         }

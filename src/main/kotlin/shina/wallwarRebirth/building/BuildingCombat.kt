@@ -10,7 +10,11 @@ import net.minecraft.world.entity.LivingEntity
 import net.minecraft.world.level.block.state.BlockState
 import net.minecraft.world.phys.AABB
 import net.minecraft.world.phys.Vec3
-import shina.wallwarRebirth.match.MatchRules
+import shina.wallwarRebirth.rules.MatchRules
+import shina.wallwarRebirth.targeting.CannonTargeting
+import shina.wallwarRebirth.targeting.TargetWorlds
+import shina.wallwarRebirth.targeting.TeslaTargeting
+import shina.wallwarRebirth.targeting.TowerTargeting
 import shina.wallwarRebirth.mixin.AbstractArrowAccess
 import shina.wallwarRebirth.monster.ModMonsters
 import shina.wallwarRebirth.monster.SummonedUnit
@@ -77,9 +81,9 @@ object BuildingCombat {
         TowerCrossbows.aim(site, level, target)
         val baseInterval = MatchRules.TOWER_INTERVAL[index]
         val interval = if (site.reinforceTwo.isEmpty) baseInterval else baseInterval * 4 / 5
-        if (site.actionAge < interval) site.actionAge++
-        if (site.actionAge < interval || target == null) return
-        site.actionAge = 0
+        val (nextAge, fire) = IntervalGate.step(site.actionAge, interval, target != null)
+        site.actionAge = nextAge
+        if (!fire || target == null) return
         site.setChanged()
         shoot(site, level, target, MatchRules.TOWER_SPEED[index])
     }
@@ -88,9 +92,9 @@ object BuildingCombat {
         val index = (site.buildingLevel - 1).coerceIn(0, MatchRules.TESLA_RANGE.lastIndex)
         val target = teslaTarget(site, level, MatchRules.TESLA_RANGE[index])
         val interval = MatchRules.TESLA_INTERVAL
-        if (site.actionAge < interval) site.actionAge++
-        if (site.actionAge < interval || target == null) return
-        site.actionAge = 0
+        val (nextAge, fire) = IntervalGate.step(site.actionAge, interval, target != null)
+        site.actionAge = nextAge
+        if (!fire || target == null) return
         site.setChanged()
         target.hurtServer(level, level.damageSources().lightningBolt(), MatchRules.TESLA_DAMAGE.toFloat())
         target.addEffect(MobEffectInstance(MobEffects.WEAKNESS, MatchRules.TESLA_WEAKNESS_TICKS, 0, false, true))
@@ -98,17 +102,15 @@ object BuildingCombat {
         target.addEffect(MobEffectInstance(MobEffects.BLINDNESS, MatchRules.TESLA_BLINDNESS_TICKS, 0, false, true))
     }
 
-    private fun teslaTarget(site: SiteCoreBlockEntity, level: ServerLevel, range: Double): ServerPlayer? {
-        val origin = Vec3.atCenterOf(site.blockPos)
-        val players = level.players().filter {
-            it.isAlive &&
-                !it.isSpectator &&
-                !it.isCreative &&
-                hostile(site.team, it.team?.name ?: "") &&
-                distanceToBox(origin, it.boundingBox) <= range + MatchRules.TESLA_TIE_DISTANCE
-        }
-        return pick(origin, players, MatchRules.TESLA_TIE_DISTANCE)
-    }
+    private fun teslaTarget(site: SiteCoreBlockEntity, level: ServerLevel, range: Double): ServerPlayer? =
+        TeslaTargeting.select(
+            TargetWorlds.world,
+            level,
+            Vec3.atCenterOf(site.blockPos),
+            site.team,
+            range,
+            MatchRules.TESLA_TIE_DISTANCE,
+        )
 
     private fun tickCannon(site: SiteCoreBlockEntity, level: ServerLevel) {
         val index = (site.buildingLevel - 1).coerceIn(0, MatchRules.CANNON_CENTER_DAMAGE.lastIndex)
@@ -123,62 +125,33 @@ object BuildingCombat {
                 }
             } else {
                 if (CannonCrew.tickWaiting(site, level, rider)) return
-                if (site.actionAge < interval) site.actionAge++
-                if (site.actionAge < interval || cannonTarget(site, level) == null) return
-                site.actionAge = 0
+                val aimed = cannonTarget(site, level)
+                val (waitingAge, waitingFire) = IntervalGate.step(site.actionAge, interval, aimed != null)
+                site.actionAge = waitingAge
+                if (!waitingFire || aimed == null) return
                 site.setChanged()
                 CannonShell.launchManned(level, site, rider, MatchRules.CANNON_CENTER_DAMAGE[index], wide)
                 return
             }
         }
         val target = cannonTarget(site, level)
-        if (site.actionAge < interval) site.actionAge++
-        if (site.actionAge < interval || target == null) return
-        site.actionAge = 0
+        val (nextAge, fire) = IntervalGate.step(site.actionAge, interval, target != null)
+        site.actionAge = nextAge
+        if (!fire || target == null) return
         site.setChanged()
         CannonShell.launch(level, site, target, MatchRules.CANNON_CENTER_DAMAGE[index], wide)
     }
 
-    private fun cannonTarget(site: SiteCoreBlockEntity, level: ServerLevel): Vec3? {
-        val origin = Vec3.atCenterOf(site.blockPos)
-        val range = MatchRules.CANNON_RANGE
-        val box = AABB.ofSize(origin, range * 2.0, range * 2.0, range * 2.0)
-        val monsters = level.getEntitiesOfClass(LivingEntity::class.java, box)
-            .filter {
-                it is SummonedUnit &&
-                    it.isAlive &&
-                    hostile(site.team, it.summonedTeam) &&
-                    distanceToBox(origin, it.boundingBox) <= range + MatchRules.CANNON_TIE_DISTANCE
-            }
-        pick(origin, monsters, MatchRules.CANNON_TIE_DISTANCE)?.let { return Vec3.atCenterOf(it.blockPosition()) }
-        val players = level.players()
-            .filter {
-                it.isAlive &&
-                    !it.isSpectator &&
-                    hostile(site.team, it.team?.name ?: "") &&
-                    distanceToBox(origin, it.boundingBox) <= range + MatchRules.CANNON_TIE_DISTANCE
-            }
-        pick(origin, players, MatchRules.CANNON_TIE_DISTANCE)?.let { return Vec3.atCenterOf(it.blockPosition()) }
-        val buildings = SiteCores.all().filter {
-            it.level === level &&
-                !it.isRemoved &&
-                it.health > 0 &&
-                it.blockPos != site.blockPos &&
-                it.buildingId.isNotEmpty() &&
-                hostile(site.team, it.team) &&
-                distanceToBox(origin, coreBox(level, it.blockPos)) <= range + MatchRules.CANNON_TIE_DISTANCE
-        }
-        val building = buildings.minWithOrNull(
-            compareBy<SiteCoreBlockEntity> {
-                (distanceToBox(origin, coreBox(level, it.blockPos)) / MatchRules.CANNON_TIE_DISTANCE).toLong()
-            }
-                .thenBy { it.health }
-                .thenBy { it.blockPos.x }
-                .thenBy { it.blockPos.z }
-                .thenBy { it.blockPos.y },
-        ) ?: return null
-        return Vec3.atCenterOf(building.blockPos)
-    }
+    private fun cannonTarget(site: SiteCoreBlockEntity, level: ServerLevel): Vec3? =
+        CannonTargeting.select(
+            TargetWorlds.world,
+            level,
+            Vec3.atCenterOf(site.blockPos),
+            site.team,
+            site.blockPos,
+            MatchRules.CANNON_RANGE,
+            MatchRules.CANNON_TIE_DISTANCE,
+        )?.point
 
     private fun coreBox(level: ServerLevel, pos: BlockPos): AABB {
         val shape = level.getBlockState(pos).getCollisionShape(level, pos)
@@ -186,21 +159,15 @@ object BuildingCombat {
         return shape.bounds().move(pos.x.toDouble(), pos.y.toDouble(), pos.z.toDouble())
     }
 
-    private fun nearestTarget(site: SiteCoreBlockEntity, level: ServerLevel, range: Double): LivingEntity? {
-        val origin = Vec3.atCenterOf(site.blockPos)
-        val box = AABB.ofSize(origin, range * 2.0, range * 2.0, range * 2.0)
-        val monsters = level.getEntitiesOfClass(LivingEntity::class.java, box)
-            .filter {
-                it is SummonedUnit &&
-                    it.isAlive &&
-                    hostile(site.team, it.summonedTeam) &&
-                    distanceToBox(origin, it.boundingBox) <= range + MatchRules.TOWER_TIE_DISTANCE
-            }
-        pick(origin, monsters)?.let { return it }
-        val players = level.players()
-            .filter { it.isAlive && !it.isSpectator && hostile(site.team, it.team?.name ?: "") && distanceToBox(origin, it.boundingBox) <= range + MatchRules.TOWER_TIE_DISTANCE }
-        return pick(origin, players)
-    }
+    private fun nearestTarget(site: SiteCoreBlockEntity, level: ServerLevel, range: Double): LivingEntity? =
+        TowerTargeting.select(
+            TargetWorlds.world,
+            level,
+            Vec3.atCenterOf(site.blockPos),
+            site.team,
+            range,
+            MatchRules.TOWER_TIE_DISTANCE,
+        )
 
     private fun <T : LivingEntity> pick(origin: Vec3, entities: List<T>, tie: Double = MatchRules.TOWER_TIE_DISTANCE): T? =
         entities.minWithOrNull(

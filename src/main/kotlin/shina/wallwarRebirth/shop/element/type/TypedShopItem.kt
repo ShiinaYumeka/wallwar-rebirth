@@ -14,8 +14,8 @@ sealed class TypedShopItem(private val idx: Int) : ShopItemWithIndex {
     enum class Type(internal val codec: MapCodec<out TypedShopItem>) : StringRepresentable {
         STATIC(StaticItem.CODEC),
         DYNAMIC_PLAYER(DynamicItemForPlayer.CODEC),
-        DYNAMIC_HAPPY_GHAST(DynamicItemForHappyGhast.CODEC),
-        SPECIAL_BLOCK_BLAST_UPGRADING(SpecialBlockBlastUpgradeItem.CODEC),
+        DYNAMIC_SUBJECT(DynamicSubjectItem.CODEC),
+        SPECIAL_BLAST_UPGRADE(SpecialBlastUpgradeItem.CODEC),
         BRANCH_ENTRY(BranchEntryItem.CODEC),
         ;
 

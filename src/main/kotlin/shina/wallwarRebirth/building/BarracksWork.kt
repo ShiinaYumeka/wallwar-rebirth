@@ -11,8 +11,8 @@ import net.minecraft.world.phys.Vec3
 import shina.wallwarRebirth.monster.SummonedUnit
 import kotlin.math.sqrt
 import shina.wallwarRebirth.item.ModItems
-import shina.wallwarRebirth.match.MatchRules
-import shina.wallwarRebirth.shop.TeamWarehouses
+import shina.wallwarRebirth.rules.MatchRules
+import shina.wallwarRebirth.shop.match.TeamWarehouses
 import shina.wallwarRebirth.monster.MonsterDefinition
 import shina.wallwarRebirth.monster.Monsters
 import shina.wallwarRebirth.match.MatchPlacement
@@ -72,10 +72,8 @@ object BarracksWork {
         val warehouse = TeamWarehouses.of(site.team)
         if (!InventoryCosts.hasAll(site.barracksMaterials, warehouse, costs)) return
         val interval = definition.productionTicks(site.buildingLevel)
-        if (site.actionAge < interval) {
-            site.actionAge++
-            if (site.actionAge < interval) return
-        }
+        site.actionAge = IntervalGate.advance(site.actionAge, interval, counting = true)
+        if (!IntervalGate.due(site.actionAge, interval)) return
         val count = definition.batch.coerceAtLeast(1)
         if (!site.reinforceTwo.isEmpty) {
             InventoryCosts.takeAll(site.barracksMaterials, warehouse, costs)

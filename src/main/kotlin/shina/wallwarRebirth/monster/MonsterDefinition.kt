@@ -1,7 +1,7 @@
 package shina.wallwarRebirth.monster
 
 import net.minecraft.world.item.Item
-import shina.wallwarRebirth.match.MatchRules
+import shina.wallwarRebirth.rules.MatchRules
 
 data class MonsterCost(val item: Item, val count: Int, val name: String)
 
@@ -60,7 +60,7 @@ data class MonsterDefinition(
         }
         if (miner) {
             lines.add("不主动攻击建筑和敌人，挨打后才反击")
-            lines.add("挖满 ${MatchRules.MINER_CARGO} 块矿后回本队基地，每 ${MatchRules.MINER_ORES_PER_CYCLE} 块让基地按当前等级和模块生产一次，钻石仍按 ${MatchRules.REACTOR_DIAMOND_PERCENT}% 概率")
+            lines.add("挖满 ${MatchRules.MINER_CARGO} 块矿后回本队基地，每 ${MatchRules.MINER_ORES_PER_CYCLE} 块让基地按当前等级和模块生产一次，钻石仍按 ${MatchRules.BASE_DIAMOND_PERCENT}% 概率")
             lines.add("死亡时按身上的矿计数掉落等量铁锭和等量铜锭")
         }
         if (sword) lines.add("手持铁剑近战，挥击间隔与僵尸相同，伤害不含铁剑的原版攻击")

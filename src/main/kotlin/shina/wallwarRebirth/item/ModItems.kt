@@ -34,15 +34,6 @@ object ModItems {
     }
 
     @JvmField
-    val EXAMPLE_TOKEN: Item = register("example_token") { properties ->
-        SimpleModdedItem(
-            properties = properties.stacksTo(1),
-            polymerItem = Items.PAPER,
-            interactionType = PolymerInteractionType.CLASSIC,
-        )
-    }
-
-    @JvmField
     val REINFORCE: Item = module(
         "reinforce_module",
         "强化模块",
@@ -148,7 +139,6 @@ object ModItems {
 
     fun init() {
         MENU
-        EXAMPLE_TOKEN
         REINFORCE
         REINFORCE_TWO
         DIFFUSION

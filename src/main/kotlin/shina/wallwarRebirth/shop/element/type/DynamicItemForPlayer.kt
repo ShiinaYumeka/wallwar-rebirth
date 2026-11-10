@@ -26,7 +26,7 @@ class DynamicItemForPlayer(
 ) : DynamicItem(index, valueCommand, entries, fallback) {
 
     companion object {
-        private val logger = LoggerFactory.getLogger("hgwar/DynamicItemForPlayer")
+        private val logger = LoggerFactory.getLogger("wallwar/DynamicItemForPlayer")
 
         val CODEC: MapCodec<DynamicItemForPlayer> = RecordCodecBuilder.mapCodec { instance ->
             instance.group(

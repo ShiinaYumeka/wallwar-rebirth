@@ -63,7 +63,7 @@ class SummonedHusk(type: EntityType<out SummonedHusk>, level: Level) : Zombie(ty
     override fun customServerAiStep(level: ServerLevel) {
         if (Match.frozen(level)) return
         super.customServerAiStep(level)
-        mind.tick(level)
+        shina.wallwarRebirth.monster.ai.HuskAi.tick(this, level)
     }
 
     override fun addAdditionalSaveData(output: net.minecraft.world.level.storage.ValueOutput) {

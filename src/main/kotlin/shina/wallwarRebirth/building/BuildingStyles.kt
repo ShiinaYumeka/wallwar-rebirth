@@ -205,7 +205,7 @@ object BuildingStyles {
         val state = level.getBlockState(origin)
         if (state.block !is SiteCoreBlock) return
         val form = when (definition.id) {
-            Buildings.WALL.id -> CoreForm.COPPER_LANTERN
+            Buildings.WALL.id -> CoreForm.COPPER_BULB
             Buildings.TOWER.id -> CoreForm.FLETCHING_TABLE
             Buildings.BARRACKS.id -> CoreForm.CRAFTER
             Buildings.CANNON.id -> CoreForm.DISPENSER
