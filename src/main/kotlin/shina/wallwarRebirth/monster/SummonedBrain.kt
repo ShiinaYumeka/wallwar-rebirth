@@ -16,6 +16,10 @@ import shina.wallwarRebirth.rules.MatchRules
 import shina.wallwarRebirth.world.SurfaceOres
 import shina.wallwarRebirth.building.Buildings
 import shina.wallwarRebirth.building.SiteCoreBlockEntity
+import shina.wallwarRebirth.targeting.CounterTargeting
+import shina.wallwarRebirth.targeting.SpiderTargeting
+import shina.wallwarRebirth.targeting.SummonDefaultTargeting
+import shina.wallwarRebirth.targeting.TargetWorlds
 import shina.wallwarRebirth.building.SiteCores
 import shina.wallwarRebirth.building.SitePartBlock
 import shina.wallwarRebirth.building.SiteStructureBlock
@@ -92,10 +96,16 @@ class SummonedBrain(private val mob: Mob, private val unit: SummonedUnit) {
     }
 
     fun onDamaged(level: ServerLevel, source: DamageSource) {
-        val enemies = enemiesInRadius(level)
-        if (enemies.isEmpty()) return
         val attacker = source.entity as? LivingEntity
-        val chosen = if (attacker != null && enemies.any { it === attacker }) attacker else nearestEnemy(enemies)
+        val chosen = CounterTargeting.select(
+            TargetWorlds.world,
+            level,
+            mob.position(),
+            unit.summonedTeam,
+            chaseRadius,
+            mob,
+            attacker,
+        )
         if (chosen == null) return
         phase = Phase.COUNTER
         counterSourceId = attacker?.uuid
@@ -553,21 +563,14 @@ class SummonedBrain(private val mob: Mob, private val unit: SummonedUnit) {
     }
 
     private fun chooseCore(level: ServerLevel, withinRadius: Boolean): SiteCoreBlockEntity? {
-        val choices = ArrayList<CoreChoice>()
-        for (core in SiteCores.all()) {
-            if (core.level !== level || !isHostileCore(core)) continue
-            val distance = distanceToCore(core.blockPos)
-            if (withinRadius && distance > chaseRadius) continue
-            choices.add(CoreChoice(core, distance))
-        }
-        return choices.minWithOrNull(
-            compareBy<CoreChoice> { (it.distance * 1000.0).toLong() }
-                .thenBy { it.core.health }
-                .thenBy { if (it.core.buildingId == Buildings.BASE.id) 0 else 1 }
-                .thenBy { it.core.blockPos.x }
-                .thenBy { it.core.blockPos.z }
-                .thenBy { it.core.blockPos.y },
-        )?.core
+        val origin = mob.position()
+        val radius = if (withinRadius) chaseRadius else null
+        val picked = if (ignoreDefensiveBuildings) {
+            SpiderTargeting.chooseCore(TargetWorlds.world, level, origin, unit.summonedTeam, radius)
+        } else {
+            SummonDefaultTargeting.chooseCore(TargetWorlds.world, level, origin, unit.summonedTeam, radius, skipDefensive = false)
+        } ?: return null
+        return SiteCores.all().firstOrNull { it.level === level && it.blockPos == picked.pos && !it.isRemoved }
     }
 
     private fun currentCore(level: ServerLevel): SiteCoreBlockEntity? {
@@ -604,17 +607,26 @@ class SummonedBrain(private val mob: Mob, private val unit: SummonedUnit) {
     private fun preferredMonster(level: ServerLevel): SummonedUnit? {
         val current = living(level, focusId) as? SummonedUnit
         if (current != null && current !== unit && inReach(current.living())) return current
-        return monstersInRadius(level).minWithOrNull(
-            compareBy<SummonedUnit> { distanceToEntity(it.living()) }.thenBy { it.living().id },
-        )
+        return SummonDefaultTargeting.nearestSummon(
+            TargetWorlds.world,
+            level,
+            mob.position(),
+            unit.summonedTeam,
+            chaseRadius,
+            mob,
+        ) as? SummonedUnit
     }
 
     private fun preferredPlayer(level: ServerLevel): ServerPlayer? {
         val current = living(level, focusId) as? ServerPlayer
         if (current != null && inReach(current)) return current
-        return playersInRadius(level).minWithOrNull(
-            compareBy<ServerPlayer> { distanceToEntity(it) }.thenBy { it.id },
-        )
+        return SummonDefaultTargeting.nearestPlayer(
+            TargetWorlds.world,
+            level,
+            mob.position(),
+            unit.summonedTeam,
+            chaseRadius,
+        ) as? ServerPlayer
     }
 
     private fun monstersInRadius(level: ServerLevel): List<SummonedUnit> = SummonedUnits.all().filter { other ->
