@@ -1,8 +1,8 @@
 package shina.wallwarRebirth.building
 
-import net.minecraft.resources.Identifier
 import net.minecraft.world.item.Items
 import shina.wallwarRebirth.WallwarMod
+import shina.wallwarRebirth.bootstrap.LegacyDatapacks
 import shina.wallwarRebirth.match.MatchRules
 import kotlin.math.ceil
 import kotlin.math.floor
@@ -110,7 +110,7 @@ object Buildings {
         displayName = "特斯拉塔",
         category = BuildingCategory.NORMAL,
         maxLevel = 3,
-        structure = { _ -> Identifier.fromNamespaceAndPath("wallwar", "electric") },
+        structure = { _ -> LegacyDatapacks.TESLA },
         upgrades = listOf(
             UpgradeCost(2, listOf(ItemAmount(Items.COPPER_INGOT, MatchRules.TESLA_UPGRADE_2_COPPER, "铜锭"))),
             UpgradeCost(3, listOf(ItemAmount(Items.COPPER_INGOT, MatchRules.TESLA_UPGRADE_3_COPPER, "铜锭"))),
@@ -200,7 +200,7 @@ object Buildings {
         displayName = "传输装置",
         category = BuildingCategory.NORMAL,
         maxLevel = 1,
-        structure = { _ -> Identifier.fromNamespaceAndPath("wallwar", "trans") },
+        structure = { _ -> LegacyDatapacks.RELAY },
         upgrades = emptyList(),
         production = emptyList(),
         healthByLevel = listOf(MatchRules.RELAY_HEALTH),

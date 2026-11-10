@@ -1,30 +1,23 @@
 package shina.wallwarRebirth.command
 
 import com.mojang.brigadier.Command
-import eu.pb4.sgui.api.elements.GuiElement
 import net.minecraft.commands.Commands
-import net.minecraft.core.component.DataComponents
 import net.minecraft.network.chat.Component
 import net.minecraft.world.InteractionHand
 import net.minecraft.world.item.ItemStack
-import net.minecraft.world.item.Items
-import net.minecraft.world.item.component.CustomModelData
 import net.minecraft.world.item.context.BlockPlaceContext
 import net.minecraft.world.level.ClipContext
 import net.minecraft.world.phys.BlockHitResult
 import net.minecraft.world.phys.HitResult
 import net.minecraft.world.phys.Vec3
-import shina.wallwarRebirth.building.BuildingStyles
 import shina.wallwarRebirth.building.BuildingStructure
+import shina.wallwarRebirth.building.BuildingStyles
 import shina.wallwarRebirth.building.ModSites
 import shina.wallwarRebirth.monster.Monsters
 import shina.wallwarRebirth.monster.Summoning
 import shina.wallwarRebirth.match.Match
 import shina.wallwarRebirth.match.MatchGui
 import shina.wallwarRebirth.monster.TestTeams
-import shina.wallwarRebirth.flux.gui.FluxGui
-import shina.wallwarRebirth.gui.GuiTheme
-import shina.wallwarRebirth.gui.SimpleHotbarGui
 import shina.wallwarRebirth.item.ModItems
 import shina.wallwarRebirth.shop.PlayerShopSettings
 import shina.wallwarRebirth.shop.ShopLayerRegistry
@@ -41,20 +34,11 @@ import shina.wallwarRebirth.util.command.context.CommandContext
 
 object WallwarCommands {
     val root = literalCommand("ww") {
-        literal("gui") {
-            executes { openFluxGui() }
-        }
-        literal("hotbar") {
-            executes { openHotbar() }
-        }
         literal("shop") {
             executes { openShop() }
             literal("teamrepo") {
                 executes { toggleTeamRepo() }
             }
-        }
-        literal("token") {
-            executes { giveToken() }
         }
         literal("build") {
             requires { Commands.LEVEL_GAMEMASTERS.check(permissions()) }
@@ -91,31 +75,6 @@ object WallwarCommands {
             requires { Commands.LEVEL_GAMEMASTERS.check(permissions()) }
             executes { giveModules() }
         }
-    }
-
-    private fun CommandContext.openFluxGui(): Int {
-        val player = context.source.playerOrException
-        FluxGui(player, Component.literal("Wallwar"), rows = 3) {
-            pattern(
-                "GGGGGGGGG",
-                "GGBGBBGBG",
-                "GGGGGGGGG",
-            ) {
-                bind('G') { item(GuiTheme.GLASS_BLACK) }
-                bind('B') { item(GuiTheme.GLASS_BLUE) }
-            }
-        }.open()
-        return Command.SINGLE_SUCCESS
-    }
-
-    private fun CommandContext.openHotbar(): Int {
-        val player = context.source.playerOrException
-        val gui = object : SimpleHotbarGui(player) {}
-        gui.setSlot(0, GuiElement(ItemStack(Items.DIAMOND)) { _, _, _, _ ->
-            player.sendSystemMessage(Component.literal("hotbar"))
-        })
-        gui.open()
-        return Command.SINGLE_SUCCESS
     }
 
     private fun CommandContext.openShop(): Int {
@@ -273,21 +232,5 @@ object WallwarCommands {
         val placeHit = BlockHitResult(Vec3.atCenterOf(pos), net.minecraft.core.Direction.UP, pos, false)
         val placeContext = BlockPlaceContext(player, InteractionHand.MAIN_HAND, ItemStack.EMPTY, placeHit)
         return state.canBeReplaced(placeContext)
-    }
-
-    private fun CommandContext.giveToken(): Int {
-        val player = context.source.playerOrException
-        val stack = ItemStack(ModItems.EXAMPLE_TOKEN)
-        val empty = CustomModelData.EMPTY
-        stack[DataComponents.CUSTOM_MODEL_DATA] = CustomModelData(
-            empty.floats(),
-            empty.flags(),
-            listOf("upgrade"),
-            empty.colors(),
-        )
-        if (!player.inventory.add(stack)) {
-            player.drop(stack, false)
-        }
-        return Command.SINGLE_SUCCESS
     }
 }

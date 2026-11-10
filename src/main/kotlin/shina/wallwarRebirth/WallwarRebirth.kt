@@ -6,7 +6,6 @@ import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents
 import shina.wallwarRebirth.building.ModSites
 import shina.wallwarRebirth.command.WallwarCommands
-import shina.wallwarRebirth.flux.gui.backend.FluxGuiRegistry
 import shina.wallwarRebirth.item.ModComponents
 import shina.wallwarRebirth.item.ModItems
 import shina.wallwarRebirth.match.Match
@@ -30,7 +29,6 @@ class WallwarRebirth : ModInitializer {
         TeamWarehouses.init()
         ShopLayerRegistry.init()
         BranchGroupRegistry.init()
-        FluxGuiRegistry.init()
         MatchHooks.init()
         PolymerResourcePackUtils.addModAssets(WallwarMod.MOD_ID)
         ServerLifecycleEvents.SERVER_STARTED.register { server ->
