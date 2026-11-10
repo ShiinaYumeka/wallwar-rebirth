@@ -69,6 +69,7 @@ object Summoning {
         Monsters.DEATH_KNIGHT.id -> SummonedDeathknight(ModMonsters.DEATH_KNIGHT, level)
         Monsters.CREEPER.id -> SummonedCreeper(ModMonsters.CREEPER, level)
         Monsters.WARRIOR.id -> SummonedWarrior(ModMonsters.WARRIOR, level)
+        // Placeholders only: pillager, villager, and farmer are not spawned yet.
         else -> null
     }
 }

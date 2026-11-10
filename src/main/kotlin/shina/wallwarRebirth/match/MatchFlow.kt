@@ -4,9 +4,9 @@ import net.minecraft.network.chat.Component
 import net.minecraft.server.MinecraftServer
 import net.minecraft.world.level.GameType
 import shina.wallwarRebirth.building.CannonCrew
-import shina.wallwarRebirth.monster.TestTeams
+import shina.wallwarRebirth.contract.WallwarTeams
 import shina.wallwarRebirth.rules.MatchRules
-import shina.wallwarRebirth.shop.TeamWarehouses
+import shina.wallwarRebirth.shop.match.TeamWarehouses
 import shina.wallwarRebirth.util.clearTitle
 import shina.wallwarRebirth.util.showActionBar
 import shina.wallwarRebirth.util.showTitle
@@ -28,32 +28,32 @@ object MatchFlow {
 
     internal fun showTerrainTitle(current: MinecraftServer) {
         val text = Component.literal("正在加载地形")
-        for ((player, _) in MatchRoster.onlineTeam(current, TestTeams.RED) + MatchRoster.onlineTeam(current, TestTeams.BLUE)) {
+        for ((player, _) in MatchRoster.onlineTeam(current, WallwarTeams.RED) + MatchRoster.onlineTeam(current, WallwarTeams.BLUE)) {
             player.showTitle(text, fadeIn = 0, stay = 1200, fadeOut = 10)
         }
     }
 
     internal fun clearTerrainTitle(current: MinecraftServer) {
-        for ((player, _) in MatchRoster.onlineTeam(current, TestTeams.RED) + MatchRoster.onlineTeam(current, TestTeams.BLUE)) {
+        for ((player, _) in MatchRoster.onlineTeam(current, WallwarTeams.RED) + MatchRoster.onlineTeam(current, WallwarTeams.BLUE)) {
             player.clearTitle()
         }
     }
 
     internal fun tryBeginWatch(current: MinecraftServer) {
         if (Match.phase != Match.Phase.LOBBY || Match.generating || Match.watchBuildTick >= 0) return
-        if (!MatchRoster.teamDone(current, TestTeams.RED) { it.ready && it.classLocked }) return
-        if (!MatchRoster.teamDone(current, TestTeams.BLUE) { it.ready && it.classLocked }) return
+        if (!MatchRoster.teamDone(current, WallwarTeams.RED) { it.ready && it.classLocked }) return
+        if (!MatchRoster.teamDone(current, WallwarTeams.BLUE) { it.ready && it.classLocked }) return
         Match.watchBuildTick = current.tickCount + 1
         showTerrainTitle(current)
     }
 
     internal fun buildWatch(current: MinecraftServer) {
         if (Match.phase != Match.Phase.LOBBY || Match.generating) return
-        if (!MatchRoster.teamDone(current, TestTeams.RED) { it.ready && it.classLocked }) {
+        if (!MatchRoster.teamDone(current, WallwarTeams.RED) { it.ready && it.classLocked }) {
             clearTerrainTitle(current)
             return
         }
-        if (!MatchRoster.teamDone(current, TestTeams.BLUE) { it.ready && it.classLocked }) {
+        if (!MatchRoster.teamDone(current, WallwarTeams.BLUE) { it.ready && it.classLocked }) {
             clearTerrainTitle(current)
             return
         }
@@ -139,15 +139,15 @@ object MatchFlow {
         Match.watchSecond = -1
         Match.phase = Match.Phase.FIGHT
         TeamWarehouses.clear()
-        for ((player, member) in MatchRoster.onlineTeam(current, TestTeams.RED) + MatchRoster.onlineTeam(current, TestTeams.BLUE)) {
+        for ((player, member) in MatchRoster.onlineTeam(current, WallwarTeams.RED) + MatchRoster.onlineTeam(current, WallwarTeams.BLUE)) {
             member.classLocked = true
             member.respawnAt = 0
             MatchRoster.resetVitals(player)
             player.clearTitle()
             MatchRoster.enterFight(player, member)
         }
-        MatchRoster.giveStartIngots(current, TestTeams.RED)
-        MatchRoster.giveStartIngots(current, TestTeams.BLUE)
+        MatchRoster.giveStartIngots(current, WallwarTeams.RED)
+        MatchRoster.giveStartIngots(current, WallwarTeams.BLUE)
         MatchRoster.broadcast(current, "战斗开始")
         MatchPersistence.save(current)
     }

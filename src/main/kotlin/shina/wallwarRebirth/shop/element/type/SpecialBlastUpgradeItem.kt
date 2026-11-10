@@ -19,7 +19,7 @@ import net.minecraft.world.item.ItemStack
 /**
  * 用于野生熔炉方块的高炉升级
  */
-class SpecialBlockBlastUpgradeItem(
+class SpecialBlastUpgradeItem(
     idx: Int,
     val iconAt0: ItemStack,
     val iconAt1: ItemStack,
@@ -35,34 +35,34 @@ class SpecialBlockBlastUpgradeItem(
     private val baseItemAt2 = BaseShopItem(iconAt2, emptyMap(), emptyList(), false, 999, false, alreadyBoughtMessage)
 
     companion object {
-        val CODEC: MapCodec<SpecialBlockBlastUpgradeItem> = RecordCodecBuilder.mapCodec { instance ->
+        val CODEC: MapCodec<SpecialBlastUpgradeItem> = RecordCodecBuilder.mapCodec { instance ->
             instance.group(
                 Codec.intRange(0, 81)
                     .fieldOf("index")
-                    .forGetter(SpecialBlockBlastUpgradeItem::index),
+                    .forGetter(SpecialBlastUpgradeItem::index),
                 ItemStack.STRICT_CODEC
                     .fieldOf("icon_at_0")
-                    .forGetter(SpecialBlockBlastUpgradeItem::iconAt0),
+                    .forGetter(SpecialBlastUpgradeItem::iconAt0),
                 ItemStack.STRICT_CODEC
                     .fieldOf("icon_at_1")
-                    .forGetter(SpecialBlockBlastUpgradeItem::iconAt1),
+                    .forGetter(SpecialBlastUpgradeItem::iconAt1),
                 ItemStack.STRICT_CODEC
                     .fieldOf("icon_at_2")
-                    .forGetter(SpecialBlockBlastUpgradeItem::iconAt2),
+                    .forGetter(SpecialBlastUpgradeItem::iconAt2),
                 Codec.unboundedMap(Identifier.CODEC, ExtraCodecs.POSITIVE_INT)
                     .optionalFieldOf("costs_at_0", emptyMap())
-                    .forGetter(SpecialBlockBlastUpgradeItem::costsAt0),
+                    .forGetter(SpecialBlastUpgradeItem::costsAt0),
                 Codec.unboundedMap(Identifier.CODEC, ExtraCodecs.POSITIVE_INT)
                     .optionalFieldOf("costs_at_1", emptyMap())
-                    .forGetter(SpecialBlockBlastUpgradeItem::costsAt1),
+                    .forGetter(SpecialBlastUpgradeItem::costsAt1),
                 ComponentSerialization.CODEC
                     .fieldOf("already_bought_message")
-                    .forGetter(SpecialBlockBlastUpgradeItem::alreadyBoughtMessage),
-            ).apply(instance, ::SpecialBlockBlastUpgradeItem)
+                    .forGetter(SpecialBlastUpgradeItem::alreadyBoughtMessage),
+            ).apply(instance, ::SpecialBlastUpgradeItem)
         }
     }
 
-    override fun type() = Type.SPECIAL_BLOCK_BLAST_UPGRADING
+    override fun type() = Type.SPECIAL_BLAST_UPGRADE
 
     override fun shouldSkipAdd(gui: ShopGui): Boolean = !gui.session.supportsFurnaceUpgrade
 

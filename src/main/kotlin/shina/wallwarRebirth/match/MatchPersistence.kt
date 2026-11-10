@@ -11,7 +11,7 @@ import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.storage.LevelResource
 import shina.wallwarRebirth.profession.Classes
 import shina.wallwarRebirth.rules.MatchRules
-import shina.wallwarRebirth.shop.TeamWarehouses
+import shina.wallwarRebirth.shop.match.TeamWarehouses
 import shina.wallwarRebirth.world.MatchWorld
 import java.util.UUID
 import kotlin.math.hypot

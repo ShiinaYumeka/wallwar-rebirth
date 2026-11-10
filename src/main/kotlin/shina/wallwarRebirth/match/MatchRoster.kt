@@ -1,4 +1,5 @@
 package shina.wallwarRebirth.match
+import shina.wallwarRebirth.shop.match.PortableShop
 
 import net.minecraft.core.BlockPos
 import net.minecraft.network.chat.Component
@@ -10,7 +11,7 @@ import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
 import net.minecraft.world.level.GameType
 import net.minecraft.world.level.storage.LevelData
-import shina.wallwarRebirth.monster.TestTeams
+import shina.wallwarRebirth.contract.WallwarTeams
 import shina.wallwarRebirth.rules.MatchRules
 import shina.wallwarRebirth.util.clearTitle
 import shina.wallwarRebirth.util.showTitle
@@ -26,7 +27,7 @@ object MatchRoster {
         for (player in current.playerList.players) {
             val member = Match.members[player.uuid] ?: continue
             if (member.respawnAt <= 0) continue
-            val fighting = Match.phase == Match.Phase.FIGHT && (member.team == TestTeams.RED || member.team == TestTeams.BLUE)
+            val fighting = Match.phase == Match.Phase.FIGHT && (member.team == WallwarTeams.RED || member.team == WallwarTeams.BLUE)
             if (!fighting) {
                 member.respawnAt = 0
                 changed = true
@@ -69,7 +70,7 @@ object MatchRoster {
     internal fun applyBodyReset(player: ServerPlayer, member: Match.Member): Boolean {
         if (!member.pendingReset) return false
         member.pendingReset = false
-        if (member.team != TestTeams.RED && member.team != TestTeams.BLUE) return true
+        if (member.team != WallwarTeams.RED && member.team != WallwarTeams.BLUE) return true
         resetVitals(player)
         clearBelongings(player)
         MatchMenu.give(player)

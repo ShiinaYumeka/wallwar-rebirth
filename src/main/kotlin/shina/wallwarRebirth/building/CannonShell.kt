@@ -153,7 +153,7 @@ class CannonShell(type: EntityType<out CannonShell>, level: Level) : PrimedTnt(t
         val living = entity as? LivingEntity ?: return false
         if (!living.isAlive) return false
         val other = when (living) {
-            is Player -> if (living.isSpectator) return false else living.team?.name ?: ""
+            is Player -> living.team?.name ?: ""
             is SummonedUnit -> living.summonedTeam
             else -> return false
         }
@@ -288,7 +288,7 @@ class CannonShell(type: EntityType<out CannonShell>, level: Level) : PrimedTnt(t
     }
 
     private fun teamOf(entity: LivingEntity): String? = when (entity) {
-        is Player -> if (entity.isSpectator) null else entity.team?.name ?: ""
+        is Player -> entity.team?.name ?: ""
         is SummonedUnit -> entity.summonedTeam
         else -> null
     }

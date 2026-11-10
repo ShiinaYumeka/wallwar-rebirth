@@ -45,7 +45,7 @@ internal fun SiteCoreBlockEntity.setModule(slot: ModuleSlot, stack: ItemStack) {
             if (buildingId == Buildings.BARRACKS.id) healAge = 0
             if (buildingId == Buildings.BASE.id && !stack.isEmpty) {
                 val world = level as? ServerLevel
-                if (world != null) shina.wallwarRebirth.match.PortableShop.tick(world.server)
+                if (world != null) shina.wallwarRebirth.shop.match.PortableShop.tick(world.server)
             }
         }
     }

@@ -21,21 +21,21 @@ object ModSites {
     lateinit var STRUCTURE_TYPE: BlockEntityType<SiteStructureBlockEntity>
 
     fun init() {
-        val id = WallwarMod.idOf("site_core")
+        val id = WallwarMod.idOf("building_core")
         val blockKey = ResourceKey.create(Registries.BLOCK, id)
         CORE = SiteCoreBlock(partProperties(blockKey))
         Registry.register(BuiltInRegistries.BLOCK, blockKey, CORE)
-        val structureKey = ResourceKey.create(Registries.BLOCK, WallwarMod.idOf("site_structure"))
+        val structureKey = ResourceKey.create(Registries.BLOCK, WallwarMod.idOf("building_part"))
         STRUCTURE = SiteStructureBlock(partProperties(structureKey))
         Registry.register(BuiltInRegistries.BLOCK, structureKey, STRUCTURE)
         TYPE = Registry.register(
             BuiltInRegistries.BLOCK_ENTITY_TYPE,
-            WallwarMod.idOf("site_core"),
+            WallwarMod.idOf("building_core"),
             FabricBlockEntityTypeBuilder.create(::SiteCoreBlockEntity, CORE).build(),
         )
         STRUCTURE_TYPE = Registry.register(
             BuiltInRegistries.BLOCK_ENTITY_TYPE,
-            WallwarMod.idOf("site_structure"),
+            WallwarMod.idOf("building_part"),
             FabricBlockEntityTypeBuilder.create(::SiteStructureBlockEntity, STRUCTURE).build(),
         )
         PolymerBlockUtils.registerBlockEntity(TYPE)

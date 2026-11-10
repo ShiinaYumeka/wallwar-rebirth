@@ -21,7 +21,7 @@ import net.minecraft.world.phys.Vec3
 import org.slf4j.LoggerFactory
 import java.util.*
 
-class DynamicItemForHappyGhast(
+class DynamicSubjectItem(
     index: Int,
     valueCommand: String,
     entries: List<DynamicItemEntry>,
@@ -29,21 +29,21 @@ class DynamicItemForHappyGhast(
 ) : DynamicItem(index, valueCommand, entries, fallback) {
 
     companion object {
-        private val logger = LoggerFactory.getLogger("hgwar/DynamicItemForHappyGhast")
+        private val logger = LoggerFactory.getLogger("wallwar/DynamicSubjectItem")
 
         @JvmField
-        val CODEC: MapCodec<DynamicItemForHappyGhast> = RecordCodecBuilder.mapCodec { instance ->
+        val CODEC: MapCodec<DynamicSubjectItem> = RecordCodecBuilder.mapCodec { instance ->
             instance.group(
                 Codec.intRange(0, 81).fieldOf("index")
-                    .forGetter(DynamicItemForHappyGhast::index),
+                    .forGetter(DynamicSubjectItem::index),
                 Codec.STRING.fieldOf("value_command")
-                    .forGetter(DynamicItemForHappyGhast::valueCommand),
+                    .forGetter(DynamicSubjectItem::valueCommand),
                 ENTRY_CODEC.listOf().optionalFieldOf("entries")
                     .forGetter { Optional.of(it.entries) },
                 BaseShopItem.CODEC.optionalFieldOf("fallback")
                     .forGetter { Optional.ofNullable(it.fallback) }
             ).apply(instance) { index, valueCommand, entries, fallbackOpt ->
-                DynamicItemForHappyGhast(
+                DynamicSubjectItem(
                     index,
                     if (valueCommand.startsWith('/')) valueCommand.substring(1) else valueCommand,
                     entries.orElseGet { emptyList() },
@@ -53,7 +53,7 @@ class DynamicItemForHappyGhast(
         }
     }
 
-    override fun type(): Type = Type.DYNAMIC_HAPPY_GHAST
+    override fun type(): Type = Type.DYNAMIC_SUBJECT
 
     override fun shouldSkipAdd(gui: ShopGui): Boolean = gui.session.subject == null
 

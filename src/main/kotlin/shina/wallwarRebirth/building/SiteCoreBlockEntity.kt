@@ -33,7 +33,7 @@ import shina.wallwarRebirth.match.Match
 import shina.wallwarRebirth.match.MatchPlacement
 import shina.wallwarRebirth.rules.MatchRules
 import shina.wallwarRebirth.monster.SummonedUnit
-import shina.wallwarRebirth.shop.TeamWarehouses
+import shina.wallwarRebirth.shop.match.TeamWarehouses
 import shina.wallwarRebirth.util.playNotifySound
 import shina.wallwarRebirth.util.showActionBar
 import shina.wallwarRebirth.util.showTitle

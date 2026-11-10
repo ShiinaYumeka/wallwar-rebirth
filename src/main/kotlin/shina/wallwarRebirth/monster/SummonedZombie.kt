@@ -63,7 +63,7 @@ class SummonedZombie(type: EntityType<out SummonedZombie>, level: Level) : Zombi
     override fun customServerAiStep(level: ServerLevel) {
         if (Match.frozen(level)) return
         super.customServerAiStep(level)
-        mind.tick(level)
+        shina.wallwarRebirth.monster.ai.ZombieAi.tick(this, level)
     }
 
     override fun addAdditionalSaveData(output: net.minecraft.world.level.storage.ValueOutput) {

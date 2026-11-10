@@ -14,7 +14,7 @@ import java.util.concurrent.CompletableFuture
 import java.util.concurrent.Executor
 
 object BranchGroupRegistry {
-    private val logger = LoggerFactory.getLogger("hgwar/BranchGroupRegistry")
+    private val logger = LoggerFactory.getLogger("wallwar/BranchGroupRegistry")
     private var branchGroups: Map<Identifier, BranchGroup> = emptyMap()
 
     fun init() {

@@ -24,7 +24,7 @@ import net.minecraft.world.level.block.state.BlockState
 import net.minecraft.world.level.block.state.StateDefinition
 import net.minecraft.world.level.block.state.properties.EnumProperty
 import net.minecraft.world.phys.BlockHitResult
-import shina.wallwarRebirth.match.BaseShop
+import shina.wallwarRebirth.shop.match.BaseShop
 import xyz.nucleoid.packettweaker.PacketContext
 
 class SiteCoreBlock(properties: Properties) : BaseEntityBlock(properties), PolymerBlock {

@@ -1,4 +1,5 @@
 package shina.wallwarRebirth.match
+import shina.wallwarRebirth.shop.match.PortableShop
 import shina.wallwarRebirth.profession.Classes
 import shina.wallwarRebirth.rules.MatchRules
 import shina.wallwarRebirth.world.ArenaReset
@@ -23,16 +24,16 @@ import net.minecraft.world.level.gamerules.GameRules
 import net.minecraft.world.level.storage.LevelData
 import net.minecraft.world.level.storage.LevelResource
 import net.minecraft.world.level.Level
-import shina.wallwarRebirth.building.SiteCoreBlockEntity
-import shina.wallwarRebirth.shop.TeamWarehouses
-import shina.wallwarRebirth.monster.TestTeams
+import shina.wallwarRebirth.contract.MatchPort
+import shina.wallwarRebirth.contract.WallwarTeams
+import shina.wallwarRebirth.shop.match.TeamWarehouses
 import shina.wallwarRebirth.util.clearTitle
 import shina.wallwarRebirth.util.showActionBar
 import shina.wallwarRebirth.util.showTitle
 import java.util.UUID
 import kotlin.math.hypot
 
-object Match {
+object Match : MatchPort {
     enum class Phase {
         LOBBY,
         WATCH,
@@ -117,11 +118,13 @@ object Match {
         if (phase == Phase.FIGHT) PortableShop.tick(current)
     }
 
-    fun frozen(level: Level): Boolean = level.dimension() == MatchRules.DIMENSION && phase != Phase.FIGHT
+    override fun isFrozen(level: Level): Boolean = level.dimension() == MatchRules.DIMENSION && phase != Phase.FIGHT
 
-    fun isFight(): Boolean = phase == Phase.FIGHT
+    fun frozen(level: Level): Boolean = isFrozen(level)
 
-    fun isArena(level: Level): Boolean = level.dimension() == MatchRules.DIMENSION
+    override fun isFight(): Boolean = phase == Phase.FIGHT
+
+    override fun isArena(level: Level): Boolean = level.dimension() == MatchRules.DIMENSION
 
     fun restricted(player: ServerPlayer): Boolean {
         if (phase == Phase.FIGHT) return false
@@ -133,19 +136,19 @@ object Match {
 
     fun bases(): List<Pair<String, BlockPos>> {
         if (!worldReady) return emptyList()
-        return listOf(TestTeams.RED to redBase, TestTeams.BLUE to blueBase)
+        return listOf(WallwarTeams.RED to redBase, WallwarTeams.BLUE to blueBase)
     }
 
     fun spawnOf(team: String): Spawn? = when (team) {
-        TestTeams.RED -> redSpawn
-        TestTeams.BLUE -> blueSpawn
+        WallwarTeams.RED -> redSpawn
+        WallwarTeams.BLUE -> blueSpawn
         else -> null
     }
 
     fun assign(player: ServerPlayer, team: String) {
         val current = player.level().server
         server = current
-        TestTeams.ensure(current)
+        WallwarTeams.ensure(current)
         val board = current.scoreboard
         val scoreboardTeam = board.getPlayerTeam(team) ?: return
         board.addPlayerToTeam(player.scoreboardName, scoreboardTeam)
@@ -281,7 +284,7 @@ object Match {
             member.started = false
             member.ironGiven = false
             member.respawnAt = 0
-            member.pendingReset = member.team == TestTeams.RED || member.team == TestTeams.BLUE
+            member.pendingReset = member.team == WallwarTeams.RED || member.team == WallwarTeams.BLUE
             member.heldItems = emptyList()
             member.heldLevel = 0
             member.heldProgress = 0f
@@ -379,7 +382,7 @@ object Match {
         member.heldProgress = 0f
         when (phase) {
             Phase.FIGHT -> {
-                if (member.team == TestTeams.RED || member.team == TestTeams.BLUE) {
+                if (member.team == WallwarTeams.RED || member.team == WallwarTeams.BLUE) {
                     MatchRoster.startRespawnWait(player, member)
                 } else {
                     member.respawnAt = 0
@@ -399,18 +402,18 @@ object Match {
         MatchPersistence.save(player.level().server)
     }
 
-    fun onBaseFallen(core: SiteCoreBlockEntity) {
+    override fun onBaseFallen(level: ServerLevel, team: String) {
         if (phase == Phase.SETTLE) return
-        if (core.level?.dimension() != MatchRules.DIMENSION) return
-        val current = (core.level as? ServerLevel)?.server ?: server ?: return
+        if (level.dimension() != MatchRules.DIMENSION) return
+        val current = level.server
         phase = Phase.SETTLE
         shina.wallwarRebirth.building.CannonCrew.settle(current, true)
-        val winner = if (core.team == TestTeams.RED) TestTeams.BLUE else TestTeams.RED
+        val winner = if (team == WallwarTeams.RED) WallwarTeams.BLUE else WallwarTeams.RED
         val text = "$winner 获胜"
         MatchRoster.broadcast(current, text)
         for (member in members.values) {
             member.respawnAt = 0
-            if (member.team == TestTeams.RED || member.team == TestTeams.BLUE) member.pendingReset = true
+            if (member.team == WallwarTeams.RED || member.team == WallwarTeams.BLUE) member.pendingReset = true
         }
         for (player in current.playerList.players) {
             val member = members[player.uuid]

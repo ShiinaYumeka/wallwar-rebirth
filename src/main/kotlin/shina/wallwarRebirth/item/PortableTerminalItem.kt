@@ -13,7 +13,7 @@ import net.minecraft.world.item.context.UseOnContext
 import net.minecraft.world.level.Level
 import net.minecraft.world.level.block.state.BlockState
 import net.minecraft.world.phys.BlockHitResult
-import shina.wallwarRebirth.match.PortableShop
+import shina.wallwarRebirth.shop.match.PortableShop
 
 class PortableTerminalItem(
     properties: Properties,

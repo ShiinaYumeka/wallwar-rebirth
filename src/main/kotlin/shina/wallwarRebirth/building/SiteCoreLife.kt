@@ -15,7 +15,7 @@ import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.block.Block
 import net.minecraft.world.level.block.Blocks
 import net.minecraft.world.level.block.LevelEvent
-import shina.wallwarRebirth.match.Match
+import shina.wallwarRebirth.contract.Ports
 import shina.wallwarRebirth.monster.SummonedUnit
 import shina.wallwarRebirth.rules.MatchRules
 import shina.wallwarRebirth.util.playNotifySound
@@ -215,10 +215,13 @@ internal fun SiteCoreBlockEntity.storedDamage(amount: Int, struck: BlockPos = bl
     }
     if (attackerName != null && buildingId == Buildings.BASE.id) warnBase(attackerName)
     setChanged()
-    if (health == 0) {
-        if (buildingId == Buildings.BASE.id) Match.onBaseFallen(this)
-        destroy()
-    }
+        if (health == 0) {
+            if (buildingId == Buildings.BASE.id) {
+                val fallen = level as? ServerLevel
+                if (fallen != null) Ports.match.onBaseFallen(fallen, team)
+            }
+            destroy()
+        }
 }
 
 internal fun SiteCoreBlockEntity.storedDamageFromMonster(attacker: LivingEntity, attackerTeam: String, amount: Int, struck: BlockPos, attackerName: String) {

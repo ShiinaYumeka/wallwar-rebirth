@@ -143,7 +143,7 @@ class SummonedCreeper(type: EntityType<out SummonedCreeper>, level: Level) : Cre
             return
         }
         super.customServerAiStep(level)
-        mind.tick(level)
+        shina.wallwarRebirth.monster.ai.CreeperAi.tick(this, level)
     }
 
     override fun addAdditionalSaveData(output: net.minecraft.world.level.storage.ValueOutput) {

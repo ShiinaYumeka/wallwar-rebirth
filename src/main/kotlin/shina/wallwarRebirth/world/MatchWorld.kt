@@ -24,7 +24,7 @@ import shina.wallwarRebirth.building.SiteCoreBlock
 import shina.wallwarRebirth.building.SiteCoreBlockEntity
 import shina.wallwarRebirth.mixin.ChunkMapAccess
 import shina.wallwarRebirth.mixin.ServerChunkCacheAccess
-import shina.wallwarRebirth.monster.TestTeams
+import shina.wallwarRebirth.contract.WallwarTeams
 import kotlin.math.abs
 import kotlin.math.atan2
 import kotlin.math.hypot
@@ -98,8 +98,8 @@ object MatchWorld {
         val blueCore = platform(level, blue.x, blue.z)
         val redFacing = facing(redCore, blueCore)
         val blueFacing = facing(blueCore, redCore)
-        placeBase(level, redCore, TestTeams.RED, redFacing)
-        placeBase(level, blueCore, TestTeams.BLUE, blueFacing)
+        placeBase(level, redCore, WallwarTeams.RED, redFacing)
+        placeBase(level, blueCore, WallwarTeams.BLUE, blueFacing)
         placeRearTree(level, redCore, blueCore)
         placeRearTree(level, blueCore, redCore)
         SurfaceOres.scatter(level, redCore, blueCore)

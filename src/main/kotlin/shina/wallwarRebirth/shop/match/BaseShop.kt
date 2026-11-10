@@ -1,4 +1,5 @@
-package shina.wallwarRebirth.match
+package shina.wallwarRebirth.shop.match
+import shina.wallwarRebirth.match.Match
 import shina.wallwarRebirth.rules.MatchRules
 
 import eu.pb4.sgui.api.ClickType
@@ -20,7 +21,7 @@ import shina.wallwarRebirth.building.SiteCoreBlockEntity
 import shina.wallwarRebirth.gui.ItemStackBuilder
 import shina.wallwarRebirth.item.ModItems
 import shina.wallwarRebirth.shop.ShopSession
-import shina.wallwarRebirth.shop.TeamWarehouses
+import shina.wallwarRebirth.shop.match.TeamWarehouses
 import shina.wallwarRebirth.shop.element.BaseShopItem
 import shina.wallwarRebirth.shop.element.ShopItemWithIndex
 import shina.wallwarRebirth.shop.element.ShopLayer

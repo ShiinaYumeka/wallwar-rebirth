@@ -1,4 +1,4 @@
-package shina.wallwarRebirth.shop
+package shina.wallwarRebirth.shop.match
 
 import com.mojang.serialization.DynamicOps
 import eu.pb4.sgui.api.gui.SimpleGui
@@ -11,7 +11,10 @@ import net.minecraft.world.inventory.MenuType
 import net.minecraft.world.inventory.Slot
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.scores.PlayerTeam
-import shina.wallwarRebirth.monster.TestTeams
+import shina.wallwarRebirth.contract.WallwarTeams
+import shina.wallwarRebirth.shop.TeamMaterialStore
+import shina.wallwarRebirth.shop.TeamStoreLookup
+import shina.wallwarRebirth.shop.TeamStores
 import shina.wallwarRebirth.shop.element.Material
 
 object TeamWarehouses {
@@ -45,7 +48,7 @@ object TeamWarehouses {
     }
 
     fun of(team: String): SimpleContainer? {
-        if (team != TestTeams.RED && team != TestTeams.BLUE) return null
+        if (team != WallwarTeams.RED && team != WallwarTeams.BLUE) return null
         return boxes.getOrPut(team) { SimpleContainer(SIZE) }
     }
 

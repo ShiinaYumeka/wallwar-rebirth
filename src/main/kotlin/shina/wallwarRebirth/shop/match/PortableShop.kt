@@ -1,4 +1,5 @@
-package shina.wallwarRebirth.match
+package shina.wallwarRebirth.shop.match
+import shina.wallwarRebirth.match.Match
 
 import net.minecraft.network.chat.Component
 import net.minecraft.server.MinecraftServer

@@ -17,7 +17,7 @@ import shina.wallwarRebirth.monster.Monsters
 import shina.wallwarRebirth.monster.Summoning
 import shina.wallwarRebirth.match.Match
 import shina.wallwarRebirth.match.MatchGui
-import shina.wallwarRebirth.monster.TestTeams
+import shina.wallwarRebirth.contract.WallwarTeams
 import shina.wallwarRebirth.item.ModItems
 import shina.wallwarRebirth.shop.PlayerShopSettings
 import shina.wallwarRebirth.shop.ShopLayerRegistry
@@ -50,10 +50,10 @@ object WallwarCommands {
         }
         literal("side") {
             literal("red") {
-                executes { joinSide(TestTeams.RED) }
+                executes { joinSide(WallwarTeams.RED) }
             }
             literal("blue") {
-                executes { joinSide(TestTeams.BLUE) }
+                executes { joinSide(WallwarTeams.BLUE) }
             }
         }
         literal("match") {
@@ -102,40 +102,8 @@ object WallwarCommands {
     }
 
     private fun CommandContext.placeSite(): Int {
-        val player = context.source.playerOrException
-        val level = player.level()
-        if (Match.isArena(level)) {
-            context.source.sendFailure(Component.literal("对局里要购买建筑核心再放置"))
-            return 0
-        }
-        val eye = player.eyePosition
-        val end = eye.add(player.lookAngle.scale(6.0))
-        val hit = level.clip(ClipContext(eye, end, ClipContext.Block.OUTLINE, ClipContext.Fluid.NONE, player))
-        if (hit.type != HitResult.Type.BLOCK) {
-            context.source.sendFailure(Component.literal("没有看向可放置的方块"))
-            return 0
-        }
-        val destination = hit.blockPos.above()
-        if (level.isOutsideBuildHeight(destination)) {
-            context.source.sendFailure(Component.literal("这个位置不能放置核心"))
-            return 0
-        }
-        val state = level.getBlockState(destination)
-        val placeHit = BlockHitResult(Vec3.atCenterOf(destination), hit.direction, destination, false)
-        val placeContext = BlockPlaceContext(player, InteractionHand.MAIN_HAND, ItemStack.EMPTY, placeHit)
-        if (!state.canBeReplaced(placeContext)) {
-            context.source.sendFailure(Component.literal("这个位置不能放置核心"))
-            return 0
-        }
-        val floor = destination.below()
-        if (level.isOutsideBuildHeight(floor)) {
-            context.source.sendFailure(Component.literal("这个位置不能放置核心"))
-            return 0
-        }
-        level.setBlock(destination, ModSites.CORE.defaultBlockState(), net.minecraft.world.level.block.Block.UPDATE_ALL)
-        BuildingStructure.placeUnselected(level, destination)
-        player.sendSystemMessage(Component.literal("已放置未选定的建筑核心"))
-        return Command.SINGLE_SUCCESS
+        context.source.sendFailure(Component.literal("对局里要购买建筑核心再放置"))
+        return 0
     }
 
     private fun CommandContext.saveStyle(): Int {

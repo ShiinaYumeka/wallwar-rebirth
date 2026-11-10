@@ -17,7 +17,7 @@ import net.minecraft.world.item.Item
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
 import shina.wallwarRebirth.gui.ItemStackBuilder
-import shina.wallwarRebirth.match.BaseShop
+import shina.wallwarRebirth.shop.match.BaseShop
 import shina.wallwarRebirth.match.Match
 import shina.wallwarRebirth.rules.MatchRules
 import shina.wallwarRebirth.monster.MonsterDefinition
@@ -32,31 +32,17 @@ import shina.wallwarRebirth.util.hideTooltip
 import shina.wallwarRebirth.util.playNotifySound
 
 object BuildingMenus {
-    private val pickerSlots = intArrayOf(1, 3, 5, 7)
 
     fun open(player: ServerPlayer, site: SiteCoreBlockEntity) {
         val definition = Buildings.byId(site.buildingId)
         if (definition == null) {
-            val world = site.level
-            if (world != null && Match.isArena(world)) {
-                player.sendSystemMessage(Component.literal("对局里要购买建筑核心再放置"))
-                return
-            }
-            openPicker(player, site, replace = false)
+            player.sendSystemMessage(Component.literal("对局里要购买建筑核心再放置"))
+            return
         } else {
             BuildingPanelGui(player, site, definition).open()
         }
     }
 
-    fun openPicker(player: ServerPlayer, site: SiteCoreBlockEntity, replace: Boolean) {
-        val layer = ShopLayer(
-            1,
-            Buildings.ofCategory(BuildingCategory.NORMAL).mapIndexed { index, definition ->
-                SelectBuildingItem(pickerSlots.getOrElse(index) { index }, site, definition, replace)
-            },
-        )
-        BuildingShopGui(ShopSession(), player, listOf(layer), "选择建筑").open()
-    }
 
     fun paintBaseShop(gui: ShopGui, site: SiteCoreBlockEntity) {
         val viewer = gui.player
@@ -409,64 +395,6 @@ class BuildingPanelGui(
     }
 }
 
-private class BuildingShopGui(
-    session: ShopSession,
-    player: ServerPlayer,
-    layers: Collection<ShopLayer>,
-    heading: String,
-) : ShopGui(session, player, layers, 1) {
-    init {
-        title = Component.literal(heading)
-    }
-}
-
-private class SelectBuildingItem(
-    private val slot: Int,
-    private val site: SiteCoreBlockEntity,
-    private val definition: BuildingDefinition,
-    private val replace: Boolean,
-) : ShopItemWithIndex {
-    override fun index(): Int = slot
-
-    override fun getDefaultIcon(): ItemStack = icon()
-
-    override fun getIcon(gui: ShopGui, viewModel: ShopItemViewModel): ItemStack = icon()
-
-    override fun getBaseItem(gui: ShopGui, clickType: ClickType, viewModel: ShopItemViewModel): BaseShopItem =
-        BaseShopItem(icon(), emptyMap(), emptyList(), false, 0, true, null)
-
-    override fun updateView(gui: ShopGui, viewModel: ShopItemViewModel) {
-        val world = site.level
-        val present = world != null && world.getBlockEntity(site.blockPos) === site
-        gui.session.valid = present && (replace || site.buildingId.isEmpty())
-    }
-
-    override fun executeBuying(
-        item: BaseShopItem,
-        gui: ShopGui,
-        clickType: ClickType,
-        materialSuffix: Component?,
-    ) {
-        val error = site.assign(definition, replace, gui.player.team?.name ?: "", gui.player.direction)
-        if (error != null) {
-            gui.player.reportBuilding(error)
-            return
-        }
-        gui.player.sendSystemMessage(Component.literal("已选定${definition.displayName}"))
-        gui.close()
-    }
-
-    private fun icon(): ItemStack {
-        val builder = ItemStackBuilder.of(definition.icon)
-            .setName(Component.literal(definition.displayName).withStyle { style ->
-                style.withColor(ChatFormatting.YELLOW).withItalic(false)
-            })
-        builder.appendLore(Component.literal(definition.category.label).withStyle { style ->
-            style.withColor(ChatFormatting.GRAY).withItalic(false)
-        })
-        return builder.build()
-    }
-}
 
 private class UpgradePanelGui(
     private val viewer: ServerPlayer,

@@ -61,7 +61,7 @@ class SummonedSpider(type: EntityType<out SummonedSpider>, level: Level) : Spide
     override fun customServerAiStep(level: ServerLevel) {
         if (Match.frozen(level)) return
         super.customServerAiStep(level)
-        mind.tick(level)
+        shina.wallwarRebirth.monster.ai.SpiderAi.tick(this, level)
     }
 
     override fun addAdditionalSaveData(output: net.minecraft.world.level.storage.ValueOutput) {

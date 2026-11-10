@@ -62,7 +62,7 @@ class SummonedGolem(type: EntityType<out SummonedGolem>, level: Level) :
     override fun customServerAiStep(level: ServerLevel) {
         if (shina.wallwarRebirth.match.Match.frozen(level)) return
         super.customServerAiStep(level)
-        mind.tick(level)
+        shina.wallwarRebirth.monster.ai.GolemAi.tick(this, level)
     }
 
     override fun addAdditionalSaveData(output: net.minecraft.world.level.storage.ValueOutput) {

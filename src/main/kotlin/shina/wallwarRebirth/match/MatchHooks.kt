@@ -1,4 +1,5 @@
 package shina.wallwarRebirth.match
+import shina.wallwarRebirth.shop.match.PortableShop
 
 import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents
 import net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents

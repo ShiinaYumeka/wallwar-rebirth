@@ -9,7 +9,6 @@ import net.minecraft.world.damagesource.DamageSource
 import net.minecraft.world.entity.Entity
 import net.minecraft.world.entity.LivingEntity
 import net.minecraft.world.entity.Mob
-import net.minecraft.world.entity.animal.golem.IronGolem
 import net.minecraft.world.phys.Vec3
 import shina.wallwarRebirth.building.BuildingMining
 import shina.wallwarRebirth.building.Relay
@@ -63,27 +62,33 @@ class SummonedBrain(private val mob: Mob, private val unit: SummonedUnit) {
         mob.navigation.stop()
     }
 
-    fun tick(level: ServerLevel) {
-        if (!mob.isAlive) return
+    internal var ignoreDefensiveBuildings: Boolean = false
+
+    internal fun tickCombat(level: ServerLevel) {
+        if (!prepare(level)) return
+        when (phase) {
+            Phase.COUNTER -> tickCounter(level)
+            else -> tickSeek(level)
+        }
+    }
+
+    internal fun tickMinerWork(level: ServerLevel) {
+        if (!prepare(level)) return
+        if (phase == Phase.COUNTER) tickCounter(level) else tickMiner(level)
+    }
+
+    internal fun armCreeper() {
+        (mob as? SummonedCreeper)?.arm(fuseLive, fuseBuilding)
+    }
+
+    private fun prepare(level: ServerLevel): Boolean {
+        if (!mob.isAlive) return false
         fuseLive = false
         fuseBuilding = null
         SummonedUnits.add(unit)
         if (meleeCooldown > 0) meleeCooldown--
         ticksSinceExchange++
-        if (stats.miner && phase != Phase.COUNTER) {
-            tickMiner(level)
-            armCreeper()
-            return
-        }
-        when (phase) {
-            Phase.COUNTER -> tickCounter(level)
-            else -> tickSeek(level)
-        }
-        armCreeper()
-    }
-
-    private fun armCreeper() {
-        (mob as? SummonedCreeper)?.arm(fuseLive, fuseBuilding)
+        return true
     }
 
     fun onDamaged(level: ServerLevel, source: DamageSource) {
@@ -393,13 +398,13 @@ class SummonedBrain(private val mob: Mob, private val unit: SummonedUnit) {
         }
     }
 
+    internal var buildingSwing: (ServerLevel) -> Unit = { _ ->
+        mob.swing(InteractionHand.MAIN_HAND)
+    }
+
     private fun swingAtBuilding() {
         val world = mob.level() as? ServerLevel ?: return
-        if (mob is IronGolem) {
-            world.broadcastEntityEvent(mob, 4.toByte())
-        } else {
-            mob.swing(InteractionHand.MAIN_HAND)
-        }
+        buildingSwing(world)
     }
 
     private fun nearestSiegeTarget(): SiegeHit? {
@@ -645,8 +650,8 @@ class SummonedBrain(private val mob: Mob, private val unit: SummonedUnit) {
     }
 
     private fun isHostilePlayer(player: ServerPlayer): Boolean {
-        if (!player.isAlive || player.isSpectator || player.isCreative || player.isRemoved) return false
-        return unit.summonedTeam != (player.team?.name ?: "")
+        if (!player.isAlive || player.isRemoved) return false
+        return shina.wallwarRebirth.contract.WallwarTeams.hostile(unit.summonedTeam, player.team?.name ?: "")
     }
 
     private fun isHostileCore(core: SiteCoreBlockEntity): Boolean {
@@ -655,7 +660,7 @@ class SummonedBrain(private val mob: Mob, private val unit: SummonedUnit) {
     }
 
     private fun skipsDefensive(core: SiteCoreBlockEntity): Boolean {
-        if (!stats.ignoresDefensive) return false
+        if (!ignoreDefensiveBuildings) return false
         return Buildings.byId(core.buildingId)?.defensive == true
     }
 

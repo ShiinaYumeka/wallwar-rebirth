@@ -3,7 +3,7 @@ package shina.wallwarRebirth.building
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.world.item.ItemStack
 import shina.wallwarRebirth.rules.MatchRules
-import shina.wallwarRebirth.shop.TeamWarehouses
+import shina.wallwarRebirth.shop.match.TeamWarehouses
 import kotlin.math.min
 
 internal fun SiteCoreBlockEntity.rolled(world: ServerLevel, mineral: MineralOutput): Boolean = when {

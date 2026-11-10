@@ -1,7 +1,7 @@
 {
   "replace": false,
   "values": [
-    "wallwar-rebirth:site_core",
-    "wallwar-rebirth:site_structure"
+    "wallwar-rebirth:building_core",
+    "wallwar-rebirth:building_part"
   ]
 }
