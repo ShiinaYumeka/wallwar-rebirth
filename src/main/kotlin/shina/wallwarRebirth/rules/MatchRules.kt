@@ -1,4 +1,4 @@
-package shina.wallwarRebirth.match
+package shina.wallwarRebirth.rules
 
 import net.minecraft.core.registries.Registries
 import net.minecraft.resources.ResourceKey
@@ -55,19 +55,19 @@ object MatchRules {
     const val DIFFUSION_RANGE = 32.0
     const val BARRACKS_HEAL_TICKS = 5 * TICKS_PER_SECOND
 
-    const val REACTOR_UPGRADE_2_IRON = 32
-    const val REACTOR_UPGRADE_2_COPPER = 32
-    const val REACTOR_UPGRADE_3_IRON = 64
-    const val REACTOR_UPGRADE_3_COPPER = 64
-    const val REACTOR_IRON_TICKS = 10 * TICKS_PER_SECOND
-    const val REACTOR_IRON_COUNT = 2
-    const val REACTOR_COPPER_COUNT = 2
-    const val REACTOR_REDSTONE_TICKS = 10 * TICKS_PER_SECOND
-    const val REACTOR_REDSTONE_COUNT = 1
-    const val REACTOR_LAPIS_COUNT = 1
-    const val REACTOR_DIAMOND_TICKS = 10 * TICKS_PER_SECOND
-    const val REACTOR_DIAMOND_PERCENT = 8
-    const val REACTOR_DIAMOND_COUNT = 1
+    const val BASE_UPGRADE_2_IRON = 32
+    const val BASE_UPGRADE_2_COPPER = 32
+    const val BASE_UPGRADE_3_IRON = 64
+    const val BASE_UPGRADE_3_COPPER = 64
+    const val BASE_IRON_TICKS = 10 * TICKS_PER_SECOND
+    const val BASE_IRON_COUNT = 2
+    const val BASE_COPPER_COUNT = 2
+    const val BASE_REDSTONE_TICKS = 10 * TICKS_PER_SECOND
+    const val BASE_REDSTONE_COUNT = 1
+    const val BASE_LAPIS_COUNT = 1
+    const val BASE_DIAMOND_TICKS = 10 * TICKS_PER_SECOND
+    const val BASE_DIAMOND_PERCENT = 8
+    const val BASE_DIAMOND_COUNT = 1
 
     val WALL_HEALTH = listOf(60, 90, 120)
     const val WALL_PRICE_COPPER = 8

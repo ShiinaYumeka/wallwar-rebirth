@@ -10,7 +10,7 @@ import net.minecraft.world.entity.LivingEntity
 import net.minecraft.world.level.block.state.BlockState
 import net.minecraft.world.phys.AABB
 import net.minecraft.world.phys.Vec3
-import shina.wallwarRebirth.match.MatchRules
+import shina.wallwarRebirth.rules.MatchRules
 import shina.wallwarRebirth.mixin.AbstractArrowAccess
 import shina.wallwarRebirth.monster.ModMonsters
 import shina.wallwarRebirth.monster.SummonedUnit

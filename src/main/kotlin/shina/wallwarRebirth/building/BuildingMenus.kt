@@ -19,7 +19,7 @@ import net.minecraft.world.item.Items
 import shina.wallwarRebirth.gui.ItemStackBuilder
 import shina.wallwarRebirth.match.BaseShop
 import shina.wallwarRebirth.match.Match
-import shina.wallwarRebirth.match.MatchRules
+import shina.wallwarRebirth.rules.MatchRules
 import shina.wallwarRebirth.monster.MonsterDefinition
 import shina.wallwarRebirth.monster.Monsters
 import shina.wallwarRebirth.shop.ShopSession

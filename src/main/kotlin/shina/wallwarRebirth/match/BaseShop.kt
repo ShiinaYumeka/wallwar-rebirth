@@ -1,4 +1,5 @@
 package shina.wallwarRebirth.match
+import shina.wallwarRebirth.rules.MatchRules
 
 import eu.pb4.sgui.api.ClickType
 import eu.pb4.sgui.api.elements.GuiElement

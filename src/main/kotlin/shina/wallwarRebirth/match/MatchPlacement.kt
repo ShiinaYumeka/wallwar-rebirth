@@ -1,4 +1,5 @@
 package shina.wallwarRebirth.match
+import shina.wallwarRebirth.rules.MatchRules
 
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction

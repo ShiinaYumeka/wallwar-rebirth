@@ -5,7 +5,7 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
-import shina.wallwarRebirth.match.ArenaReset;
+import shina.wallwarRebirth.world.ArenaReset;
 
 @Mixin(net.minecraft.server.level.ChunkMap.class)
 public class ChunkMapMixin {

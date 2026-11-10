@@ -19,7 +19,7 @@ import net.minecraft.world.level.ServerExplosion
 import net.minecraft.world.phys.AABB
 import net.minecraft.world.phys.Vec3
 import shina.wallwarRebirth.match.Match
-import shina.wallwarRebirth.match.MatchRules
+import shina.wallwarRebirth.rules.MatchRules
 import shina.wallwarRebirth.monster.ModMonsters
 import shina.wallwarRebirth.monster.SummonedUnit
 import xyz.nucleoid.packettweaker.PacketContext

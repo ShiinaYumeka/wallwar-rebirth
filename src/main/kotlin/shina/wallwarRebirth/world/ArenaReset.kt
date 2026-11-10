@@ -1,4 +1,4 @@
-package shina.wallwarRebirth.match
+package shina.wallwarRebirth.world
 
 import it.unimi.dsi.fastutil.longs.Long2ObjectLinkedOpenHashMap
 import net.minecraft.server.level.ChunkHolder

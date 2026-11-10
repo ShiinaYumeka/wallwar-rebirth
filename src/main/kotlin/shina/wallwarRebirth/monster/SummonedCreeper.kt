@@ -25,7 +25,7 @@ import net.minecraft.world.phys.AABB
 import net.minecraft.world.phys.Vec3
 import shina.wallwarRebirth.building.SiteCoreBlockEntity
 import shina.wallwarRebirth.match.Match
-import shina.wallwarRebirth.match.MatchRules
+import shina.wallwarRebirth.rules.MatchRules
 import xyz.nucleoid.packettweaker.PacketContext
 import java.util.Optional
 import kotlin.math.sqrt

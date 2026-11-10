@@ -1,4 +1,6 @@
 package shina.wallwarRebirth.match
+import shina.wallwarRebirth.profession.Classes
+import shina.wallwarRebirth.rules.MatchRules
 
 import eu.pb4.sgui.api.elements.GuiElement
 import eu.pb4.sgui.api.elements.GuiElementInterface

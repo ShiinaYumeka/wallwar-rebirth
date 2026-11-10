@@ -31,7 +31,7 @@ import net.minecraft.world.level.storage.ValueInput
 import net.minecraft.world.level.storage.ValueOutput
 import shina.wallwarRebirth.match.Match
 import shina.wallwarRebirth.match.MatchPlacement
-import shina.wallwarRebirth.match.MatchRules
+import shina.wallwarRebirth.rules.MatchRules
 import shina.wallwarRebirth.monster.SummonedUnit
 import shina.wallwarRebirth.shop.TeamWarehouses
 import shina.wallwarRebirth.util.playNotifySound

@@ -11,7 +11,7 @@ import net.minecraft.world.phys.Vec3
 import shina.wallwarRebirth.monster.SummonedUnit
 import kotlin.math.sqrt
 import shina.wallwarRebirth.item.ModItems
-import shina.wallwarRebirth.match.MatchRules
+import shina.wallwarRebirth.rules.MatchRules
 import shina.wallwarRebirth.shop.TeamWarehouses
 import shina.wallwarRebirth.monster.MonsterDefinition
 import shina.wallwarRebirth.monster.Monsters

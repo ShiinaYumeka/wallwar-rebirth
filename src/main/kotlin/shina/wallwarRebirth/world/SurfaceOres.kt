@@ -1,4 +1,7 @@
-package shina.wallwarRebirth.match
+package shina.wallwarRebirth.world
+import shina.wallwarRebirth.match.Match
+import shina.wallwarRebirth.profession.Classes
+import shina.wallwarRebirth.rules.MatchRules
 
 import net.minecraft.core.BlockPos
 import net.minecraft.world.phys.Vec3

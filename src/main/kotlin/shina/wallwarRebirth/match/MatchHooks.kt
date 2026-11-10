@@ -32,6 +32,7 @@ import net.minecraft.world.level.block.CraftingTableBlock
 import net.minecraft.world.level.block.LevelEvent
 import net.minecraft.world.level.block.state.BlockState
 import shina.wallwarRebirth.building.CannonCrew
+import shina.wallwarRebirth.world.SurfaceOres
 import shina.wallwarRebirth.building.SiteCoreBlock
 import shina.wallwarRebirth.building.SiteCores
 import shina.wallwarRebirth.building.SitePartBlock

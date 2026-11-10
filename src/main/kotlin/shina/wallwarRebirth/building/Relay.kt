@@ -3,7 +3,7 @@ package shina.wallwarRebirth.building
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.world.phys.Vec3
 import shina.wallwarRebirth.match.Match
-import shina.wallwarRebirth.match.MatchRules
+import shina.wallwarRebirth.rules.MatchRules
 import shina.wallwarRebirth.monster.Monsters
 import shina.wallwarRebirth.monster.SummonedUnit
 import shina.wallwarRebirth.monster.SummonedUnits

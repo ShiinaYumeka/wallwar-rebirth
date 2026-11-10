@@ -1,4 +1,5 @@
-package shina.wallwarRebirth.match
+package shina.wallwarRebirth.profession
+import shina.wallwarRebirth.rules.MatchRules
 
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items

@@ -3,7 +3,7 @@ package shina.wallwarRebirth.monster
 import net.minecraft.world.item.Item
 import net.minecraft.world.item.Items
 import shina.wallwarRebirth.item.ModItems
-import shina.wallwarRebirth.match.MatchRules
+import shina.wallwarRebirth.rules.MatchRules
 
 object Monsters {
     val ZOMBIE = MonsterDefinition(

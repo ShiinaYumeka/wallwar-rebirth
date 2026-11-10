@@ -13,8 +13,8 @@ import net.minecraft.world.entity.animal.golem.IronGolem
 import net.minecraft.world.phys.Vec3
 import shina.wallwarRebirth.building.BuildingMining
 import shina.wallwarRebirth.building.Relay
-import shina.wallwarRebirth.match.MatchRules
-import shina.wallwarRebirth.match.SurfaceOres
+import shina.wallwarRebirth.rules.MatchRules
+import shina.wallwarRebirth.world.SurfaceOres
 import shina.wallwarRebirth.building.Buildings
 import shina.wallwarRebirth.building.SiteCoreBlockEntity
 import shina.wallwarRebirth.building.SiteCores
