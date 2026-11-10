@@ -23,6 +23,27 @@ object TeamWarehouses {
         TeamStores.lookup = TeamStoreLookup { _, team -> store(team) }
     }
 
+    fun acceptAll(team: String, stack: ItemStack): Boolean {
+        if (stack.isEmpty) return true
+        val box = of(team) ?: return false
+        if (!fits(box, stack)) return false
+        return ChestStore(box).quickPut(stack.copy()).isEmpty
+    }
+
+    private fun fits(box: SimpleContainer, stack: ItemStack): Boolean {
+        var left = stack.count
+        for (slot in 0 until box.containerSize) {
+            if (left <= 0) return true
+            val there = box.getItem(slot)
+            if (there.isEmpty) {
+                left -= stack.maxStackSize
+            } else if (ItemStack.isSameItemSameComponents(there, stack)) {
+                left -= (there.maxStackSize - there.count).coerceAtLeast(0)
+            }
+        }
+        return left <= 0
+    }
+
     fun of(team: String): SimpleContainer? {
         if (team != TestTeams.RED && team != TestTeams.BLUE) return null
         return boxes.getOrPut(team) { SimpleContainer(SIZE) }

@@ -7,9 +7,13 @@ import eu.pb4.sgui.api.gui.SimpleGui
 import net.minecraft.ChatFormatting
 import net.minecraft.core.component.DataComponents
 import net.minecraft.network.chat.Component
+import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
+import net.minecraft.sounds.SoundEvents
+import net.minecraft.sounds.SoundSource
 import net.minecraft.world.inventory.MenuType
 import net.minecraft.world.inventory.Slot
+import net.minecraft.world.item.Item
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
 import shina.wallwarRebirth.gui.ItemStackBuilder
@@ -25,6 +29,7 @@ import shina.wallwarRebirth.shop.element.ShopLayer
 import shina.wallwarRebirth.shop.element.view.ShopItemViewModel
 import shina.wallwarRebirth.shop.gui.ShopGui
 import shina.wallwarRebirth.util.hideTooltip
+import shina.wallwarRebirth.util.playNotifySound
 
 object BuildingMenus {
     private val pickerSlots = intArrayOf(1, 3, 5, 7)
@@ -52,6 +57,130 @@ object BuildingMenus {
         )
         BuildingShopGui(ShopSession(), player, listOf(layer), "选择建筑").open()
     }
+
+    fun paintBaseShop(gui: ShopGui, site: SiteCoreBlockEntity) {
+        val viewer = gui.player
+        gui.setSlot(20, GuiElement(baseUpgrade(site)) { _, click, _, _ ->
+            if (!click.isLeft || click.shift) return@GuiElement
+            site.tryUpgrade(viewer)
+            paintBaseShop(gui, site)
+        })
+        gui.setSlot(22, GuiElement(baseInfo(site), GuiElementInterface.EMPTY_CALLBACK))
+        gui.setSlot(24, GuiElement(baseModule(site, ModuleSlot.PRIMARY, "强化槽")) { _, click, _, _ ->
+            baseModuleClick(gui, site, ModuleSlot.PRIMARY, click)
+        })
+        gui.setSlot(26, GuiElement(baseModule(site, ModuleSlot.SECONDARY, "强化槽 II")) { _, click, _, _ ->
+            baseModuleClick(gui, site, ModuleSlot.SECONDARY, click)
+        })
+        gui.setSlot(33, GuiElement(baseModule(site, ModuleSlot.DIFFUSION, "扩散槽")) { _, click, _, _ ->
+            baseModuleClick(gui, site, ModuleSlot.DIFFUSION, click)
+        })
+    }
+
+    private fun baseModuleClick(gui: ShopGui, site: SiteCoreBlockEntity, slot: ModuleSlot, click: ClickType) {
+        val viewer = gui.player
+        val cursor = viewer.containerMenu.carried
+        if (click.shift || click.isRight) {
+            if (!site.moduleStack(slot).isEmpty) viewer.sendSystemMessage(Component.literal("这个模块不能拆卸"))
+            return
+        }
+        if (!click.isLeft || click.shift) return
+        if (!cursor.isEmpty && !site.moduleStack(slot).isEmpty) {
+            viewer.sendSystemMessage(Component.literal("这个模块不能拆卸"))
+            return
+        }
+        if (cursor.isEmpty) {
+            if (site.moduleStack(slot).isEmpty || slot != ModuleSlot.PRIMARY) return
+            val choices = site.choicesFor(slot, Buildings.BASE)
+            if (choices.isEmpty()) {
+                viewer.sendSystemMessage(Component.literal("没有可以强化的矿物"))
+                return
+            }
+            gui.close()
+            viewer.level().server.execute { MineralPickerGui(viewer, site, Buildings.BASE, slot, choices).open() }
+            return
+        }
+        val refusal = site.moduleRefusal(slot, cursor)
+        if (refusal != null) {
+            viewer.sendSystemMessage(Component.literal(refusal))
+            return
+        }
+        val previous = site.exchangeModule(slot, cursor)
+        viewer.containerMenu.carried = previous
+        viewer.containerMenu.broadcastChanges()
+        paintBaseShop(gui, site)
+    }
+
+    private fun baseUpgrade(site: SiteCoreBlockEntity): ItemStack {
+        val definition = Buildings.BASE
+        val builder = ItemStackBuilder.of(Items.EXPERIENCE_BOTTLE)
+            .setName(plain(if (site.buildingLevel >= definition.maxLevel) "已满级" else "升级", ChatFormatting.YELLOW))
+        for (upgrade in definition.upgrades) {
+            val color = if (upgrade.toLevel == site.buildingLevel + 1) ChatFormatting.YELLOW else ChatFormatting.GRAY
+            builder.appendLore(plain(upgrade.describe(), color))
+        }
+        return builder.build()
+    }
+
+    private fun baseInfo(site: SiteCoreBlockEntity): ItemStack {
+        val definition = Buildings.BASE
+        val builder = ItemStackBuilder.of(definition.icon)
+            .setName(plain("${definition.displayName}（${levelMark(site.buildingLevel)}级）", ChatFormatting.YELLOW))
+        builder.appendLore(plain("类别：${definition.categoryText()}"))
+        builder.appendLore(plain("等级：${site.buildingLevel}"))
+        builder.appendLore(plain("生命：${site.health}/${definition.maxHealth(site.buildingLevel)}"))
+        builder.appendLore(plain("队伍：${site.team.ifEmpty { "无" }}"))
+        if (definition.summary.isNotEmpty()) builder.appendLore(plain(definition.summary))
+        for ((text, active) in site.productionLines()) {
+            builder.appendLore(plain(text, if (active) ChatFormatting.GREEN else ChatFormatting.GRAY))
+        }
+        return builder.build()
+    }
+
+    private fun baseModule(site: SiteCoreBlockEntity, slot: ModuleSlot, label: String): ItemStack {
+        val filled = site.moduleStack(slot)
+        val builder = if (filled.isEmpty) {
+            ItemStackBuilder.of(emptyPane(slot))
+        } else {
+            ItemStackBuilder.of(filled)
+        }
+        builder.setName(plain(label, ChatFormatting.YELLOW))
+        if (filled.isEmpty) builder.appendLore(plain("左键放入${moduleName(slot)}"))
+        for (text in baseEffect(slot)) builder.appendLore(plain(text))
+        if (slot == ModuleSlot.PRIMARY) {
+            builder.appendLore(plain("放好后左键选择矿物"))
+            builder.appendLore(plain("当前：${site.mineralLabel(slot)}"))
+        }
+        return builder.build()
+    }
+
+    private fun levelMark(level: Int): String = when (level) {
+        1 -> "I"
+        2 -> "II"
+        3 -> "III"
+        else -> level.toString()
+    }
+
+    private fun plain(text: String, color: ChatFormatting = ChatFormatting.GRAY): Component =
+        Component.literal(text).withStyle { style -> style.withColor(color).withItalic(false) }
+}
+
+private fun emptyPane(slot: ModuleSlot): Item = when (slot) {
+    ModuleSlot.PRIMARY -> Items.LIGHT_BLUE_STAINED_GLASS_PANE
+    ModuleSlot.SECONDARY -> Items.BLUE_STAINED_GLASS_PANE
+    ModuleSlot.DIFFUSION -> Items.PURPLE_STAINED_GLASS_PANE
+}
+
+private fun moduleName(slot: ModuleSlot): String = when (slot) {
+    ModuleSlot.PRIMARY -> "强化模块"
+    ModuleSlot.SECONDARY -> "强化模块 2"
+    ModuleSlot.DIFFUSION -> "扩散模块"
+}
+
+private fun baseEffect(slot: ModuleSlot): List<String> = when (slot) {
+    ModuleSlot.PRIMARY -> listOf("指定一种当前可生成的矿物，该矿物的生成速率乘以 2。")
+    ModuleSlot.SECONDARY -> listOf("每 5 秒回复这座基地 1 点生命，满血跳过。不改变矿物。")
+    ModuleSlot.DIFFUSION -> listOf("本队玩家得到便携终端，手持右键打开基地商店。")
 }
 
 class BuildingPanelGui(
@@ -112,6 +241,32 @@ class BuildingPanelGui(
             setSlot(INFO_SLOT, GuiElement(infoIcon(), GuiElementInterface.EMPTY_CALLBACK))
             return
         }
+        if (definition.id == Buildings.RELAY.id) {
+            setSlot(0, GuiElement(openShopIcon()) { _, clickType, _, _ ->
+                if (!clickType.isLeft || clickType.shift) return@GuiElement
+                val world = site.level as? ServerLevel ?: return@GuiElement
+                val base = Relay.teamBase(world, site.team)
+                if (base == null) {
+                    viewer.sendSystemMessage(Component.literal("基地不在"))
+                    return@GuiElement
+                }
+                close()
+                viewer.level().server.execute { BaseShop.open(viewer, base) }
+            })
+            setSlot(8, GuiElement(callIcon()) { _, clickType, _, _ ->
+                if (!clickType.isLeft || clickType.shift) return@GuiElement
+                val world = site.level as? ServerLevel
+                if (world == null || !Relay.summon(site, world)) {
+                    viewer.playNotifySound(SoundEvents.VILLAGER_NO, SoundSource.PLAYERS, 1f, 1f)
+                }
+            })
+            setSlot(INFO_SLOT, GuiElement(infoIcon(), GuiElementInterface.EMPTY_CALLBACK))
+            setSlot(DEMOLISH_SLOT, GuiElement(demolishIcon()) { _, clickType, _, _ ->
+                if (!clickType.isLeft || clickType.shift) return@GuiElement
+                if (site.demolish(viewer)) close()
+            })
+            return
+        }
         setSlot(UPGRADE_SLOT, GuiElement(upgradeIcon()) { _, clickType, _, _ ->
             if (!clickType.isLeft || clickType.shift) return@GuiElement
             close()
@@ -166,6 +321,19 @@ class BuildingPanelGui(
         return stack
     }
 
+    private fun openShopIcon(): ItemStack =
+        ItemStackBuilder.of(Items.EMERALD)
+            .setName(line("打开商店", ChatFormatting.GREEN))
+            .appendLore(line("打开本队基地商店"))
+            .build()
+
+    private fun callIcon(): ItemStack =
+        ItemStackBuilder.of(Items.BELL)
+            .setName(line("召集", ChatFormatting.GOLD))
+            .appendLore(line("召最近的我方矿工到这里"))
+            .appendLore(line("赶到后交掉身上的矿，再去挖"))
+            .build()
+
     private fun shopIcon(): ItemStack =
         ItemStackBuilder.of(Items.EMERALD)
             .setName(line("商店", ChatFormatting.GREEN))
@@ -176,7 +344,7 @@ class BuildingPanelGui(
     private fun infoIcon(): ItemStack {
         val builder = ItemStackBuilder.of(definition.icon)
             .setName(line("${definition.displayName}（${levelMark(site.buildingLevel)}级）", ChatFormatting.YELLOW))
-        builder.appendLore(line("类别：${definition.category.label}"))
+        builder.appendLore(line("类别：${definition.categoryText()}"))
         builder.appendLore(line("等级：${site.buildingLevel}"))
         builder.appendLore(line("生命：${site.health}/${definition.maxHealth(site.buildingLevel)}"))
         builder.appendLore(line("队伍：${site.team.ifEmpty { "无" }}"))
@@ -237,7 +405,7 @@ class BuildingPanelGui(
         const val DEMOLISH_SLOT = 6
         const val STORAGE_ORIGIN = 18
         const val MARCH_SLOT = 53
-        val PRODUCTION_SLOTS = intArrayOf(23, 24, 25, 32)
+        val PRODUCTION_SLOTS = intArrayOf(23, 24, 25, 26, 32, 33, 34, 35, 41)
     }
 }
 
@@ -323,11 +491,11 @@ private class UpgradePanelGui(
             if (!clickType.isLeft || clickType.shift) return@GuiElement
             if (site.tryUpgrade(viewer)) paint()
         })
-        paintModule(1, ModuleSlot.PRIMARY, "强化槽")
-        paintModule(2, ModuleSlot.SECONDARY, "强化槽 II")
-        setSlot(3, GuiElement(spreadIcon()) { _, _, _, _ ->
-            viewer.sendSystemMessage(Component.literal("这个槽还没有效果"))
-        })
+        if (definition.acceptsModules) {
+            paintModule(1, ModuleSlot.PRIMARY, "强化槽")
+            paintModule(2, ModuleSlot.SECONDARY, "强化槽 II")
+        }
+        if (definition.acceptsDiffusion) paintModule(3, ModuleSlot.DIFFUSION, "扩散槽")
     }
 
     private fun paintModule(index: Int, slot: ModuleSlot, label: String) {
@@ -352,12 +520,11 @@ private class UpgradePanelGui(
                 viewer.sendSystemMessage(Component.literal("这座建筑不能装模块"))
                 return
             }
-            if (site.moduleStack(slot).isEmpty) return
-            if (definition.id == Buildings.REACTOR.id) {
+            if (site.moduleStack(slot).isEmpty || slot == ModuleSlot.DIFFUSION) return
+            if (definition.id == Buildings.BASE.id && slot == ModuleSlot.PRIMARY) {
                 val choices = site.choicesFor(slot, definition)
                 if (choices.isEmpty()) {
-                    val message = if (slot == ModuleSlot.SECONDARY) "只剩一种矿物，不能停止" else "没有可以强化的矿物"
-                    viewer.sendSystemMessage(Component.literal(message))
+                    viewer.sendSystemMessage(Component.literal("没有可以强化的矿物"))
                     return
                 }
                 close()
@@ -388,16 +555,14 @@ private class UpgradePanelGui(
     private fun moduleIcon(slot: ModuleSlot, label: String): ItemStack {
         val filled = site.moduleStack(slot)
         val builder = if (filled.isEmpty) {
-            ItemStackBuilder.of(if (slot == ModuleSlot.PRIMARY) Items.LIGHT_BLUE_STAINED_GLASS_PANE else Items.BLUE_STAINED_GLASS_PANE)
+            ItemStackBuilder.of(emptyPane(slot))
         } else {
             ItemStackBuilder.of(filled)
         }
         builder.setName(line(label, ChatFormatting.YELLOW))
-        if (filled.isEmpty) {
-            builder.appendLore(line("左键放入${if (slot == ModuleSlot.PRIMARY) "强化模块" else "强化模块 2"}"))
-        }
+        if (filled.isEmpty) builder.appendLore(line("左键放入${moduleName(slot)}"))
         for (text in effectLines(definition, slot)) builder.appendLore(line(text))
-        if (definition.id == Buildings.REACTOR.id) {
+        if (definition.id == Buildings.BASE.id && slot == ModuleSlot.PRIMARY) {
             builder.appendLore(line("放好后左键选择矿物"))
             builder.appendLore(line("当前：${site.mineralLabel(slot)}"))
         }
@@ -415,34 +580,36 @@ private class UpgradePanelGui(
     }
 
     private fun effectLines(definition: BuildingDefinition, slot: ModuleSlot): List<String> = when (definition.id) {
-        Buildings.REACTOR.id -> when (slot) {
-            ModuleSlot.PRIMARY -> listOf("指定一种当前可生成的矿物，该矿物的生成速率乘以 2。")
-            ModuleSlot.SECONDARY -> listOf("指定一种当前可生成的矿物并停止生成它，其余当前可生成矿物的生成速率乘以 2。")
-        }
+        Buildings.BASE.id -> baseEffect(slot)
         Buildings.WALL.id -> when (slot) {
-            ModuleSlot.PRIMARY -> listOf("没在挨打时，每秒回复自己和 ${MatchRules.WALL_HEAL_RANGE.toInt()} 格内的友方建筑各 ${MatchRules.WALL_HEAL_AMOUNT} 点。")
+            ModuleSlot.PRIMARY -> listOf("没在挨打时，每 ${MatchRules.WALL_HEAL_TICKS / MatchRules.TICKS_PER_SECOND} 秒回复自己和 ${MatchRules.WALL_HEAL_RANGE.toInt()} 格内的友方建筑各 ${MatchRules.WALL_HEAL_AMOUNT} 点。同一座建筑每 5 秒只吃到一次。")
             ModuleSlot.SECONDARY -> listOf("被攻击时按原版荆棘反伤，固定 ${MatchRules.WALL_THORNS_DAMAGE} 点。")
+            ModuleSlot.DIFFUSION -> listOf("32 格内的其他友方城墙视为装上这座城墙槽里已有的强化模块，已装的不叠加，扩散本身不外传。")
         }
         Buildings.TOWER.id -> when (slot) {
             ModuleSlot.PRIMARY -> listOf("一支箭最多命中 ${MatchRules.TOWER_PIERCE_HITS} 个敌对目标，命中后继续飞。")
-            ModuleSlot.SECONDARY -> listOf("一次射出三支箭，左右各偏 ${MatchRules.TOWER_SPREAD_DEGREES.toInt()} 度。")
+            ModuleSlot.SECONDARY -> listOf("射击间隔减少 20%，变为 ${towerIntervals()} 秒。")
+            ModuleSlot.DIFFUSION -> listOf("一次射出三支箭，左右各偏 ${MatchRules.TOWER_SPREAD_DEGREES.toInt()} 度。")
         }
         Buildings.BARRACKS.id -> when (slot) {
             ModuleSlot.PRIMARY -> listOf("放出的怪物自带速度 I，直到消失。")
-            ModuleSlot.SECONDARY -> listOf("凑满选定只数再一起放出。没选时按 1 只。")
+            ModuleSlot.SECONDARY -> listOf(
+                "凑满选定只数乘以每轮只数再一起放出。选择仍是 1 到 5。",
+                "骷髅死士按 3、6、9、12、15 放出。没选时按 1 轮。",
+            )
+            ModuleSlot.DIFFUSION -> listOf("32 格内的友方唤灵每 5 秒回复 1 点，满血跳过。多座各自计时。")
         }
         Buildings.CANNON.id -> when (slot) {
             ModuleSlot.PRIMARY -> listOf("爆炸半径扩大 50%。威力半径 ${MatchRules.CANNON_POWER_WIDE.toInt()} 格，生物伤害在 ${MatchRules.CANNON_FALLOFF_WIDE.toInt()} 格归零。")
             ModuleSlot.SECONDARY -> listOf("发射间隔减少 20%，变为 ${MatchRules.CANNON_INTERVAL * 4 / 5 / MatchRules.TICKS_PER_SECOND} 秒。")
+            ModuleSlot.DIFFUSION -> listOf("本队生存玩家潜行右键进入。有目标时蓄力完成后沿视线发射载人 TNT，撞上或 4 秒后爆炸。")
         }
         else -> emptyList()
     }
 
-    private fun spreadIcon(): ItemStack =
-        ItemStackBuilder.of(Items.AMETHYST_SHARD)
-            .setName(line("扩散槽", ChatFormatting.YELLOW))
-            .appendLore(line("暂无效果"))
-            .build()
+    private fun towerIntervals(): String = MatchRules.TOWER_INTERVAL.joinToString(" / ") { ticks ->
+        MatchRules.secondsText(ticks * 4 / 5)
+    }
 
     private fun upgradeIcon(): ItemStack {
         val builder = ItemStackBuilder.of(Items.EXPERIENCE_BOTTLE)
@@ -466,7 +633,7 @@ private class MineralPickerGui(
     choices: List<MineralOutput>,
 ) : SimpleGui(MenuType.GENERIC_9x1, viewer, false) {
     init {
-        title = Component.literal(if (slot == ModuleSlot.SECONDARY) "选择停止生成的矿物" else "选择强化的矿物")
+        title = Component.literal("选择强化的矿物")
         val glass = ItemStack(Items.GRAY_STAINED_GLASS_PANE).hideTooltip()
         for (index in 0 until size) setSlot(index, GuiElement(glass, GuiElementInterface.EMPTY_CALLBACK))
         choices.forEachIndexed { index, mineral ->
@@ -475,7 +642,10 @@ private class MineralPickerGui(
                 if (!clickType.isLeft || clickType.shift) return@GuiElement
                 site.setMineral(slot, mineral.item)
                 close()
-                viewer.level().server.execute { UpgradePanelGui(viewer, site, definition).open() }
+                viewer.level().server.execute {
+                    if (definition.id == Buildings.BASE.id) BaseShop.open(viewer, site, BaseShop.Page.BASE)
+                    else UpgradePanelGui(viewer, site, definition).open()
+                }
             })
         }
     }
@@ -487,7 +657,7 @@ private class MineralPickerGui(
     }
 
     private fun choiceIcon(mineral: MineralOutput): ItemStack {
-        val hint = if (slot == ModuleSlot.SECONDARY) "停止生成，其余矿物间隔减半" else "这种矿物的间隔减半"
+        val hint = "这种矿物的间隔减半"
         return ItemStackBuilder.of(mineral.item)
             .setName(Component.literal(mineral.name).withStyle { style ->
                 style.withColor(ChatFormatting.YELLOW).withItalic(false)

@@ -20,6 +20,13 @@ data class MonsterDefinition(
     val egg: Item,
     val bowRange: Double? = null,
     val undead: Boolean = false,
+    val ignoresDefensive: Boolean = false,
+    val miner: Boolean = false,
+    val wornArmor: Boolean = false,
+    val batch: Int = 1,
+    val sword: Boolean = false,
+    val explodes: Boolean = false,
+    val copperGear: Boolean = false,
 ) {
     fun productionTicks(barracksLevel: Int): Int = when {
         barracksLevel >= 3 -> baseProductionTicks / 2
@@ -34,12 +41,31 @@ data class MonsterDefinition(
         lines.add("等级 $rank")
         lines.add("生命 ${health.toInt()}")
         lines.add("盔甲 ${armor.toInt()}")
-        lines.add("对玩家攻击 ${playerAttack.toInt()}")
-        lines.add("建筑破坏力 $buildingDamage，拆建筑间隔 1 秒，攻击距离 ${attackRange.toInt()}")
+        if (miner) {
+            val pick = MatchRules.IRON_PICKAXE_ATTACK.toInt()
+            lines.add("对玩家攻击 ${(playerAttack + pick).toInt()}（本体 ${playerAttack.toInt()}，铁镐另加 $pick）")
+        } else if (explodes) {
+            lines.add("爆炸中心伤害 ${playerAttack.toInt()}，威力 ${MatchRules.CREEPER_POWER.toInt()}，不随难度变化")
+        } else {
+            lines.add("对玩家攻击 ${playerAttack.toInt()}")
+        }
+        if (explodes) {
+            lines.add("进入 ${attackRange.toInt()} 格后引信 1.5 秒，造成建筑破坏力 $buildingDamage 后自毁")
+        } else {
+            lines.add("建筑破坏力 $buildingDamage，拆建筑间隔 1 秒，攻击距离 ${attackRange.toInt()}")
+        }
         val bow = bowRange
         if (bow != null) {
             lines.add("弓射程 ${bow.toInt()} 格，走位和拉弓间隔按原版骷髅，命中盔甲前伤害 ${playerAttack.toInt()}")
         }
+        if (miner) {
+            lines.add("不主动攻击建筑和敌人，挨打后才反击")
+            lines.add("挖满 ${MatchRules.MINER_CARGO} 块矿后回本队基地，每 ${MatchRules.MINER_ORES_PER_CYCLE} 块让基地按当前等级和模块生产一次，钻石仍按 ${MatchRules.REACTOR_DIAMOND_PERCENT}% 概率")
+            lines.add("死亡时按身上的矿计数掉落等量铁锭和等量铜锭")
+        }
+        if (sword) lines.add("手持铁剑近战，挥击间隔与僵尸相同，伤害不含铁剑的原版攻击")
+        if (copperGear) lines.add("铜甲和铜剑不掉，对玩家伤害不含铜剑的原版攻击")
+        if (batch > 1) lines.add("一轮生产放出 $batch 只")
         lines.add("消耗 ${costText()}")
         lines.add("当前兵营产出间隔 ${MatchRules.secondsText(productionTicks(barracksLevel))} 秒")
         return lines

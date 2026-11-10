@@ -2,6 +2,10 @@
   "replace": false,
   "values": [
     "wallwar-rebirth:summoned_zombie",
-    "wallwar-rebirth:summoned_skeleton"
+    "wallwar-rebirth:summoned_miner",
+    "wallwar-rebirth:summoned_skeleton",
+    "wallwar-rebirth:summoned_husk",
+    "wallwar-rebirth:summoned_death_knight",
+    "wallwar-rebirth:summoned_zombie_warrior"
   ]
 }

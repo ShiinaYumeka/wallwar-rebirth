@@ -6,6 +6,7 @@ import net.minecraft.world.damagesource.DamageSource
 import net.minecraft.world.entity.Entity
 import net.minecraft.world.entity.EntityType
 import net.minecraft.world.entity.ai.goal.FloatGoal
+import net.minecraft.world.entity.ai.goal.LeapAtTargetGoal
 import net.minecraft.world.entity.ai.goal.MeleeAttackGoal
 import net.minecraft.world.entity.monster.spider.Spider
 import net.minecraft.world.item.ItemStack
@@ -28,7 +29,8 @@ class SummonedSpider(type: EntityType<out SummonedSpider>, level: Level) : Spide
 
     override fun registerGoals() {
         goalSelector.addGoal(1, FloatGoal(this))
-        goalSelector.addGoal(2, MeleeAttackGoal(this, 1.0, false))
+        goalSelector.addGoal(3, LeapAtTargetGoal(this, 0.4f))
+        goalSelector.addGoal(4, MeleeAttackGoal(this, 1.0, true))
     }
 
     override fun removeWhenFarAway(distance: Double): Boolean = false

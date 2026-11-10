@@ -8,6 +8,7 @@ import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.sounds.SoundEvents
 import net.minecraft.util.random.WeightedList
+import net.minecraft.world.entity.Entity
 import net.minecraft.world.entity.EntityType
 import net.minecraft.world.entity.LivingEntity
 import net.minecraft.world.entity.ai.attributes.Attributes
@@ -37,6 +38,8 @@ class CannonShell(type: EntityType<out CannonShell>, level: Level) : PrimedTnt(t
     var powerRadius: Double = MatchRules.CANNON_POWER
     var falloff: Double = MatchRules.CANNON_FALLOFF
     private var leftCore = false
+    var manned: Boolean = false
+    private var flightTicks = 0
 
     init {
         setFuse(FUSE_HOLD)
@@ -64,9 +67,15 @@ class CannonShell(type: EntityType<out CannonShell>, level: Level) : PrimedTnt(t
 
     override fun getPolymerEntityType(context: PacketContext): EntityType<*> = EntityType.TNT
 
+    override fun canAddPassenger(passenger: Entity): Boolean = passengers.isEmpty()
+
     override fun tick() {
         val server = level() as? ServerLevel ?: return
         if (Match.frozen(server)) return
+        if (manned) {
+            tickManned(server)
+            return
+        }
         setFuse(FUSE_HOLD)
         val velocity = deltaMovement.add(0.0, -MatchRules.CANNON_GRAVITY, 0.0)
         val from = position()
@@ -81,6 +90,74 @@ class CannonShell(type: EntityType<out CannonShell>, level: Level) : PrimedTnt(t
         setDeltaMovement(velocity)
         setPos(next.x, next.y, next.z)
         if (next.y < server.minY - 16 || tickCount > MAX_FLIGHT_TICKS) discard()
+    }
+
+    private fun tickManned(level: ServerLevel) {
+        setFuse(FUSE_HOLD)
+        flightTicks++
+        val rider = passengers.firstOrNull() as? ServerPlayer
+        val here = position()
+        if (rider == null || !rider.isAlive) {
+            detonate(level, here)
+            return
+        }
+        if (flightTicks >= MatchRules.CANNON_MANNED_TICKS) {
+            CannonCrew.kill(level, rider, here)
+            detonate(level, here)
+            return
+        }
+        val look = rider.lookAngle
+        if (look.lengthSqr() < 1.0e-8) return
+        val step = look.normalize().scale(MatchRules.CANNON_MANNED_STEP)
+        val impact = sweep(level, here, step, rider)
+        if (impact != null) {
+            setPos(impact.x, impact.y, impact.z)
+            CannonCrew.kill(level, rider, impact)
+            detonate(level, impact)
+            return
+        }
+        val next = here.add(step)
+        setDeltaMovement(step)
+        setPos(next.x, next.y, next.z)
+    }
+
+    private fun sweep(level: ServerLevel, from: Vec3, velocity: Vec3, rider: ServerPlayer): Vec3? {
+        val distance = velocity.length()
+        if (distance < 1.0e-8) return null
+        val steps = max(1, ceil(distance / STEP).toInt())
+        val step = velocity.scale(1.0 / steps)
+        var point = from
+        repeat(steps) {
+            point = point.add(step)
+            val cell = BlockPos.containing(point)
+            if (cell == corePos && !leftCore) {
+                if (enemyAt(level, from, point, rider)) return point
+                return@repeat
+            }
+            if (cell != corePos) leftCore = true
+            if (solidPoint(level, point)) return edge(level, point.subtract(step), point).point
+            if (enemyAt(level, from, point, rider)) return point
+        }
+        return null
+    }
+
+    private fun enemyAt(level: ServerLevel, from: Vec3, point: Vec3, rider: ServerPlayer): Boolean {
+        val box = boundingBox.move(point.x - from.x, point.y - from.y, point.z - from.z)
+        for (entity in level.getEntities(this, box) { it !== rider }) {
+            if (enemy(entity)) return true
+        }
+        return false
+    }
+
+    private fun enemy(entity: Entity): Boolean {
+        val living = entity as? LivingEntity ?: return false
+        if (!living.isAlive) return false
+        val other = when (living) {
+            is Player -> if (living.isSpectator) return false else living.team?.name ?: ""
+            is SummonedUnit -> living.summonedTeam
+            else -> return false
+        }
+        return other.isNotEmpty() && other != cannonTeam
     }
 
     private fun firstSolid(level: ServerLevel, from: Vec3, velocity: Vec3): Impact? {
@@ -189,6 +266,8 @@ class CannonShell(type: EntityType<out CannonShell>, level: Level) : PrimedTnt(t
         output.putDouble("PowerRadius", powerRadius)
         output.putDouble("Falloff", falloff)
         output.putBoolean("LeftCore", leftCore)
+        output.putBoolean("Manned", manned)
+        output.putInt("FlightTicks", flightTicks)
     }
 
     override fun readAdditionalSaveData(input: net.minecraft.world.level.storage.ValueInput) {
@@ -203,6 +282,8 @@ class CannonShell(type: EntityType<out CannonShell>, level: Level) : PrimedTnt(t
         powerRadius = input.getDoubleOr("PowerRadius", MatchRules.CANNON_POWER)
         falloff = input.getDoubleOr("Falloff", MatchRules.CANNON_FALLOFF)
         leftCore = input.getBooleanOr("LeftCore", false)
+        manned = input.getBooleanOr("Manned", false)
+        flightTicks = input.getIntOr("FlightTicks", 0)
         setFuse(FUSE_HOLD)
     }
 
@@ -233,6 +314,29 @@ class CannonShell(type: EntityType<out CannonShell>, level: Level) : PrimedTnt(t
                 origin = origin,
             )
             level.addFreshEntity(shell)
+        }
+
+        fun launchManned(
+            level: ServerLevel,
+            site: SiteCoreBlockEntity,
+            player: ServerPlayer,
+            centerDamage: Double,
+            wide: Boolean,
+        ) {
+            val origin = Vec3.atCenterOf(site.blockPos)
+            val shell = CannonShell(ModMonsters.CANNON_SHELL, level)
+            shell.prime(
+                team = site.team,
+                core = site.blockPos.immutable(),
+                centerDamage = centerDamage,
+                powerRadius = if (wide) MatchRules.CANNON_POWER_WIDE else MatchRules.CANNON_POWER,
+                falloff = if (wide) MatchRules.CANNON_FALLOFF_WIDE else MatchRules.CANNON_FALLOFF,
+                motion = Vec3.ZERO,
+                origin = origin,
+            )
+            shell.manned = true
+            level.addFreshEntity(shell)
+            CannonCrew.embark(site, player, shell)
         }
 
         private fun coreBox(level: ServerLevel, pos: BlockPos): AABB {

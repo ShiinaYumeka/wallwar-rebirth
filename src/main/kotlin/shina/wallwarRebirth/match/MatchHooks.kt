@@ -4,6 +4,8 @@ import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents
 import net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents
 import net.fabricmc.fabric.api.loot.v3.LootTableEvents
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents
+import net.fabricmc.fabric.api.event.player.AttackBlockCallback
+import net.fabricmc.fabric.api.event.player.AttackEntityCallback
 import net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents
 import net.fabricmc.fabric.api.event.player.UseBlockCallback
 import net.fabricmc.fabric.api.event.player.UseItemCallback
@@ -29,6 +31,7 @@ import net.minecraft.world.level.block.CrafterBlock
 import net.minecraft.world.level.block.CraftingTableBlock
 import net.minecraft.world.level.block.LevelEvent
 import net.minecraft.world.level.block.state.BlockState
+import shina.wallwarRebirth.building.CannonCrew
 import shina.wallwarRebirth.building.SiteCoreBlock
 import shina.wallwarRebirth.building.SiteCores
 import shina.wallwarRebirth.building.SitePartBlock
@@ -66,7 +69,10 @@ object MatchHooks {
     fun init() {
         ServerTickEvents.END_SERVER_TICK.register { Match.tick(it) }
         ServerPlayConnectionEvents.JOIN.register { handler, _, _ -> Match.onJoin(handler.player) }
-        ServerPlayConnectionEvents.DISCONNECT.register { _, server -> Match.onLeave(server) }
+        ServerPlayConnectionEvents.DISCONNECT.register { handler, server ->
+            CannonCrew.disconnect(handler.player)
+            Match.onLeave(server)
+        }
         ServerPlayerEvents.AFTER_RESPAWN.register { _, newPlayer, _ -> Match.afterRespawn(newPlayer) }
         LootTableEvents.MODIFY_DROPS.register { _, context, drops ->
             if (context.getOptionalParameter(LootContextParams.THIS_ENTITY) !is Animal) return@register
@@ -75,6 +81,10 @@ object MatchHooks {
                 val cooked = COOKED[list[index].item] ?: continue
                 list[index] = ItemStack(cooked, list[index].count)
             }
+        }
+        ServerLivingEntityEvents.ALLOW_DEATH.register { entity, _, _ ->
+            if (entity is ServerPlayer) PortableShop.strip(entity)
+            true
         }
         ServerLivingEntityEvents.ALLOW_DAMAGE.register { entity, source, _ ->
             if (Match.phase != Match.Phase.SETTLE) return@register true
@@ -94,7 +104,14 @@ object MatchHooks {
             }
             true
         }
+        AttackEntityCallback.EVENT.register { player, _, _, _, _ ->
+            if (player is ServerPlayer && CannonCrew.busy(player)) InteractionResult.FAIL else InteractionResult.PASS
+        }
+        AttackBlockCallback.EVENT.register { player, _, _, _, _ ->
+            if (player is ServerPlayer && CannonCrew.busy(player)) InteractionResult.FAIL else InteractionResult.PASS
+        }
         UseItemCallback.EVENT.register { player, level, hand ->
+            if (player is ServerPlayer && CannonCrew.busy(player)) return@register InteractionResult.FAIL
             if (player !is ServerPlayer || level.isClientSide) return@register InteractionResult.PASS
             val stack = player.getItemInHand(hand)
             if (!Match.castMiner(player, stack)) return@register InteractionResult.PASS
@@ -103,6 +120,7 @@ object MatchHooks {
         }
         UseBlockCallback.EVENT.register { player, world, hand, hit ->
             if (player !is ServerPlayer) return@register InteractionResult.PASS
+            if (CannonCrew.busy(player)) return@register InteractionResult.FAIL
             if (Match.phase == Match.Phase.FIGHT) {
                 val block = world.getBlockState(hit.blockPos).block
                 if (block is CraftingTableBlock || block is CrafterBlock) {

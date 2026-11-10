@@ -52,7 +52,7 @@ object BuildingStyles {
         val lookup = level.registryAccess().lookupOrThrow(Registries.BLOCK)
         val pieces = piecesOf(tag, lookup, offset)
         val axis = when (definition.footprint) {
-            Footprint.SQUARE_7, Footprint.SQUARE_1 -> {
+            Footprint.SQUARE_7, Footprint.SQUARE_3, Footprint.SQUARE_1 -> {
                 if (pieces.any { !BuildingFootprints.inside(definition, it.x, it.z) }) return "样式超出占地"
                 "x"
             }
@@ -205,11 +205,12 @@ object BuildingStyles {
         val state = level.getBlockState(origin)
         if (state.block !is SiteCoreBlock) return
         val form = when (definition.id) {
-            Buildings.REACTOR.id -> CoreForm.BLAST_FURNACE
             Buildings.WALL.id -> CoreForm.COPPER_LANTERN
             Buildings.TOWER.id -> CoreForm.FLETCHING_TABLE
             Buildings.BARRACKS.id -> CoreForm.CRAFTER
             Buildings.CANNON.id -> CoreForm.DISPENSER
+            Buildings.TESLA.id -> CoreForm.LIGHTNING_ROD
+            Buildings.RELAY.id -> CoreForm.HOPPER
             else -> CoreForm.BEACON
         }
         if (state.getValue(SiteCoreBlock.FORM) == form) return

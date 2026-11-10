@@ -26,6 +26,7 @@ import net.minecraft.world.level.block.Blocks
 import net.minecraft.world.level.block.LevelEvent
 import net.minecraft.world.level.block.entity.BlockEntity
 import net.minecraft.world.level.block.state.BlockState
+import net.minecraft.world.phys.Vec3
 import net.minecraft.world.level.storage.ValueInput
 import net.minecraft.world.level.storage.ValueOutput
 import shina.wallwarRebirth.match.Match
@@ -58,8 +59,12 @@ class SiteCoreBlockEntity(pos: BlockPos, state: BlockState) : BlockEntity(ModSit
     var reinforceMineral: String = ""
     var reinforceTwo: ItemStack = ItemStack.EMPTY
     var reinforceTwoMineral: String = ""
+    var diffuse: ItemStack = ItemStack.EMPTY
+    var gunner: UUID? = null
+    var healAge: Int = 0
     var releaseCount: Int = 0
     var lastHurtAge: Int = -1
+    var wallHealedGameTime: Long = -1L
     var dripAge: Int = 0
     val barracksStock: MutableList<String> = ArrayList()
     val dripQueue: MutableList<String> = ArrayList()
@@ -107,9 +112,13 @@ class SiteCoreBlockEntity(pos: BlockPos, state: BlockState) : BlockEntity(ModSit
             val key = itemKey(mineral.item)
             val next = (mineralAges[key] ?: 0) + 1
             if (next >= interval) {
-                offer(ItemStack(mineral.item, mineral.count))
                 mineralAges[key] = 0
                 produced = true
+                val hit = rolled(level, mineral)
+                if (hit) {
+                    val stack = ItemStack(mineral.item, mineral.count)
+                    if (buildingId == Buildings.BASE.id) TeamWarehouses.acceptAll(team, stack) else offer(stack)
+                }
             } else {
                 mineralAges[key] = next
             }
@@ -211,7 +220,7 @@ class SiteCoreBlockEntity(pos: BlockPos, state: BlockState) : BlockEntity(ModSit
     }
 
     private fun reflect(attacker: LivingEntity?, dealt: Int) {
-        if (reinforceTwo.isEmpty || attacker == null || !attacker.isAlive || dealt <= 0) return
+        if (!moduleActive(ModuleSlot.SECONDARY) || attacker == null || !attacker.isAlive || dealt <= 0) return
         if (friendly(attacker)) return
         val world = level as? ServerLevel ?: return
         attacker.hurtServer(world, world.damageSources().thorns(attacker), MatchRules.WALL_THORNS_DAMAGE.toFloat())
@@ -368,8 +377,12 @@ class SiteCoreBlockEntity(pos: BlockPos, state: BlockState) : BlockEntity(ModSit
         reinforceMineral = from.reinforceMineral
         reinforceTwo = from.reinforceTwo.copy()
         reinforceTwoMineral = from.reinforceTwoMineral
+        diffuse = from.diffuse.copy()
+        gunner = from.gunner
+        healAge = from.healAge
         releaseCount = from.releaseCount
         lastHurtAge = from.lastHurtAge
+        wallHealedGameTime = from.wallHealedGameTime
         dripAge = from.dripAge
         barracksStock.clear()
         barracksStock.addAll(from.barracksStock)
@@ -516,6 +529,24 @@ class SiteCoreBlockEntity(pos: BlockPos, state: BlockState) : BlockEntity(ModSit
         return true
     }
 
+    fun produceCycle() {
+        val definition = Buildings.byId(buildingId) ?: return
+        if (buildingId != Buildings.BASE.id) return
+        val world = level as? ServerLevel ?: return
+        for (mineral in definition.minerals()) {
+            if (intervalOf(definition, mineral) == null) continue
+            if (!rolled(world, mineral)) continue
+            TeamWarehouses.acceptAll(team, ItemStack(mineral.item, mineral.count))
+        }
+        setChanged()
+    }
+
+    private fun rolled(world: ServerLevel, mineral: MineralOutput): Boolean = when {
+        mineral.chancePercent > 0 -> world.random.nextInt(100) < mineral.chancePercent
+        mineral.chance <= 1 -> true
+        else -> world.random.nextInt(mineral.chance) == 0
+    }
+
     fun offer(stack: ItemStack) {
         val remaining = stack.copy()
         while (!remaining.isEmpty) {
@@ -561,6 +592,7 @@ class SiteCoreBlockEntity(pos: BlockPos, state: BlockState) : BlockEntity(ModSit
             if (server != null) {
                 BarracksWork.discardStock(this, server)
                 restoreCovered(server)
+                CannonCrew.evict(this, server)
             }
             Containers.dropContents(world, pos, storage as Container)
             storage.clearContent()
@@ -570,8 +602,10 @@ class SiteCoreBlockEntity(pos: BlockPos, state: BlockState) : BlockEntity(ModSit
             barracksEggs.clearContent()
             dropModule(world, pos, reinforce)
             dropModule(world, pos, reinforceTwo)
+            dropModule(world, pos, diffuse)
             reinforce = ItemStack.EMPTY
             reinforceTwo = ItemStack.EMPTY
+            diffuse = ItemStack.EMPTY
         }
         super.preRemoveSideEffects(pos, state)
     }
@@ -595,8 +629,12 @@ class SiteCoreBlockEntity(pos: BlockPos, state: BlockState) : BlockEntity(ModSit
         output.putString("ReinforceTwoMineral", reinforceTwoMineral)
         output.store("Reinforce", ItemStack.OPTIONAL_CODEC, reinforce)
         output.store("ReinforceTwo", ItemStack.OPTIONAL_CODEC, reinforceTwo)
+        output.store("Diffuse", ItemStack.OPTIONAL_CODEC, diffuse)
+        output.putString("Gunner", gunner?.toString() ?: "")
+        output.putInt("HealAge", healAge)
         output.putInt("ReleaseCount", releaseCount)
         output.putInt("LastHurtAge", lastHurtAge)
+        output.putLong("WallHealedGameTime", wallHealedGameTime)
         output.putInt("DripAge", dripAge)
         output.store("BarracksStock", Codec.STRING.listOf(), barracksStock.toList())
         output.store("DripQueue", Codec.STRING.listOf(), dripQueue.toList())
@@ -639,8 +677,12 @@ class SiteCoreBlockEntity(pos: BlockPos, state: BlockState) : BlockEntity(ModSit
         reinforceTwoMineral = input.getStringOr("ReinforceTwoMineral", "")
         reinforce = input.read("Reinforce", ItemStack.OPTIONAL_CODEC).orElse(ItemStack.EMPTY) ?: ItemStack.EMPTY
         reinforceTwo = input.read("ReinforceTwo", ItemStack.OPTIONAL_CODEC).orElse(ItemStack.EMPTY) ?: ItemStack.EMPTY
+        diffuse = input.read("Diffuse", ItemStack.OPTIONAL_CODEC).orElse(ItemStack.EMPTY) ?: ItemStack.EMPTY
+        gunner = input.getStringOr("Gunner", "").takeIf { it.isNotEmpty() }?.let { runCatching { UUID.fromString(it) }.getOrNull() }
+        healAge = input.getIntOr("HealAge", 0)
         releaseCount = input.getIntOr("ReleaseCount", 0)
         lastHurtAge = input.getIntOr("LastHurtAge", -1)
+        wallHealedGameTime = input.getLongOr("WallHealedGameTime", -1L)
         dripAge = input.getIntOr("DripAge", 0)
         barracksStock.clear()
         readIds(input, "BarracksStock", barracksStock)
@@ -679,20 +721,21 @@ class SiteCoreBlockEntity(pos: BlockPos, state: BlockState) : BlockEntity(ModSit
             val text = when {
                 !unlocked -> "${mineral.name}：${mineral.describeBase()}"
                 interval == null -> "${mineral.name}：不生成"
-                else -> "${mineral.name}：每 ${secondsText(interval)} ${mineral.count} 个"
+                else -> "${mineral.name}：${mineral.describe(interval)}"
             }
             text to (unlocked && interval != null)
         }
     }
 
     fun generatableMinerals(definition: BuildingDefinition): List<MineralOutput> =
-        definition.minerals().filter { buildingLevel >= it.minLevel && itemKey(it.item) != reinforceTwoMineral }
+        definition.minerals().filter { buildingLevel >= it.minLevel }
 
     fun choicesFor(slot: ModuleSlot, definition: BuildingDefinition): List<MineralOutput> {
         val unlocked = definition.minerals().filter { buildingLevel >= it.minLevel }
         return when (slot) {
-            ModuleSlot.PRIMARY -> unlocked.filter { itemKey(it.item) != reinforceTwoMineral }
-            ModuleSlot.SECONDARY -> if (unlocked.size <= 1) emptyList() else unlocked
+            ModuleSlot.PRIMARY -> unlocked
+            ModuleSlot.SECONDARY -> emptyList()
+            ModuleSlot.DIFFUSION -> emptyList()
         }
     }
 
@@ -708,6 +751,7 @@ class SiteCoreBlockEntity(pos: BlockPos, state: BlockState) : BlockEntity(ModSit
         when (slot) {
             ModuleSlot.PRIMARY -> reinforceMineral = key
             ModuleSlot.SECONDARY -> reinforceTwoMineral = key
+            ModuleSlot.DIFFUSION -> return
         }
         sanitizeMinerals(definition)
         setChanged()
@@ -716,6 +760,7 @@ class SiteCoreBlockEntity(pos: BlockPos, state: BlockState) : BlockEntity(ModSit
     fun moduleRefusal(slot: ModuleSlot, stack: ItemStack): String? {
         val definition = Buildings.byId(buildingId) ?: return "这座建筑不能装模块"
         if (!definition.acceptsModules) return "这座建筑不能装模块"
+        if (slot == ModuleSlot.DIFFUSION && !definition.acceptsDiffusion) return "这座建筑不能装扩散模块"
         if (stack.isEmpty || !stack.`is`(slot.item)) return "这个槽不能放这种模块"
         return null
     }
@@ -730,6 +775,7 @@ class SiteCoreBlockEntity(pos: BlockPos, state: BlockState) : BlockEntity(ModSit
         val key = when (slot) {
             ModuleSlot.PRIMARY -> reinforceMineral
             ModuleSlot.SECONDARY -> reinforceTwoMineral
+            ModuleSlot.DIFFUSION -> ""
         }
         if (key.isEmpty()) return "未选择"
         val definition = Buildings.byId(buildingId) ?: return "未选择"
@@ -744,9 +790,29 @@ class SiteCoreBlockEntity(pos: BlockPos, state: BlockState) : BlockEntity(ModSit
         return null
     }
 
+    fun moduleActive(slot: ModuleSlot): Boolean {
+        if (!moduleStack(slot).isEmpty) return true
+        if (buildingId != Buildings.WALL.id || slot == ModuleSlot.DIFFUSION) return false
+        return borrowed(slot)
+    }
+
     fun moduleStack(slot: ModuleSlot): ItemStack = when (slot) {
         ModuleSlot.PRIMARY -> reinforce
         ModuleSlot.SECONDARY -> reinforceTwo
+        ModuleSlot.DIFFUSION -> diffuse
+    }
+
+    private fun borrowed(slot: ModuleSlot): Boolean {
+        val origin = Vec3.atCenterOf(blockPos)
+        for (other in SiteCores.all()) {
+            if (other === this || other.isRemoved || other.health <= 0 || other.level !== level) continue
+            if (other.buildingId != Buildings.WALL.id) continue
+            if (team.isEmpty() || other.team != team) continue
+            if (other.diffuse.isEmpty || other.moduleStack(slot).isEmpty) continue
+            if (origin.distanceTo(Vec3.atCenterOf(other.blockPos)) > MatchRules.DIFFUSION_RANGE) continue
+            return true
+        }
+        return false
     }
 
     private fun setModule(slot: ModuleSlot, stack: ItemStack) {
@@ -760,9 +826,18 @@ class SiteCoreBlockEntity(pos: BlockPos, state: BlockState) : BlockEntity(ModSit
                 val had = !reinforceTwo.isEmpty
                 reinforceTwo = stack
                 if (stack.isEmpty) reinforceTwoMineral = ""
+                if (!stack.isEmpty && buildingId == Buildings.BASE.id) healAge = 0
                 if (had && buildingId == Buildings.BARRACKS.id) {
                     val world = level as? ServerLevel
                     if (world != null) BarracksWork.dumpStock(this, world)
+                }
+            }
+            ModuleSlot.DIFFUSION -> {
+                diffuse = stack
+                if (buildingId == Buildings.BARRACKS.id) healAge = 0
+                if (buildingId == Buildings.BASE.id && !stack.isEmpty) {
+                    val world = level as? ServerLevel
+                    if (world != null) shina.wallwarRebirth.match.PortableShop.tick(world.server)
                 }
             }
         }
@@ -773,28 +848,23 @@ class SiteCoreBlockEntity(pos: BlockPos, state: BlockState) : BlockEntity(ModSit
     private fun intervalOf(definition: BuildingDefinition, mineral: MineralOutput): Int? {
         if (buildingLevel < mineral.minLevel) return null
         val key = itemKey(mineral.item)
-        if (reinforceTwo.isEmpty.not() && reinforceTwoMineral == key) return null
-        var multiplier = 1
-        if (reinforce.isEmpty.not() && reinforceMineral == key) multiplier *= 2
-        val othersBoosted = reinforceTwo.isEmpty.not() && reinforceTwoMineral.isNotEmpty() && reinforceTwoMineral != key
-        if (othersBoosted) multiplier *= 2
+        val multiplier = if (reinforce.isEmpty.not() && reinforceMineral == key) 2 else 1
         return maxOf(MatchRules.MIN_PRODUCTION_TICKS, mineral.baseTicks / multiplier)
     }
 
     private fun sanitizeMinerals(definition: BuildingDefinition) {
+        if (buildingId == Buildings.BASE.id) reinforceTwoMineral = ""
         val unlocked = definition.minerals().filter { buildingLevel >= it.minLevel }.map { itemKey(it.item) }.toSet()
-        if (reinforceTwoMineral.isNotEmpty() && reinforceTwoMineral !in unlocked) reinforceTwoMineral = ""
-        if (unlocked.size <= 1) reinforceTwoMineral = ""
-        if (reinforceMineral.isNotEmpty() && (reinforceMineral !in unlocked || reinforceMineral == reinforceTwoMineral)) {
-            reinforceMineral = ""
-        }
+        if (reinforceMineral.isNotEmpty() && reinforceMineral !in unlocked) reinforceMineral = ""
     }
 
     private fun clearModules() {
         reinforce = ItemStack.EMPTY
         reinforceTwo = ItemStack.EMPTY
+        diffuse = ItemStack.EMPTY
         reinforceMineral = ""
         reinforceTwoMineral = ""
+        healAge = 0
         releaseCount = 0
         lastHurtAge = -1
         dripAge = 0
@@ -892,6 +962,17 @@ fun ServerPlayer.reportBuilding(message: String) {
 enum class ModuleSlot(val item: Item) {
     PRIMARY(shina.wallwarRebirth.item.ModItems.REINFORCE),
     SECONDARY(shina.wallwarRebirth.item.ModItems.REINFORCE_TWO),
+    DIFFUSION(shina.wallwarRebirth.item.ModItems.DIFFUSION),
 }
 
-private fun MineralOutput.describeBase(): String = "每 ${SiteCoreBlockEntity.secondsText(baseTicks)} $count 个"
+private fun MineralOutput.describeBase(): String = describe(baseTicks)
+
+private fun MineralOutput.describe(ticks: Int): String {
+    val every = "每 ${SiteCoreBlockEntity.secondsText(ticks)}"
+    val odds = when {
+        chancePercent > 0 -> "有 $chancePercent% 概率 "
+        chance <= 1 -> ""
+        else -> "有 1/$chance 概率 "
+    }
+    return if (odds.isEmpty()) "$every $count 个" else "$every $odds$count 个"
+}

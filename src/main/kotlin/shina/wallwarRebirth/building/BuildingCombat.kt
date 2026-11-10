@@ -2,6 +2,9 @@ package shina.wallwarRebirth.building
 
 import net.minecraft.core.BlockPos
 import net.minecraft.server.level.ServerLevel
+import net.minecraft.server.level.ServerPlayer
+import net.minecraft.world.effect.MobEffectInstance
+import net.minecraft.world.effect.MobEffects
 import net.minecraft.tags.BlockTags
 import net.minecraft.world.entity.LivingEntity
 import net.minecraft.world.level.block.state.BlockState
@@ -21,8 +24,10 @@ object BuildingCombat {
         val before = site.actionAge
         val beforeEgg = site.eggReleaseAge
         when (site.buildingId) {
+            Buildings.BASE.id -> tickBase(site)
             Buildings.WALL.id -> tickWall(site, level)
             Buildings.TOWER.id -> tickTower(site, level)
+            Buildings.TESLA.id -> tickTesla(site, level)
             Buildings.CANNON.id -> tickCannon(site, level)
             Buildings.BARRACKS.id -> BarracksWork.tick(site, level)
         }
@@ -30,19 +35,37 @@ object BuildingCombat {
         if (site.eggReleaseAge != beforeEgg && site.eggReleaseAge == 0) site.setChanged()
     }
 
+    private fun tickBase(site: SiteCoreBlockEntity) {
+        if (site.reinforceTwo.isEmpty || site.health <= 0) {
+            site.healAge = 0
+            return
+        }
+        site.healAge++
+        if (site.healAge < MatchRules.BASE_REGEN_TICKS) return
+        site.healAge = 0
+        val definition = Buildings.byId(site.buildingId) ?: return
+        val maxHealth = definition.maxHealth(site.buildingLevel)
+        if (site.health >= maxHealth) return
+        site.health = minOf(maxHealth, site.health + MatchRules.BASE_REGEN_AMOUNT)
+        site.setChanged()
+    }
+
     private fun tickWall(site: SiteCoreBlockEntity, level: ServerLevel) {
-        if (site.reinforce.isEmpty || site.health <= 0) return
-        if (site.age % MatchRules.TICKS_PER_SECOND != 0) return
+        if (!site.moduleActive(ModuleSlot.PRIMARY) || site.health <= 0) return
+        if (site.age % MatchRules.WALL_HEAL_TICKS != 0) return
         if (site.lastHurtAge >= site.age - MatchRules.TICKS_PER_SECOND) return
         val origin = Vec3.atCenterOf(site.blockPos)
+        val now = level.gameTime
         for (other in SiteCores.all()) {
             if (other.level !== level || other.isRemoved || other.health <= 0 || other.buildingId.isEmpty()) continue
             if (site.team.isEmpty() || other.team != site.team) continue
             if (origin.distanceTo(Vec3.atCenterOf(other.blockPos)) > MatchRules.WALL_HEAL_RANGE) continue
+            if (now - other.wallHealedGameTime < MatchRules.WALL_HEAL_TICKS) continue
             val definition = Buildings.byId(other.buildingId) ?: continue
             val maxHealth = definition.maxHealth(other.buildingLevel)
             if (other.health >= maxHealth) continue
             other.health = minOf(maxHealth, other.health + MatchRules.WALL_HEAL_AMOUNT)
+            other.wallHealedGameTime = now
             other.setChanged()
         }
     }
@@ -52,7 +75,8 @@ object BuildingCombat {
         val range = MatchRules.TOWER_RANGE[index]
         val target = nearestTarget(site, level, range)
         TowerCrossbows.aim(site, level, target)
-        val interval = MatchRules.TOWER_INTERVAL[index]
+        val baseInterval = MatchRules.TOWER_INTERVAL[index]
+        val interval = if (site.reinforceTwo.isEmpty) baseInterval else baseInterval * 4 / 5
         if (site.actionAge < interval) site.actionAge++
         if (site.actionAge < interval || target == null) return
         site.actionAge = 0
@@ -60,15 +84,59 @@ object BuildingCombat {
         shoot(site, level, target, MatchRules.TOWER_SPEED[index])
     }
 
+    private fun tickTesla(site: SiteCoreBlockEntity, level: ServerLevel) {
+        val index = (site.buildingLevel - 1).coerceIn(0, MatchRules.TESLA_RANGE.lastIndex)
+        val target = teslaTarget(site, level, MatchRules.TESLA_RANGE[index])
+        val interval = MatchRules.TESLA_INTERVAL
+        if (site.actionAge < interval) site.actionAge++
+        if (site.actionAge < interval || target == null) return
+        site.actionAge = 0
+        site.setChanged()
+        target.hurtServer(level, level.damageSources().lightningBolt(), MatchRules.TESLA_DAMAGE.toFloat())
+        target.addEffect(MobEffectInstance(MobEffects.WEAKNESS, MatchRules.TESLA_WEAKNESS_TICKS, 0, false, true))
+        target.addEffect(MobEffectInstance(MobEffects.SLOWNESS, MatchRules.TESLA_SLOWNESS_TICKS, 0, false, true))
+        target.addEffect(MobEffectInstance(MobEffects.BLINDNESS, MatchRules.TESLA_BLINDNESS_TICKS, 0, false, true))
+    }
+
+    private fun teslaTarget(site: SiteCoreBlockEntity, level: ServerLevel, range: Double): ServerPlayer? {
+        val origin = Vec3.atCenterOf(site.blockPos)
+        val players = level.players().filter {
+            it.isAlive &&
+                !it.isSpectator &&
+                !it.isCreative &&
+                hostile(site.team, it.team?.name ?: "") &&
+                distanceToBox(origin, it.boundingBox) <= range + MatchRules.TESLA_TIE_DISTANCE
+        }
+        return pick(origin, players, MatchRules.TESLA_TIE_DISTANCE)
+    }
+
     private fun tickCannon(site: SiteCoreBlockEntity, level: ServerLevel) {
         val index = (site.buildingLevel - 1).coerceIn(0, MatchRules.CANNON_CENTER_DAMAGE.lastIndex)
         val interval = if (site.reinforceTwo.isEmpty) MatchRules.CANNON_INTERVAL else MatchRules.CANNON_INTERVAL * 4 / 5
+        val wide = !site.reinforce.isEmpty
+        if (site.gunner != null && !site.diffuse.isEmpty) {
+            val rider = CannonCrew.rider(site, level)
+            if (rider == null) {
+                if (CannonCrew.holding(site, level)) {
+                    if (site.actionAge < interval) site.actionAge++
+                    return
+                }
+            } else {
+                if (CannonCrew.tickWaiting(site, level, rider)) return
+                if (site.actionAge < interval) site.actionAge++
+                if (site.actionAge < interval || cannonTarget(site, level) == null) return
+                site.actionAge = 0
+                site.setChanged()
+                CannonShell.launchManned(level, site, rider, MatchRules.CANNON_CENTER_DAMAGE[index], wide)
+                return
+            }
+        }
         val target = cannonTarget(site, level)
         if (site.actionAge < interval) site.actionAge++
         if (site.actionAge < interval || target == null) return
         site.actionAge = 0
         site.setChanged()
-        CannonShell.launch(level, site, target, MatchRules.CANNON_CENTER_DAMAGE[index], !site.reinforce.isEmpty)
+        CannonShell.launch(level, site, target, MatchRules.CANNON_CENTER_DAMAGE[index], wide)
     }
 
     private fun cannonTarget(site: SiteCoreBlockEntity, level: ServerLevel): Vec3? {
@@ -148,8 +216,9 @@ object BuildingCombat {
         val direction = aim.normalize()
         val muzzle = muzzle(site, level, origin, direction, aim.length()) ?: return
         val pierce = !site.reinforce.isEmpty
+        val spread = !site.diffuse.isEmpty
         fire(site, level, muzzle, direction, speed, pierce)
-        if (site.reinforceTwo.isEmpty) return
+        if (!spread) return
         fire(site, level, muzzle, yawTurn(direction, -MatchRules.TOWER_SPREAD_DEGREES), speed, pierce)
         fire(site, level, muzzle, yawTurn(direction, MatchRules.TOWER_SPREAD_DEGREES), speed, pierce)
     }

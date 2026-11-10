@@ -1,6 +1,7 @@
 package shina.wallwarRebirth.match
 
 import net.minecraft.core.BlockPos
+import net.minecraft.world.phys.Vec3
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.stats.Stats
@@ -24,22 +25,56 @@ object SurfaceOres {
         val size = Match.mapSize
         val min = -size / 2
         val max = min + size - 1
+        val innerMin = min + 1
+        val innerMax = max - 1
+        val inset = MatchRules.BASE_INSET
+        val used = HashSet<Long>()
+        val random = level.random
+        landmark(
+            level,
+            innerMin + inset,
+            innerMax - inset,
+            columns(MatchRules.CORNER_ORE_IRON, MatchRules.CORNER_ORE_COPPER),
+            innerMin,
+            innerMax,
+            used,
+            random,
+        )
+        landmark(
+            level,
+            innerMax - inset,
+            innerMin + inset,
+            columns(MatchRules.CORNER_ORE_IRON, MatchRules.CORNER_ORE_COPPER),
+            innerMin,
+            innerMax,
+            used,
+            random,
+        )
+        landmark(
+            level,
+            Math.round((red.x + blue.x) / 2.0).toInt(),
+            Math.round((red.z + blue.z) / 2.0).toInt(),
+            columns(MatchRules.CENTER_ORE_IRON, MatchRules.CENTER_ORE_COPPER),
+            innerMin,
+            innerMax,
+            used,
+            random,
+        )
         val columns = HashMap<Long, BlockPos>()
-        for (x in min + 1 until max) {
-            for (z in min + 1 until max) {
-                if (!betweenBases(x, z, red, blue)) continue
+        for (x in innerMin..innerMax) {
+            for (z in innerMin..innerMax) {
+                val key = BlockPos.asLong(x, 0, z)
+                if (key in used || besideBase(x, z, red, blue)) continue
                 val ground = ground(level, x, z) ?: continue
-                columns[BlockPos.asLong(x, 0, z)] = ground
+                columns[key] = ground
             }
         }
-        val random = level.random
         val target = columns.size / MatchRules.SURFACE_ORE_EVERY
         val open = columns.keys.toMutableList()
-        val used = HashSet<Long>()
         var placed = 0
         while (placed < target && open.isNotEmpty()) {
             val start = open.removeAt(random.nextInt(open.size))
-            if (start in used || beside(start, used, emptySet())) continue
+            if (start in used) continue
             val ore = kinds[random.nextInt(kinds.size)]
             val vein = HashSet<Long>()
             val frontier = ArrayList<Long>()
@@ -48,7 +83,6 @@ object SurfaceOres {
             while (frontier.isNotEmpty() && grown < MatchRules.SURFACE_ORE_VEIN && placed < target) {
                 val key = frontier.removeAt(random.nextInt(frontier.size))
                 if (!vein.add(key) || key !in columns || key in used) continue
-                if (beside(key, used, vein)) continue
                 val pos = columns[key] ?: continue
                 val room = minOf(MatchRules.SURFACE_ORE_VEIN - grown, target - placed)
                 val count = pile(level, pos, ore, random, room)
@@ -61,6 +95,69 @@ object SurfaceOres {
                 }
             }
         }
+    }
+
+    private fun columns(iron: Int, copper: Int): List<Block> {
+        val list = ArrayList<Block>(iron / 2 + copper / 2)
+        repeat(iron / 2) { list.add(Blocks.DEEPSLATE_IRON_ORE) }
+        repeat(copper / 2) { list.add(Blocks.DEEPSLATE_COPPER_ORE) }
+        return list
+    }
+
+    private fun landmark(
+        level: ServerLevel,
+        x: Int,
+        z: Int,
+        ores: List<Block>,
+        innerMin: Int,
+        innerMax: Int,
+        used: MutableSet<Long>,
+        random: net.minecraft.util.RandomSource,
+    ) {
+        val order = ores.toMutableList()
+        for (index in order.lastIndex downTo 1) {
+            val swap = random.nextInt(index + 1)
+            val kept = order[index]
+            order[index] = order[swap]
+            order[swap] = kept
+        }
+        val reach = kotlin.math.ceil(kotlin.math.sqrt(order.size / Math.PI)).toInt() + 8
+        val spots = ArrayList<Long>()
+        for (dx in -reach..reach) {
+            for (dz in -reach..reach) {
+                val columnX = x + dx
+                val columnZ = z + dz
+                if (columnX !in innerMin..innerMax || columnZ !in innerMin..innerMax) continue
+                spots.add(BlockPos.asLong(columnX, 0, columnZ))
+            }
+        }
+        spots.sortWith(compareBy<Long> { distanceSquared(it, x, z) }.thenBy { BlockPos.of(it).x }.thenBy { BlockPos.of(it).z })
+        var placed = 0
+        for (key in spots) {
+            if (placed >= order.size || key in used) continue
+            val column = BlockPos.of(key)
+            val ground = ground(level, column.x, column.z) ?: continue
+            if (!stack(level, ground, order[placed])) continue
+            used.add(key)
+            placed++
+        }
+    }
+
+    private fun distanceSquared(key: Long, x: Int, z: Int): Int {
+        val pos = BlockPos.of(key)
+        val dx = pos.x - x
+        val dz = pos.z - z
+        return dx * dx + dz * dz
+    }
+
+    private fun stack(level: ServerLevel, pos: BlockPos, ore: Block): Boolean {
+        val above = pos.above()
+        val cover = level.getBlockState(above)
+        if (!cover.isAir && !plant(cover) && !cover.`is`(BlockTags.SNOW) && !cover.`is`(BlockTags.LEAVES)) return false
+        if (!cover.isAir) level.setBlock(above, Blocks.AIR.defaultBlockState(), Block.UPDATE_NONE)
+        level.setBlock(pos, ore.defaultBlockState(), Block.UPDATE_NONE)
+        level.setBlock(above, ore.defaultBlockState(), Block.UPDATE_NONE)
+        return true
     }
 
     private fun pile(level: ServerLevel, pos: BlockPos, ore: Block, random: net.minecraft.util.RandomSource, room: Int): Int {
@@ -82,13 +179,6 @@ object SurfaceOres {
             placed++
         }
         return placed
-    }
-
-    private fun beside(key: Long, used: Set<Long>, vein: Set<Long>): Boolean {
-        for (near in around(key)) {
-            if (near in used && near !in vein) return true
-        }
-        return false
     }
 
     private fun around(key: Long): List<Long> {
@@ -126,15 +216,15 @@ object SurfaceOres {
         return false
     }
 
-    private fun betweenBases(x: Int, z: Int, red: BlockPos, blue: BlockPos): Boolean {
-        val midX = (red.x + blue.x) / 2.0
-        val midZ = (red.z + blue.z) / 2.0
-        val px = x + 0.5
-        val pz = z + 0.5
-        val toMid = sq(px - midX) + sq(pz - midZ)
-        val toRed = sq(px - (red.x + 0.5)) + sq(pz - (red.z + 0.5))
-        val toBlue = sq(px - (blue.x + 0.5)) + sq(pz - (blue.z + 0.5))
-        return toMid < toRed && toMid < toBlue
+    private fun besideBase(x: Int, z: Int, red: BlockPos, blue: BlockPos): Boolean {
+        val limit = MatchRules.BASE_FORBID
+        return chebyshev(x, z, red) <= limit || chebyshev(x, z, blue) <= limit
+    }
+
+    private fun chebyshev(x: Int, z: Int, core: BlockPos): Int {
+        val dx = kotlin.math.abs(x - core.x)
+        val dz = kotlin.math.abs(z - core.z)
+        return maxOf(dx, dz)
     }
 
     private fun ground(level: ServerLevel, x: Int, z: Int): BlockPos? {
@@ -159,6 +249,45 @@ object SurfaceOres {
             state.`is`(Blocks.LARGE_FERN) ||
             state.`is`(Blocks.BUSH)
 
+    fun nearestPile(level: ServerLevel, from: Vec3): List<BlockPos> {
+        val ores = ArrayList<BlockPos>()
+        val size = Match.mapSize
+        val min = -size / 2
+        val max = min + size - 1
+        for (x in min + 1 until max) {
+            for (z in min + 1 until max) {
+                val top = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z)
+                for (y in top - 2..top + 1) {
+                    val pos = BlockPos(x, y, z)
+                    if (isOre(level.getBlockState(pos).block)) ores.add(pos)
+                }
+            }
+        }
+        if (ores.isEmpty()) return emptyList()
+        val start = ores.minBy { from.distanceToSqr(Vec3.atCenterOf(it)) }
+        val left = ores.map { it.asLong() }.toMutableSet()
+        val pile = ArrayList<BlockPos>()
+        val queue = ArrayDeque<BlockPos>()
+        queue.add(start)
+        left.remove(start.asLong())
+        while (queue.isNotEmpty()) {
+            val pos = queue.removeFirst()
+            pile.add(pos)
+            for (dx in -1..1) {
+                for (dz in -1..1) {
+                    for (dy in -1..1) {
+                        if (dx == 0 && dy == 0 && dz == 0) continue
+                        val near = pos.offset(dx, dy, dz)
+                        if (left.remove(near.asLong())) queue.add(near)
+                    }
+                }
+            }
+        }
+        return pile
+    }
+
+    fun isOre(block: Block): Boolean = handles(block)
+
     private fun handles(block: Block): Boolean = when (block) {
         Blocks.IRON_ORE, Blocks.DEEPSLATE_IRON_ORE,
         Blocks.COPPER_ORE, Blocks.DEEPSLATE_COPPER_ORE,
@@ -178,6 +307,4 @@ object SurfaceOres {
         }
         return ItemStack(ingot, stack.count)
     }
-
-    private fun sq(value: Double): Double = value * value
 }

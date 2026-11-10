@@ -9,6 +9,7 @@ import net.minecraft.resources.ResourceKey
 import net.minecraft.world.entity.EntityType
 import net.minecraft.world.entity.MobCategory
 import net.minecraft.world.entity.animal.golem.IronGolem
+import net.minecraft.world.entity.monster.Creeper
 import net.minecraft.world.entity.monster.skeleton.AbstractSkeleton
 import net.minecraft.world.entity.monster.spider.Spider
 import net.minecraft.world.entity.monster.zombie.Zombie
@@ -26,6 +27,16 @@ object ModMonsters {
     lateinit var GOLEM: EntityType<SummonedGolem>
         private set
     lateinit var SPIDER: EntityType<SummonedSpider>
+        private set
+    lateinit var MINER: EntityType<SummonedMiner>
+        private set
+    lateinit var HUSK: EntityType<SummonedHusk>
+        private set
+    lateinit var DEATH_KNIGHT: EntityType<SummonedDeathknight>
+        private set
+    lateinit var CREEPER: EntityType<SummonedCreeper>
+        private set
+    lateinit var WARRIOR: EntityType<SummonedWarrior>
         private set
     lateinit var SUMMON_ARROW: EntityType<SummonArrow>
         private set
@@ -47,6 +58,16 @@ object ModMonsters {
         FabricDefaultAttributeRegistry.register(GOLEM, IronGolem.createAttributes())
         SPIDER = register("summoned_spider", ::SummonedSpider, MobCategory.MONSTER, 1.4f, 0.9f, 8)
         FabricDefaultAttributeRegistry.register(SPIDER, Spider.createAttributes())
+        MINER = register("summoned_miner", ::SummonedMiner, MobCategory.MONSTER, 0.6f, 1.95f, 8)
+        FabricDefaultAttributeRegistry.register(MINER, Zombie.createAttributes())
+        HUSK = register("summoned_husk", ::SummonedHusk, MobCategory.MONSTER, 0.6f, 1.95f, 8)
+        FabricDefaultAttributeRegistry.register(HUSK, Zombie.createAttributes())
+        DEATH_KNIGHT = register("summoned_death_knight", ::SummonedDeathknight, MobCategory.MONSTER, 0.6f, 1.99f, 8)
+        FabricDefaultAttributeRegistry.register(DEATH_KNIGHT, AbstractSkeleton.createAttributes())
+        CREEPER = register("summoned_creeper", ::SummonedCreeper, MobCategory.MONSTER, 0.6f, 1.7f, 8)
+        FabricDefaultAttributeRegistry.register(CREEPER, Creeper.createAttributes())
+        WARRIOR = register("summoned_zombie_warrior", ::SummonedWarrior, MobCategory.MONSTER, 0.6f, 1.95f, 8)
+        FabricDefaultAttributeRegistry.register(WARRIOR, Zombie.createAttributes())
         val arrowId = WallwarMod.idOf("summon_arrow")
         val arrowKey = ResourceKey.create(Registries.ENTITY_TYPE, arrowId)
         SUMMON_ARROW = Registry.register(

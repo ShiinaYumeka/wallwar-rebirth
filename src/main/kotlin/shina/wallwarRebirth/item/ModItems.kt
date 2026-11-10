@@ -61,6 +61,18 @@ object ModItems {
         "强化模块 2",
         Items.LIGHT_GRAY_GLAZED_TERRACOTTA,
         listOf(
+            "使部分建筑的效果增强。",
+            "*他是强化核心的姐妹，强化核心二号，他一直不满意自己的名字。",
+            "因为他觉得自己的名字是因为父母想不出新名字随便起的一样。",
+        ),
+    )
+
+    @JvmField
+    val DIFFUSION: Item = module(
+        "diffusion_module",
+        "扩散模块",
+        Items.PURPLE_GLAZED_TERRACOTTA,
+        listOf(
             "取消部分建筑的生效范围",
             "*扩散模块生于辽宁省朝阳市，",
             "从小就被亲戚朋友教会了",
@@ -68,6 +80,26 @@ object ModItems {
             "目前在村委会担当播音员一职。",
         ),
     )
+
+    @JvmField
+    val TERMINAL: Item = register("portable_terminal") { properties ->
+        PortableTerminalItem(
+            properties = properties.stacksTo(1)
+                .component(
+                    DataComponents.CUSTOM_NAME,
+                    Component.literal("便携终端").withStyle { style -> style.withItalic(false).withColor(ChatFormatting.WHITE) },
+                )
+                .component(
+                    DataComponents.LORE,
+                    ItemLore(listOf(
+                        Component.literal("右键打开本队基地商店").withStyle { style ->
+                            style.withItalic(false).withColor(ChatFormatting.GRAY)
+                        },
+                    )),
+                ),
+            polymerItem = Items.RECOVERY_COMPASS,
+        )
+    }
 
     @JvmField
     val EGG_ZOMBIE: Item = egg("summon_zombie", "唤灵·僵尸", Items.ZOMBIE_SPAWN_EGG, "zombie")
@@ -82,7 +114,19 @@ object ModItems {
     val EGG_SPIDER: Item = egg("summon_spider", "唤灵·蜘蛛", Items.SPIDER_SPAWN_EGG, "spider")
 
     @JvmField
-    val CORE_REACTOR: Item = core("core_reactor", "矿物反应堆核心", Items.BLAST_FURNACE, "reactor")
+    val EGG_MINER: Item = egg("summon_miner", "矿工僵尸", Items.ZOMBIE_SPAWN_EGG, "miner_zombie")
+
+    @JvmField
+    val EGG_HUSK: Item = egg("summon_husk", "唤灵·尸壳", Items.HUSK_SPAWN_EGG, "husk")
+
+    @JvmField
+    val EGG_DEATH_KNIGHT: Item = egg("summon_death_knight", "唤灵·骷髅死士", Items.SKELETON_SPAWN_EGG, "death_knight")
+
+    @JvmField
+    val EGG_CREEPER: Item = egg("summon_creeper", "唤灵·苦力怕", Items.CREEPER_SPAWN_EGG, "creeper")
+
+    @JvmField
+    val EGG_WARRIOR: Item = egg("summon_warrior", "唤灵·僵尸战士", Items.ZOMBIE_SPAWN_EGG, "zombie_warrior")
 
     @JvmField
     val CORE_WALL: Item = core("core_wall", "城墙核心", Items.STONE_BRICKS, "wall")
@@ -91,25 +135,39 @@ object ModItems {
     val CORE_TOWER: Item = core("core_tower", "弩架核心", Items.CROSSBOW, "tower")
 
     @JvmField
+    val CORE_TESLA: Item = core("core_tesla", "特斯拉塔核心", Items.LIGHTNING_ROD, "tesla")
+
+    @JvmField
     val CORE_BARRACKS: Item = core("core_barracks", "兵营核心", Blocks.CRAFTER.asItem(), "barracks")
 
     @JvmField
     val CORE_CANNON: Item = core("core_cannon", "炮台核心", Items.DISPENSER, "cannon")
+
+    @JvmField
+    val CORE_RELAY: Item = core("core_relay", "传输装置核心", Items.HOPPER, "relay")
 
     fun init() {
         MENU
         EXAMPLE_TOKEN
         REINFORCE
         REINFORCE_TWO
+        DIFFUSION
+        TERMINAL
         EGG_ZOMBIE
         EGG_SKELETON
         EGG_GOLEM
         EGG_SPIDER
-        CORE_REACTOR
+        EGG_MINER
+        EGG_HUSK
+        EGG_DEATH_KNIGHT
+        EGG_CREEPER
+        EGG_WARRIOR
         CORE_WALL
         CORE_TOWER
+        CORE_TESLA
         CORE_BARRACKS
         CORE_CANNON
+        CORE_RELAY
     }
 
     private fun module(path: String, name: String, icon: Item, lore: List<String>): Item = register(path) { properties ->

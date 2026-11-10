@@ -4,6 +4,6 @@
     "type": "minecraft:cache_2d",
     "argument": "minecraft:overworld/continents"
   },
-  "min": -0.11,
-  "max": 0.3
+  "min": -0.1,
+  "max": 0.25
 }

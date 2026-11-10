@@ -7,6 +7,13 @@ import net.minecraft.server.level.ServerLevel
 object BuildingFootprints {
     fun cells(definition: BuildingDefinition, origin: BlockPos, facing: Direction): Set<BlockPos> = when (definition.footprint) {
         Footprint.SQUARE_1 -> setOf(origin)
+        Footprint.SQUARE_3 -> {
+            val cells = HashSet<BlockPos>()
+            for (dx in -1..1) {
+                for (dz in -1..1) cells.add(origin.offset(dx, 0, dz))
+            }
+            cells
+        }
         Footprint.WALL_9 -> {
             val alongX = facing.axis == Direction.Axis.Z
             val cells = HashSet<BlockPos>()
@@ -43,6 +50,7 @@ object BuildingFootprints {
     fun inside(definition: BuildingDefinition, x: Int, z: Int): Boolean = when (definition.footprint) {
         Footprint.SQUARE_7 -> x in -3..3 && z in -3..3
         Footprint.SQUARE_1 -> x == 0 && z == 0
+        Footprint.SQUARE_3 -> x in -1..1 && z in -1..1
         Footprint.WALL_9 -> (z == 0 && x in -4..4) || (x == 0 && z in -4..4)
     }
 }

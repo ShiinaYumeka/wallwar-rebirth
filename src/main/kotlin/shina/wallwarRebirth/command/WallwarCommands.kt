@@ -200,7 +200,8 @@ object WallwarCommands {
         val player = context.source.playerOrException
         player.inventory.add(ItemStack(ModItems.REINFORCE))
         player.inventory.add(ItemStack(ModItems.REINFORCE_TWO))
-        player.sendSystemMessage(Component.literal("已获得强化模块和强化模块 2"))
+        player.inventory.add(ItemStack(ModItems.DIFFUSION))
+        player.sendSystemMessage(Component.literal("已获得强化模块、强化模块 2 和扩散模块"))
         return Command.SINGLE_SUCCESS
     }
 

@@ -10,7 +10,10 @@
     "LevelSeedMixin",
     "CrafterBlockEntityMixin",
     "ResultSlotMixin",
-    "ServerChunkCacheAccess"
+    "ServerChunkCacheAccess",
+    "ServerPlayerGameModeMixin",
+    "PlayerRidingMixin",
+    "CreeperExplodeMixin"
   ],
   "injectors": {
     "defaultRequire": 1

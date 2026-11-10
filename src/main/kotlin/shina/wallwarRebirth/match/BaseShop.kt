@@ -14,6 +14,7 @@ import net.minecraft.world.item.Item
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
 import shina.wallwarRebirth.WallwarMod
+import shina.wallwarRebirth.building.BuildingMenus
 import shina.wallwarRebirth.building.SiteCoreBlockEntity
 import shina.wallwarRebirth.gui.ItemStackBuilder
 import shina.wallwarRebirth.item.ModItems
@@ -30,7 +31,8 @@ object BaseShop {
     enum class Page(val title: String, val icon: ItemStack) {
         WEAPON("武器", ItemStack(Items.IRON_SWORD)),
         ARMOR("防具", ItemStack(Items.IRON_CHESTPLATE)),
-        BUILDING("建筑", ItemStack(Items.BEACON)),
+        BUILDING("建筑", ItemStack(Items.BRICKS)),
+        BASE("基地", ItemStack(Items.BEACON)),
         WAREHOUSE("团队仓库", ItemStack(Items.CHEST)),
     }
 
@@ -97,20 +99,12 @@ object BaseShop {
             tool(2, 2, Items.DIAMOND_LEGGINGS, "diamond", MatchRules.LEGGINGS_MATERIAL),
             tool(2, 3, Items.DIAMOND_BOOTS, "diamond", MatchRules.BOOTS_MATERIAL),
         )
-        Page.WAREHOUSE -> emptyList()
+        Page.BASE, Page.WAREHOUSE -> emptyList()
         Page.BUILDING -> listOf(
             listing(0, 0, ItemStack(ModItems.CORE_WALL), copper(MatchRules.WALL_PRICE_COPPER)),
-            listing(
-                0,
-                1,
-                ItemStack(ModItems.CORE_REACTOR),
-                mapOf(
-                    WallwarMod.idOf("iron") to MatchRules.REACTOR_PRICE_IRON,
-                    WallwarMod.idOf("copper") to MatchRules.REACTOR_PRICE_COPPER,
-                ),
-            ),
-            listing(0, 2, ItemStack(ModItems.CORE_BARRACKS), iron(MatchRules.BARRACKS_PRICE_IRON)),
-            listing(0, 3, ItemStack(ModItems.CORE_TOWER), copper(MatchRules.TOWER_PRICE_COPPER)),
+            listing(0, 1, ItemStack(ModItems.CORE_BARRACKS), iron(MatchRules.BARRACKS_PRICE_IRON)),
+            listing(0, 2, ItemStack(ModItems.CORE_TOWER), copper(MatchRules.TOWER_PRICE_COPPER)),
+            listing(0, 3, ItemStack(ModItems.CORE_TESLA), copper(MatchRules.TESLA_PRICE_COPPER)),
             listing(
                 0,
                 4,
@@ -120,8 +114,10 @@ object BaseShop {
                     WallwarMod.idOf("copper") to MatchRules.CANNON_PRICE_COPPER,
                 ),
             ),
+            listing(0, 5, ItemStack(ModItems.CORE_RELAY), iron(MatchRules.RELAY_PRICE_IRON)),
             listing(1, 0, ItemStack(ModItems.REINFORCE), lapis(MatchRules.MODULE_LAPIS)),
             listing(1, 1, ItemStack(ModItems.REINFORCE_TWO), lapis(MatchRules.MODULE_TWO_LAPIS)),
+            listing(1, 2, ItemStack(ModItems.DIFFUSION), lapis(MatchRules.MODULE_DIFFUSION_LAPIS)),
         )
     }
 
@@ -157,7 +153,7 @@ private class PageGui(
     layers: Collection<ShopLayer>,
     heading: String,
     private val site: SiteCoreBlockEntity,
-    page: BaseShop.Page,
+    private val page: BaseShop.Page,
     sheet: Int,
     reserved: Set<Int>,
 ) : ShopGui(session, player, layers, 6) {
@@ -172,6 +168,12 @@ private class PageGui(
         val marker = ItemStack(Items.LIME_STAINED_GLASS_PANE).hideTooltip()
         setSlot(9 + page.ordinal, GuiElement(marker, GuiElementInterface.EMPTY_CALLBACK))
         if (page == BaseShop.Page.WAREHOUSE) fillWarehouse(sheet)
+        if (page == BaseShop.Page.BASE) BuildingMenus.paintBaseShop(this, site)
+    }
+
+    override fun onTick() {
+        super.onTick()
+        if (page == BaseShop.Page.BASE && stillOpen()) BuildingMenus.paintBaseShop(this, site)
     }
 
     private fun fillWarehouse(sheet: Int) {

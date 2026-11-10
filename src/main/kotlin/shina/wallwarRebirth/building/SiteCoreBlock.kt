@@ -41,6 +41,8 @@ class SiteCoreBlock(properties: Properties) : BaseEntityBlock(properties), Polym
         CoreForm.CRAFTER -> Blocks.CRAFTER.defaultBlockState()
         CoreForm.COPPER_LANTERN -> Blocks.COPPER_LANTERN.unaffected().defaultBlockState()
         CoreForm.DISPENSER -> Blocks.DISPENSER.defaultBlockState().setValue(DispenserBlock.FACING, Direction.UP)
+        CoreForm.HOPPER -> Blocks.HOPPER.defaultBlockState()
+        CoreForm.LIGHTNING_ROD -> Blocks.LIGHTNING_ROD.defaultBlockState()
     }
 
     override fun createBlockStateDefinition(builder: StateDefinition.Builder<Block, BlockState>) {
@@ -94,6 +96,7 @@ class SiteCoreBlock(properties: Properties) : BaseEntityBlock(properties), Polym
         if (level.isClientSide) return InteractionResult.SUCCESS
         val serverPlayer = player as? ServerPlayer ?: return InteractionResult.PASS
         val site = level.getBlockEntity(pos) as? SiteCoreBlockEntity ?: return InteractionResult.PASS
+        if (CannonCrew.tryEnter(site, serverPlayer)) return InteractionResult.SUCCESS
         if (site.team.isNotEmpty() && !site.isAlly(serverPlayer)) {
             serverPlayer.sendSystemMessage(net.minecraft.network.chat.Component.literal("敌方打不开"))
             return InteractionResult.SUCCESS
@@ -118,6 +121,8 @@ enum class CoreForm : StringRepresentable {
     CRAFTER,
     COPPER_LANTERN,
     DISPENSER,
+    HOPPER,
+    LIGHTNING_ROD,
     ;
 
     override fun getSerializedName(): String = name.lowercase()

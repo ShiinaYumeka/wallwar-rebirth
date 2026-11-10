@@ -4,6 +4,6 @@
     "type": "minecraft:cache_2d",
     "argument": "minecraft:overworld/erosion"
   },
-  "min": -0.2225,
+  "min": 0.7,
   "max": 1.0
 }

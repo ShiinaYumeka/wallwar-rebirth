@@ -8,6 +8,7 @@ import net.minecraft.world.InteractionHand
 import net.minecraft.world.effect.MobEffectInstance
 import net.minecraft.world.effect.MobEffects
 import net.minecraft.world.entity.Mob
+import net.minecraft.world.entity.LivingEntity
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.context.BlockPlaceContext
 import net.minecraft.world.phys.BlockHitResult
@@ -23,8 +24,19 @@ object Summoning {
         z: Double,
         yaw: Float,
         swift: Boolean = false,
-    ): Boolean {
-        val mob = create(level, definition) ?: return false
+    ): Boolean = place(level, definition, team, x, y, z, yaw, swift) != null
+
+    fun place(
+        level: ServerLevel,
+        definition: MonsterDefinition,
+        team: String,
+        x: Double,
+        y: Double,
+        z: Double,
+        yaw: Float,
+        swift: Boolean = false,
+    ): LivingEntity? {
+        val mob = create(level, definition) ?: return null
         val unit = mob as SummonedUnit
         unit.summonedTeam = team
         unit.kindId = definition.id
@@ -34,7 +46,7 @@ object Summoning {
             mob.addEffect(MobEffectInstance(MobEffects.SPEED, MobEffectInstance.INFINITE_DURATION, 0, false, true))
         }
         mob.snapTo(x, y, z, yaw, 0f)
-        return level.addFreshEntity(mob)
+        return if (level.addFreshEntity(mob)) mob else null
     }
 
     fun canOccupy(level: ServerLevel, pos: BlockPos, player: ServerPlayer?): Boolean {
@@ -52,6 +64,11 @@ object Summoning {
         Monsters.GOLEM.id -> SummonedGolem(ModMonsters.GOLEM, level)
         Monsters.SPIDER.id -> SummonedSpider(ModMonsters.SPIDER, level)
         Monsters.ZOMBIE.id -> SummonedZombie(ModMonsters.ZOMBIE, level)
+        Monsters.MINER.id -> SummonedMiner(ModMonsters.MINER, level)
+        Monsters.HUSK.id -> SummonedHusk(ModMonsters.HUSK, level)
+        Monsters.DEATH_KNIGHT.id -> SummonedDeathknight(ModMonsters.DEATH_KNIGHT, level)
+        Monsters.CREEPER.id -> SummonedCreeper(ModMonsters.CREEPER, level)
+        Monsters.WARRIOR.id -> SummonedWarrior(ModMonsters.WARRIOR, level)
         else -> null
     }
 }

@@ -1,5 +1,6 @@
 package shina.wallwarRebirth.building
 
+import net.minecraft.resources.Identifier
 import net.minecraft.world.item.Items
 import shina.wallwarRebirth.WallwarMod
 import shina.wallwarRebirth.match.MatchRules
@@ -11,19 +12,6 @@ object Buildings {
         id = "base",
         displayName = "基地",
         category = BuildingCategory.CORE,
-        maxLevel = 1,
-        structure = { level -> WallwarMod.idOf("building/base/level_$level") },
-        upgrades = emptyList(),
-        production = emptyList(),
-        healthByLevel = listOf(MatchRules.BASE_HEALTH),
-        icon = Items.BEACON,
-        summary = "胜负目标，也是商店入口。不能购买、升级、放置或拆除。",
-    )
-
-    val REACTOR = BuildingDefinition(
-        id = "reactor",
-        displayName = "矿物反应堆",
-        category = BuildingCategory.NORMAL,
         maxLevel = 3,
         structure = { level -> WallwarMod.idOf("building/reactor/level_$level") },
         upgrades = listOf(
@@ -55,21 +43,22 @@ object Buildings {
                 2,
                 MatchRules.REACTOR_REDSTONE_TICKS,
                 listOf(
-            ItemAmount(Items.REDSTONE, MatchRules.REACTOR_REDSTONE_COUNT, "红石"),
-            ItemAmount(Items.LAPIS_LAZULI, MatchRules.REACTOR_LAPIS_COUNT, "青金石"),
+                    ItemAmount(Items.REDSTONE, MatchRules.REACTOR_REDSTONE_COUNT, "红石"),
+                    ItemAmount(Items.LAPIS_LAZULI, MatchRules.REACTOR_LAPIS_COUNT, "青金石"),
                 ),
             ),
             ProductionRule(
                 3,
                 MatchRules.REACTOR_DIAMOND_TICKS,
                 listOf(ItemAmount(Items.DIAMOND, MatchRules.REACTOR_DIAMOND_COUNT, "钻石")),
+                chancePercent = MatchRules.REACTOR_DIAMOND_PERCENT,
             ),
         ),
-        healthByLevel = MatchRules.REACTOR_HEALTH,
-        icon = Items.BLAST_FURNACE,
-        summary = "产出进入自己的容器。",
-        showsContainer = true,
+        healthByLevel = List(3) { MatchRules.BASE_HEALTH },
+        icon = Items.BEACON,
+        summary = "胜负目标，也是商店入口。产出进入本队团队仓库。不能购买、放置或拆除。",
         acceptsModules = true,
+        acceptsDiffusion = true,
     )
 
     val WALL = BuildingDefinition(
@@ -85,9 +74,11 @@ object Buildings {
         production = emptyList(),
         healthByLevel = MatchRules.WALL_HEALTH,
         icon = Items.STONE_BRICKS,
-        summary = "一截有碰撞的墙，用来让敌方怪物先打它，而不是直接打到后面的核心。没有攻击，没有产出。",
+        summary = "一截有碰撞的墙，用来让敌方怪物先打它，而不是直接打到后面的核心。唤灵·蜘蛛不会把它当目标。没有攻击，没有产出。",
         footprint = Footprint.WALL_9,
         acceptsModules = true,
+        acceptsDiffusion = true,
+        defensive = true,
     )
 
     val TOWER = BuildingDefinition(
@@ -111,6 +102,29 @@ object Buildings {
             LevelNote(3, towerNote(2)),
         ),
         acceptsModules = true,
+        acceptsDiffusion = true,
+    )
+
+    val TESLA = BuildingDefinition(
+        id = "tesla",
+        displayName = "特斯拉塔",
+        category = BuildingCategory.NORMAL,
+        maxLevel = 3,
+        structure = { _ -> Identifier.fromNamespaceAndPath("wallwar", "electric") },
+        upgrades = listOf(
+            UpgradeCost(2, listOf(ItemAmount(Items.COPPER_INGOT, MatchRules.TESLA_UPGRADE_2_COPPER, "铜锭"))),
+            UpgradeCost(3, listOf(ItemAmount(Items.COPPER_INGOT, MatchRules.TESLA_UPGRADE_3_COPPER, "铜锭"))),
+        ),
+        production = emptyList(),
+        healthByLevel = MatchRules.TESLA_HEALTH,
+        icon = Items.LIGHTNING_ROD,
+        summary = "每 5 秒对射程内最近的敌方玩家造成闪电伤害，并施加虚弱、减速和失明。不打唤灵，不拆建筑。",
+        footprint = Footprint.SQUARE_3,
+        details = listOf(
+            LevelNote(1, teslaNote(0)),
+            LevelNote(2, teslaNote(1)),
+            LevelNote(3, teslaNote(2)),
+        ),
     )
 
     val BARRACKS = BuildingDefinition(
@@ -136,12 +150,13 @@ object Buildings {
         details = listOf(
             LevelNote(
                 1,
-                "僵尸、骷髅和蜘蛛 ${MatchRules.ZOMBIE_PRODUCTION_TICKS / MatchRules.TICKS_PER_SECOND} 秒，铁傀儡 ${MatchRules.GOLEM_PRODUCTION_TICKS / MatchRules.TICKS_PER_SECOND} 秒",
+                "僵尸、骷髅和蜘蛛 ${MatchRules.ZOMBIE_PRODUCTION_TICKS / MatchRules.TICKS_PER_SECOND} 秒，尸壳、骷髅死士、苦力怕和僵尸战士同样是 ${MatchRules.ZOMBIE_PRODUCTION_TICKS / MatchRules.TICKS_PER_SECOND} 秒但要 2 级兵营，矿工僵尸 ${MatchRules.MINER_ZOMBIE_PRODUCTION_TICKS / MatchRules.TICKS_PER_SECOND} 秒，铁傀儡 ${MatchRules.GOLEM_PRODUCTION_TICKS / MatchRules.TICKS_PER_SECOND} 秒",
             ),
             LevelNote(2, "产出速度加快 50%，间隔变为原来的 2/3"),
             LevelNote(3, "产出速度加快 100%，间隔变为原来的一半"),
         ),
         acceptsModules = true,
+        acceptsDiffusion = true,
     )
 
     val CANNON = BuildingDefinition(
@@ -161,8 +176,8 @@ object Buildings {
             UpgradeCost(
                 3,
                 listOf(
-                    ItemAmount(Items.IRON_INGOT, MatchRules.CANNON_UPGRADE_3_IRON, "铁锭"),
                     ItemAmount(Items.COPPER_INGOT, MatchRules.CANNON_UPGRADE_3_COPPER, "铜锭"),
+                    ItemAmount(Items.IRON_INGOT, MatchRules.CANNON_UPGRADE_3_IRON, "铁锭"),
                 ),
             ),
         ),
@@ -177,9 +192,24 @@ object Buildings {
             LevelNote(3, cannonNote(2)),
         ),
         acceptsModules = true,
+        acceptsDiffusion = true,
     )
 
-    private val all = listOf(BASE, REACTOR, WALL, TOWER, BARRACKS, CANNON)
+    val RELAY = BuildingDefinition(
+        id = "relay",
+        displayName = "传输装置",
+        category = BuildingCategory.NORMAL,
+        maxLevel = 1,
+        structure = { _ -> Identifier.fromNamespaceAndPath("wallwar", "trans") },
+        upgrades = emptyList(),
+        production = emptyList(),
+        healthByLevel = listOf(MatchRules.RELAY_HEALTH),
+        icon = Items.HOPPER,
+        summary = "矿工交矿时的更近落点。可以打开基地商店，也可以召集矿工。",
+        footprint = Footprint.SQUARE_3,
+    )
+
+    private val all = listOf(BASE, WALL, TOWER, TESLA, BARRACKS, CANNON, RELAY)
 
     fun byId(id: String): BuildingDefinition? = all.firstOrNull { it.id == id }
 
@@ -192,6 +222,15 @@ object Buildings {
         val seconds = MatchRules.TOWER_INTERVAL[index].toDouble() / MatchRules.TICKS_PER_SECOND
         val interval = if (seconds == seconds.toInt().toDouble()) seconds.toInt().toString() else seconds.toString()
         return "射程 $range，箭速 ${speed.toInt()}，盔甲前伤害 $damage，间隔 $interval 秒"
+    }
+
+    private fun teslaNote(index: Int): String {
+        val range = MatchRules.TESLA_RANGE[index].toInt()
+        val weakness = MatchRules.TESLA_WEAKNESS_TICKS / MatchRules.TICKS_PER_SECOND
+        val slowness = MatchRules.TESLA_SLOWNESS_TICKS / MatchRules.TICKS_PER_SECOND
+        val blindness = MatchRules.TESLA_BLINDNESS_TICKS / MatchRules.TICKS_PER_SECOND
+        val seconds = MatchRules.TESLA_INTERVAL / MatchRules.TICKS_PER_SECOND
+        return "射程 $range，闪电伤害 ${MatchRules.TESLA_DAMAGE.toInt()}，间隔 $seconds 秒，虚弱 $weakness 秒，减速 I $slowness 秒，失明 $blindness 秒"
     }
 
     private fun cannonNote(index: Int): String {

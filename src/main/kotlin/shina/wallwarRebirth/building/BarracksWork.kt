@@ -3,8 +3,13 @@ package shina.wallwarRebirth.building
 import net.minecraft.core.BlockPos
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.tags.ItemTags
+import net.minecraft.world.entity.LivingEntity
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
+import net.minecraft.world.phys.AABB
+import net.minecraft.world.phys.Vec3
+import shina.wallwarRebirth.monster.SummonedUnit
+import kotlin.math.sqrt
 import shina.wallwarRebirth.item.ModItems
 import shina.wallwarRebirth.match.MatchRules
 import shina.wallwarRebirth.shop.TeamWarehouses
@@ -29,11 +34,17 @@ object BarracksSlots {
         stack.`is`(ModItems.EGG_ZOMBIE) ||
             stack.`is`(ModItems.EGG_SKELETON) ||
             stack.`is`(ModItems.EGG_GOLEM) ||
-            stack.`is`(ModItems.EGG_SPIDER)
+            stack.`is`(ModItems.EGG_SPIDER) ||
+            stack.`is`(ModItems.EGG_MINER) ||
+            stack.`is`(ModItems.EGG_HUSK) ||
+            stack.`is`(ModItems.EGG_DEATH_KNIGHT) ||
+            stack.`is`(ModItems.EGG_CREEPER) ||
+            stack.`is`(ModItems.EGG_WARRIOR)
 }
 
 object BarracksWork {
     fun tick(site: SiteCoreBlockEntity, level: ServerLevel) {
+        heal(site, level)
         if (Monsters.byId(site.producedMonster) == null) site.producedMonster = Monsters.ZOMBIE.id
         if (!site.marching) return
         val definition = Monsters.byId(site.producedMonster) ?: Monsters.ZOMBIE
@@ -65,9 +76,10 @@ object BarracksWork {
             site.actionAge++
             if (site.actionAge < interval) return
         }
+        val count = definition.batch.coerceAtLeast(1)
         if (!site.reinforceTwo.isEmpty) {
             InventoryCosts.takeAll(site.barracksMaterials, warehouse, costs)
-            site.barracksStock.add(definition.id)
+            repeat(count) { site.barracksStock.add(definition.id) }
             site.actionAge = 0
             site.setChanged()
             if (site.barracksStock.size >= releaseQuota(site)) {
@@ -75,17 +87,40 @@ object BarracksWork {
             }
             return
         }
-        val delivered = if (site.marching) {
-            spawnPreferred(site, level, definition)
-        } else if (insertEgg(site, definition)) {
-            true
-        } else {
-            spawnPreferred(site, level, definition)
+        val spots = reserveSpots(site, level, count)
+        if (spots.size < count) return
+        val spawned = ArrayList<LivingEntity>()
+        for (feet in spots) {
+            val mob = spawnAt(site, level, definition, feet)
+            if (mob == null) {
+                spawned.forEach { it.discard() }
+                return
+            }
+            spawned.add(mob)
         }
-        if (!delivered) return
         InventoryCosts.takeAll(site.barracksMaterials, warehouse, costs)
         site.actionAge = 0
         site.setChanged()
+    }
+
+    private fun heal(site: SiteCoreBlockEntity, level: ServerLevel) {
+        if (site.diffuse.isEmpty) {
+            site.healAge = 0
+            return
+        }
+        site.healAge++
+        if (site.healAge < MatchRules.BARRACKS_HEAL_TICKS) return
+        site.healAge = 0
+        val origin = Vec3.atCenterOf(site.blockPos)
+        val range = MatchRules.DIFFUSION_RANGE
+        val box = AABB.ofSize(origin, range * 2.0, range * 2.0, range * 2.0)
+        for (mob in level.getEntitiesOfClass(LivingEntity::class.java, box)) {
+            val unit = mob as? SummonedUnit ?: continue
+            if (!mob.isAlive || site.team.isEmpty() || unit.summonedTeam != site.team) continue
+            if (distanceToBox(origin, mob.boundingBox) > range) continue
+            if (mob.health >= mob.maxHealth) continue
+            mob.health = minOf(mob.maxHealth, mob.health + 1f)
+        }
     }
 
     private fun drip(site: SiteCoreBlockEntity, level: ServerLevel) {
@@ -97,26 +132,6 @@ object BarracksWork {
         if (site.eggReleaseAge < MatchRules.TICKS_PER_SECOND) return
         site.eggReleaseAge = 0
         releaseOne(site, level)
-    }
-
-    private fun insertEgg(site: SiteCoreBlockEntity, definition: MonsterDefinition): Boolean {
-        val container = site.barracksEggs
-        val item = definition.egg
-        for (slot in 0 until container.containerSize) {
-            val stack = container.getItem(slot)
-            if (stack.`is`(item) && stack.count < stack.maxStackSize) {
-                stack.grow(1)
-                container.setChanged()
-                return true
-            }
-        }
-        for (slot in 0 until container.containerSize) {
-            if (container.getItem(slot).isEmpty) {
-                container.setItem(slot, ItemStack(item))
-                return true
-            }
-        }
-        return false
     }
 
     private fun releaseOne(site: SiteCoreBlockEntity, level: ServerLevel): Boolean {
@@ -149,11 +164,13 @@ object BarracksWork {
 
     private fun releaseQuota(site: SiteCoreBlockEntity): Int {
         val count = site.releaseCount
-        return if (count in MatchRules.BARRACKS_RELEASE_MIN..MatchRules.BARRACKS_RELEASE_MAX) {
+        val selected = if (count in MatchRules.BARRACKS_RELEASE_MIN..MatchRules.BARRACKS_RELEASE_MAX) {
             count
         } else {
             MatchRules.BARRACKS_RELEASE_MIN
         }
+        val batch = (Monsters.byId(site.producedMonster)?.batch ?: 1).coerceAtLeast(1)
+        return selected * batch
     }
 
     private fun dripQueue(site: SiteCoreBlockEntity, level: ServerLevel) {
@@ -175,7 +192,7 @@ object BarracksWork {
         for (id in pending) {
             val definition = Monsters.byId(id)
             val feet = if (definition == null) null else findFeet(site, level, blocked)
-            if (definition == null || feet == null || !spawnAt(site, level, definition, feet)) {
+            if (definition == null || feet == null || spawnAt(site, level, definition, feet) == null) {
                 if (!vanish && definition != null) remain.add(id)
                 continue
             }
@@ -188,13 +205,30 @@ object BarracksWork {
 
     private fun spawnPreferred(site: SiteCoreBlockEntity, level: ServerLevel, definition: MonsterDefinition): Boolean {
         val feet = findFeet(site, level, emptySet()) ?: return false
-        return spawnAt(site, level, definition, feet)
+        return spawnAt(site, level, definition, feet) != null
     }
 
-    private fun spawnAt(site: SiteCoreBlockEntity, level: ServerLevel, definition: MonsterDefinition, feet: BlockPos): Boolean {
+    private fun reserveSpots(site: SiteCoreBlockEntity, level: ServerLevel, count: Int): List<BlockPos> {
+        val blocked = HashSet<BlockPos>()
+        val found = ArrayList<BlockPos>()
+        repeat(count) {
+            val feet = findFeet(site, level, blocked) ?: return found
+            found.add(feet)
+            blocked.add(feet)
+            blocked.add(feet.above())
+        }
+        return found
+    }
+
+    private fun spawnAt(
+        site: SiteCoreBlockEntity,
+        level: ServerLevel,
+        definition: MonsterDefinition,
+        feet: BlockPos,
+    ): LivingEntity? {
         val step = spawnStep(site, level)
         val yaw = Math.toDegrees(atan2(-step.x.toDouble(), step.z.toDouble())).toFloat()
-        return Summoning.spawn(
+        return Summoning.place(
             level,
             definition,
             site.team,
@@ -257,6 +291,13 @@ object BarracksWork {
                     .thenBy { it.blockPos.z }
                     .thenBy { it.blockPos.y },
             )
+
+    private fun distanceToBox(origin: Vec3, box: AABB): Double {
+        val dx = if (origin.x in box.minX..box.maxX) 0.0 else origin.x.coerceIn(box.minX, box.maxX) - origin.x
+        val dy = if (origin.y in box.minY..box.maxY) 0.0 else origin.y.coerceIn(box.minY, box.maxY) - origin.y
+        val dz = if (origin.z in box.minZ..box.maxZ) 0.0 else origin.z.coerceIn(box.minZ, box.maxZ) - origin.z
+        return sqrt(dx * dx + dy * dy + dz * dz)
+    }
 
     private fun dist2(origin: BlockPos, pos: BlockPos): Long {
         val dx = (origin.x - pos.x).toLong()

@@ -110,6 +110,7 @@ object Match {
             }
         }
         tickRespawns(current)
+        if (phase == Phase.FIGHT) PortableShop.tick(current)
     }
 
     fun frozen(level: Level): Boolean = level.dimension() == MatchRules.DIMENSION && phase != Phase.FIGHT
@@ -246,6 +247,7 @@ object Match {
             actor.sendSystemMessage(Component.literal("只有管理员可以重置"))
             return
         }
+        shina.wallwarRebirth.building.CannonCrew.settle(current, false)
         val arena = current.getLevel(MatchRules.DIMENSION)
         val overworld = current.overworld()
         for (player in current.playerList.players.toList()) {
@@ -293,6 +295,7 @@ object Match {
     }
 
     fun onJoin(player: ServerPlayer) {
+        shina.wallwarRebirth.building.CannonCrew.rejoin(player)
         val member = members[player.uuid]
         if (member == null || member.team.isEmpty()) {
             offerMenu(player)
@@ -397,6 +400,7 @@ object Match {
         if (core.level?.dimension() != MatchRules.DIMENSION) return
         val current = (core.level as? ServerLevel)?.server ?: server ?: return
         phase = Phase.SETTLE
+        shina.wallwarRebirth.building.CannonCrew.settle(current, true)
         val winner = if (core.team == TestTeams.RED) TestTeams.BLUE else TestTeams.RED
         val text = "$winner 获胜"
         broadcast(current, text)
@@ -470,6 +474,7 @@ object Match {
             return
         }
         generating = true
+        shina.wallwarRebirth.building.CannonCrew.settle(current, false)
         val arena = current.getLevel(MatchRules.DIMENSION)
         if (arena != null) {
             val overworld = current.overworld()
@@ -633,6 +638,7 @@ object Match {
             member.ironGiven = true
         }
         MatchMenu.give(player)
+        PortableShop.offer(player)
     }
 
     private fun resetVitals(player: ServerPlayer) {
@@ -661,14 +667,13 @@ object Match {
     }
 
     private fun giveStartIngots(current: MinecraftServer, team: String) {
-        val players = onlineTeam(current, team).map { it.first }
-        if (players.isEmpty()) return
-        val chosen = players[players.first().level().random.nextInt(players.size)]
-        for (stack in listOf(
-            ItemStack(Items.IRON_INGOT, MatchRules.START_IRON),
-            ItemStack(Items.COPPER_INGOT, MatchRules.START_COPPER),
-        )) {
-            if (!chosen.inventory.add(stack)) chosen.drop(stack, false)
+        for ((player, _) in onlineTeam(current, team)) {
+            for (stack in listOf(
+                ItemStack(Items.IRON_INGOT, MatchRules.START_IRON),
+                ItemStack(Items.COPPER_INGOT, MatchRules.START_COPPER),
+            )) {
+                if (!player.inventory.add(stack)) player.drop(stack, false)
+            }
         }
     }
 
