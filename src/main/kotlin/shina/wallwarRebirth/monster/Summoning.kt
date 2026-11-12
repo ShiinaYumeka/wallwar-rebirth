@@ -1,4 +1,5 @@
 package shina.wallwarRebirth.monster
+import shina.wallwarRebirth.rules.MatchRules
 
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
@@ -35,17 +36,20 @@ object Summoning {
         z: Double,
         yaw: Float,
         swift: Boolean = false,
+        home: BlockPos? = null,
     ): LivingEntity? {
         val mob = create(level, definition) ?: return null
         val unit = mob as SummonedUnit
         unit.summonedTeam = team
         unit.kindId = definition.id
+        unit.mind.bindHome(home)
         SummonedGear.applyStats(mob, definition, fill = true)
         SummonedGear.apply(mob, unit)
         if (swift) {
             mob.addEffect(MobEffectInstance(MobEffects.SPEED, MobEffectInstance.INFINITE_DURATION, 0, false, true))
         }
         mob.snapTo(x, y, z, yaw, 0f)
+        mob.addTag(MatchRules.SUMMONER_TAG)
         return if (level.addFreshEntity(mob)) mob else null
     }
 
@@ -69,7 +73,12 @@ object Summoning {
         Monsters.DEATH_KNIGHT.id -> SummonedDeathknight(ModMonsters.DEATH_KNIGHT, level)
         Monsters.CREEPER.id -> SummonedCreeper(ModMonsters.CREEPER, level)
         Monsters.WARRIOR.id -> SummonedWarrior(ModMonsters.WARRIOR, level)
-        // Placeholders only: pillager, villager, and farmer are not spawned yet.
+        Monsters.PILLAGER.id -> SummonedPillager(ModMonsters.PILLAGER, level)
+        Monsters.VINDICATOR.id -> SummonedVindicator(ModMonsters.VINDICATOR, level)
+        Monsters.EVOKER.id -> SummonedEvoker(ModMonsters.EVOKER, level)
+        Monsters.ILLUSIONER.id -> SummonedIllusioner(ModMonsters.ILLUSIONER, level)
+        Monsters.RAVAGER.id -> SummonedRavager(ModMonsters.RAVAGER, level)
+        Monsters.VILLAGER.id -> SummonedVillager(ModMonsters.VILLAGER, level)
         else -> null
     }
 }

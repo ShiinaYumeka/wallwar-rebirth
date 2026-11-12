@@ -58,7 +58,7 @@ object MatchFlow {
             return
         }
         Match.generating = true
-        shina.wallwarRebirth.building.CannonCrew.settle(current, false)
+        CannonCrew.settle(current, false)
         val arena = current.getLevel(MatchRules.DIMENSION)
         if (arena != null) {
             val overworld = current.overworld()
@@ -112,7 +112,7 @@ object MatchFlow {
         for (player in MatchRoster.onlineMembers(current)) {
             player.setGameMode(GameType.SPECTATOR)
             MatchRoster.teleportSpawn(player, Match.members[player.uuid]?.team ?: "")
-            MatchGui.open(player)
+            player.closeContainer()
         }
         showWatchRemaining(current, MatchRules.WATCH_TICKS)
         MatchRoster.broadcast(current, "地图已准备好")

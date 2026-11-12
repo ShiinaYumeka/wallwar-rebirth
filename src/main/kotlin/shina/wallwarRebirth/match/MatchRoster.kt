@@ -1,5 +1,5 @@
 package shina.wallwarRebirth.match
-import shina.wallwarRebirth.shop.match.PortableShop
+import shina.wallwarRebirth.profession.SkillInventory
 
 import net.minecraft.core.BlockPos
 import net.minecraft.network.chat.Component
@@ -60,6 +60,7 @@ object MatchRoster {
         player.setGameMode(GameType.SPECTATOR)
         member.respawnAt = player.level().server.tickCount + MatchRules.RESPAWN_TICKS
         teleportSpawn(player, member.team)
+        MatchMenu.give(player)
         showRespawnTitle(player, MatchRules.RESPAWN_TICKS / MatchRules.TICKS_PER_SECOND)
     }
 
@@ -92,7 +93,7 @@ object MatchRoster {
             member.ironGiven = true
         }
         MatchMenu.give(player)
-        PortableShop.offer(player)
+        SkillInventory.offer(player)
     }
 
     internal fun resetVitals(player: ServerPlayer) {

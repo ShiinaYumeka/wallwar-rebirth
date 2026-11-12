@@ -5,7 +5,6 @@ import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.block.Block
-import net.minecraft.world.level.block.Blocks
 import net.minecraft.world.level.block.state.BlockState
 import net.minecraft.world.level.storage.ValueInput
 import net.minecraft.world.level.storage.ValueOutput
@@ -38,7 +37,7 @@ internal fun SiteCoreBlockEntity.restoreCovered(world: ServerLevel) {
     }
 }
 
-internal fun SiteCoreBlockEntity.readIds(input: ValueInput, key: String, into: MutableList<String>) {
+internal fun readIds(input: ValueInput, key: String, into: MutableList<String>) {
     val ids = input.read(key, Codec.STRING.listOf()).orElse(emptyList()) ?: return
     for (id in ids) {
         if (id != null) into.add(id)
@@ -66,6 +65,7 @@ internal fun SiteCoreBlockEntity.writeState(output: ValueOutput) {
     output.putInt("ActionAge", actionAge)
     output.putString("ProducedMonster", producedMonster)
     output.putBoolean("Marching", marching)
+    output.putBoolean("Holding", holding)
     output.putInt("EggReleaseAge", eggReleaseAge)
     output.putString("HealthDisplay", healthDisplayId?.toString() ?: "")
     output.putString("Crossbow", crossbowId?.toString() ?: "")
@@ -113,6 +113,7 @@ internal fun SiteCoreBlockEntity.readState(input: ValueInput) {
     actionAge = input.getIntOr("ActionAge", 0)
     producedMonster = input.getStringOr("ProducedMonster", "zombie")
     marching = input.getBooleanOr("Marching", true)
+    holding = input.getBooleanOr("Holding", false)
     eggReleaseAge = input.getIntOr("EggReleaseAge", 0)
     healthDisplayId = input.getStringOr("HealthDisplay", "").takeIf { it.isNotEmpty() }?.let { runCatching { UUID.fromString(it) }.getOrNull() }
     crossbowId = input.getStringOr("Crossbow", "").takeIf { it.isNotEmpty() }?.let { runCatching { UUID.fromString(it) }.getOrNull() }

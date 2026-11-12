@@ -23,6 +23,7 @@ object MatchRules {
     const val DAY_TIME = 1000L
     const val TICKS_PER_SECOND = 20
     const val WATCH_TICKS = 10 * TICKS_PER_SECOND
+    const val SETTLE_RESET_TICKS = 5 * TICKS_PER_SECOND
     const val BUILDING_FALL_TICKS = 2 * TICKS_PER_SECOND
     const val RESPAWN_TICKS = 8 * TICKS_PER_SECOND
 
@@ -35,10 +36,22 @@ object MatchRules {
     }
 
     const val DIG_DAMAGE = 1
-    const val MINER_DIG_DAMAGE = 2
+    const val ARROW_KNOCKBACK_SCALE = 0.25
     const val MINER_ACTIVE_TICKS = 30 * TICKS_PER_SECOND
-    const val MINER_LAPIS = 4
+    const val MINER_SKILL_COOLDOWN_TICKS = 60 * TICKS_PER_SECOND
     const val MINER_BONUS_CHANCE = 0.5f
+    const val BASTION_SKILL_COOLDOWN_TICKS = 60 * TICKS_PER_SECOND
+    const val BASTION_REFUND_NUM = 1
+    const val BASTION_REFUND_DEN = 4
+    const val WRECKER_SALVAGE_NUM = 1
+    const val WRECKER_SALVAGE_DEN = 10
+    const val WRECKER_ACTIVE_TICKS = 30 * TICKS_PER_SECOND
+    const val WRECKER_SKILL_COOLDOWN_TICKS = 60 * TICKS_PER_SECOND
+    const val SWORDSMAN_ACTIVE_TICKS = 5 * TICKS_PER_SECOND
+    const val SWORDSMAN_SKILL_COOLDOWN_TICKS = 30 * TICKS_PER_SECOND
+    const val SMITE_PATH = "smite"
+    const val SMITE_LEVEL = 3
+    const val SUMMONER_TAG = "summoner"
     const val GLOW_TICKS = 2 * TICKS_PER_SECOND
     const val MIN_PRODUCTION_TICKS = 1
 
@@ -59,13 +72,13 @@ object MatchRules {
     const val BASE_UPGRADE_2_COPPER = 32
     const val BASE_UPGRADE_3_IRON = 64
     const val BASE_UPGRADE_3_COPPER = 64
-    const val BASE_IRON_TICKS = 10 * TICKS_PER_SECOND
+    const val BASE_IRON_TICKS = 7 * TICKS_PER_SECOND
     const val BASE_IRON_COUNT = 2
     const val BASE_COPPER_COUNT = 2
-    const val BASE_REDSTONE_TICKS = 10 * TICKS_PER_SECOND
+    const val BASE_REDSTONE_TICKS = 7 * TICKS_PER_SECOND
     const val BASE_REDSTONE_COUNT = 1
     const val BASE_LAPIS_COUNT = 1
-    const val BASE_DIAMOND_TICKS = 10 * TICKS_PER_SECOND
+    const val BASE_DIAMOND_TICKS = 7 * TICKS_PER_SECOND
     const val BASE_DIAMOND_PERCENT = 8
     const val BASE_DIAMOND_COUNT = 1
 
@@ -74,9 +87,8 @@ object MatchRules {
     const val WALL_UPGRADE_2_COPPER = 8
     const val WALL_UPGRADE_3_COPPER = 8
     const val WALL_THORNS_DAMAGE = 4
-    const val WALL_HEAL_RANGE = 32.0
     const val WALL_HEAL_AMOUNT = 1
-    const val WALL_HEAL_TICKS = 5 * TICKS_PER_SECOND
+    const val WALL_HEAL_TICKS = 2 * TICKS_PER_SECOND
 
     val TOWER_HEALTH = listOf(20, 20, 20)
     val TOWER_RANGE = listOf(12.0, 16.0, 20.0)
@@ -109,6 +121,12 @@ object MatchRules {
     const val BARRACKS_RELEASE_MIN = 1
     const val BARRACKS_RELEASE_MAX = 5
 
+    val PILLAGER_TOWER_HEALTH = listOf(30, 30, 30)
+    const val PILLAGER_TOWER_PRICE_IRON = 48
+    const val PILLAGER_TOWER_UPGRADE_2_IRON = 64
+    const val PILLAGER_TOWER_UPGRADE_3_IRON = 64
+    const val PILLAGER_TOWER_UPGRADE_3_DIAMOND = 8
+
     val CANNON_HEALTH = listOf(10, 10, 10)
     const val CANNON_RANGE = 32.0
     const val CANNON_INTERVAL = 10 * TICKS_PER_SECOND
@@ -127,9 +145,20 @@ object MatchRules {
     const val CANNON_FALLOFF_WIDE = 12.0
     const val CANNON_BUILDING_FRACTION = 0.25
     const val CANNON_TIE_DISTANCE = 0.001
-    const val RELAY_HEALTH = 40
-    const val RELAY_PRICE_IRON = 24
+    const val RELAY_HEALTH = 30
+    const val RELAY_PRICE_IRON = 32
+    const val RELAY_PRICE_COPPER = 32
     const val RELAY_INTERACT_RANGE = 2.5
+    const val FARMLAND_HEALTH = 40
+    const val FARMLAND_PRICE_IRON = 32
+    const val FARMLAND_PRICE_COPPER = 32
+    const val FARMLAND_WHEAT_TICKS = 10 * TICKS_PER_SECOND
+    const val FARMER_HARVEST_TICKS = 3 * TICKS_PER_SECOND / 2
+    const val FARMLAND_CALL_RANGE = RELAY_INTERACT_RANGE
+    const val FARMER_WORK_RANGE = RELAY_INTERACT_RANGE
+    const val VILLAGER_HEALTH = 20.0
+    const val VILLAGER_COST_DIAMOND = 1
+    const val VILLAGER_PRODUCTION_TICKS = 30 * TICKS_PER_SECOND
     const val CANNON_MANNED_STEP = 0.5
     const val CANNON_MANNED_TICKS = 4 * TICKS_PER_SECOND
 
@@ -137,14 +166,15 @@ object MatchRules {
     const val MINER_ZOMBIE_ARMOR = 15.0
     const val MINER_ZOMBIE_ATTACK = 3.0
     const val IRON_PICKAXE_ATTACK = 3.0
-    const val MINER_CARGO = 20
+    const val MINER_CARGO = 10
     const val MINER_ORES_PER_CYCLE = 2
-    const val MINER_MINE_TICKS = TICKS_PER_SECOND
+    const val MINER_MINE_TICKS = 3 * TICKS_PER_SECOND
     const val ZOMBIE_HEALTH = 40.0
     const val ZOMBIE_ARMOR = 2.0
     const val ZOMBIE_ATTACK = 3.0
     const val HUSK_HEALTH = 80.0
     const val HUSK_COST_REDSTONE = 2
+    const val HUSK_BUILDING_DAMAGE = 2
     const val DEATH_KNIGHT_HEALTH = 5.0
     const val DEATH_KNIGHT_ATTACK = 10.0
     const val DEATH_KNIGHT_COST_REDSTONE = 3
@@ -160,7 +190,8 @@ object MatchRules {
     const val WARRIOR_HEALTH = 40.0
     const val WARRIOR_ARMOR = 10.0
     const val WARRIOR_ATTACK = 7.0
-    const val WARRIOR_COST_REDSTONE = 2
+    const val WARRIOR_COST_COPPER = 8
+    const val WARRIOR_COST_REDSTONE = 3
     const val SKELETON_HEALTH = 30.0
     const val SKELETON_ARMOR = 0.0
     const val SKELETON_ATTACK = 4.0
@@ -177,6 +208,7 @@ object MatchRules {
     const val BUILDING_ATTACK_RANGE = 2.0
     const val MINER_ZOMBIE_COST_IRON = 24
     const val MINER_ZOMBIE_COST_COPPER = 24
+    const val MINER_ZOMBIE_COST_REDSTONE = 9
     const val ZOMBIE_COST_REDSTONE = 1
     const val SKELETON_COST_REDSTONE = 1
     const val DEATH_KNIGHT_PRODUCTION_TICKS = 15 * TICKS_PER_SECOND
@@ -185,11 +217,39 @@ object MatchRules {
     const val GOLEM_COST_IRON = 36
     const val BASE_REGEN_TICKS = 5 * TICKS_PER_SECOND
     const val BASE_REGEN_AMOUNT = 1
-    const val MINER_ZOMBIE_PRODUCTION_TICKS = 60 * TICKS_PER_SECOND
+    const val MINER_ZOMBIE_PRODUCTION_TICKS = 90 * TICKS_PER_SECOND
     const val ZOMBIE_PRODUCTION_TICKS = 15 * TICKS_PER_SECOND
     const val SKELETON_PRODUCTION_TICKS = 15 * TICKS_PER_SECOND
     const val SPIDER_PRODUCTION_TICKS = 15 * TICKS_PER_SECOND
     const val GOLEM_PRODUCTION_TICKS = 30 * TICKS_PER_SECOND
+    const val PILLAGER_HEALTH = 48.0
+    const val PILLAGER_ARMOR = 0.0
+    const val PILLAGER_ATTACK = 4.0
+    const val PILLAGER_COST_REDSTONE = 1
+    const val PILLAGER_COST_WHEAT = PILLAGER_COST_REDSTONE
+    const val PILLAGER_PRODUCTION_TICKS = 15 * TICKS_PER_SECOND
+    const val VINDICATOR_HEALTH = 48.0
+    const val VINDICATOR_ATTACK = 13.0
+    const val VINDICATOR_COST_REDSTONE = 2
+    const val VINDICATOR_COST_WHEAT = VINDICATOR_COST_REDSTONE
+    const val VINDICATOR_PRODUCTION_TICKS = 15 * TICKS_PER_SECOND
+    const val EVOKER_HEALTH = 48.0
+    const val EVOKER_ATTACK = 6.0
+    const val EVOKER_COST_REDSTONE = 5
+    const val EVOKER_COST_WHEAT = EVOKER_COST_REDSTONE
+    const val EVOKER_PRODUCTION_TICKS = 30 * TICKS_PER_SECOND
+    const val ILLUSIONER_HEALTH = 64.0
+    const val ILLUSIONER_ATTACK = 4.0
+    const val ILLUSIONER_COST_REDSTONE = 3
+    const val ILLUSIONER_COST_WHEAT = ILLUSIONER_COST_REDSTONE
+    const val ILLUSIONER_PRODUCTION_TICKS = 15 * TICKS_PER_SECOND
+    const val RAVAGER_HEALTH = 200.0
+    const val RAVAGER_ATTACK = 12.0
+    const val RAVAGER_BUILDING_DAMAGE = 5
+    const val RAVAGER_COST_REDSTONE = 9
+    const val RAVAGER_COST_WHEAT = RAVAGER_COST_REDSTONE
+    const val RAVAGER_COST_DIAMOND = 1
+    const val RAVAGER_PRODUCTION_TICKS = 30 * TICKS_PER_SECOND
 
     const val SWORD_MATERIAL = 2
     const val AXE_MATERIAL = 3
@@ -216,6 +276,7 @@ object MatchRules {
     const val STUCK_TICKS = 3 * TICKS_PER_SECOND
     const val STUCK_HORIZONTAL = 0.5
     const val CHASE_RADIUS_MAX = 16.0
+    const val PILLAGER_HOLD_RANGE = CHASE_RADIUS_MAX
     const val CHASE_RADIUS_START = 16.0
     const val RADIUS_RECOVER_PER_SECOND = 0.5
     const val RADIUS_SHRINK_PER_SECOND = 2.0

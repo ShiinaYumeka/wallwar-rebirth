@@ -15,12 +15,15 @@ import net.minecraft.world.item.context.UseOnContext
 import net.minecraft.world.level.block.Block
 import net.minecraft.world.level.block.state.BlockState
 import net.minecraft.world.phys.BlockHitResult
+import shina.wallwarRebirth.building.BuildingPlacement
 import shina.wallwarRebirth.building.Buildings
+import shina.wallwarRebirth.building.OminousBanners
 import shina.wallwarRebirth.building.ModSites
 import shina.wallwarRebirth.building.SiteCoreBlockEntity
 import shina.wallwarRebirth.building.reportBuilding
 import shina.wallwarRebirth.item.core.PolymerInteractionType
 import shina.wallwarRebirth.match.Match
+import xyz.nucleoid.packettweaker.PacketContext
 
 class BuildingCoreItem(
     properties: Properties,
@@ -64,6 +67,7 @@ class BuildingCoreItem(
             return InteractionResult.FAIL
         }
         context.itemInHand.shrink(1)
+        BuildingPlacement.spawnAfterPlace(world, site)
         player.sendSystemMessage(Component.literal("已放置${definition.displayName}"))
         return InteractionResult.SUCCESS
     }
@@ -103,6 +107,13 @@ class BuildingCoreItem(
         world: ServerLevel?,
         blockHitResult: BlockHitResult?,
     ): Boolean = interactionType.blockInteractionPlaySound
+
+    override fun modifyBasePolymerItemStack(out: ItemStack, stack: ItemStack, context: PacketContext) {
+        super.modifyBasePolymerItemStack(out, stack, context)
+        if (buildingId != Buildings.PILLAGER.id) return
+        val lookup = context.registryWrapperLookup ?: return
+        OminousBanners.apply(out, lookup)
+    }
 
     override fun isIgnoringItemInteractionPlaySoundExceptedEntity(
         player: ServerPlayer?,

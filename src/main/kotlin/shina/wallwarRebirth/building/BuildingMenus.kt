@@ -17,17 +17,13 @@ import net.minecraft.world.item.Item
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
 import shina.wallwarRebirth.gui.ItemStackBuilder
-import shina.wallwarRebirth.shop.match.BaseShop
 import shina.wallwarRebirth.match.Match
-import shina.wallwarRebirth.rules.MatchRules
+import shina.wallwarRebirth.match.MatchSurrender
 import shina.wallwarRebirth.monster.MonsterDefinition
 import shina.wallwarRebirth.monster.Monsters
-import shina.wallwarRebirth.shop.ShopSession
-import shina.wallwarRebirth.shop.element.BaseShopItem
-import shina.wallwarRebirth.shop.element.ShopItemWithIndex
-import shina.wallwarRebirth.shop.element.ShopLayer
-import shina.wallwarRebirth.shop.element.view.ShopItemViewModel
+import shina.wallwarRebirth.rules.MatchRules
 import shina.wallwarRebirth.shop.gui.ShopGui
+import shina.wallwarRebirth.shop.match.BaseShop
 import shina.wallwarRebirth.util.hideTooltip
 import shina.wallwarRebirth.util.playNotifySound
 
@@ -46,20 +42,29 @@ object BuildingMenus {
 
     fun paintBaseShop(gui: ShopGui, site: SiteCoreBlockEntity) {
         val viewer = gui.player
-        gui.setSlot(20, GuiElement(baseUpgrade(site)) { _, click, _, _ ->
+        gui.setSlot(18, GuiElement(baseInfo(site), GuiElementInterface.EMPTY_CALLBACK))
+        gui.setSlot(19, GuiElement(baseUpgrade(site)) { _, click, _, _ ->
             if (!click.isLeft || click.shift) return@GuiElement
             site.tryUpgrade(viewer)
             paintBaseShop(gui, site)
         })
-        gui.setSlot(22, GuiElement(baseInfo(site), GuiElementInterface.EMPTY_CALLBACK))
-        gui.setSlot(24, GuiElement(baseModule(site, ModuleSlot.PRIMARY, "强化槽")) { _, click, _, _ ->
+        Buildings.BASE.minerals().forEachIndexed { index, mineral ->
+            if (index >= 5) return@forEachIndexed
+            gui.setSlot(27 + index, GuiElement(baseMineral(site, mineral), GuiElementInterface.EMPTY_CALLBACK))
+        }
+        gui.setSlot(36, GuiElement(baseModule(site, ModuleSlot.PRIMARY, "强化槽")) { _, click, _, _ ->
             baseModuleClick(gui, site, ModuleSlot.PRIMARY, click)
         })
-        gui.setSlot(26, GuiElement(baseModule(site, ModuleSlot.SECONDARY, "强化槽 II")) { _, click, _, _ ->
+        gui.setSlot(37, GuiElement(baseModule(site, ModuleSlot.SECONDARY, "强化槽 II")) { _, click, _, _ ->
             baseModuleClick(gui, site, ModuleSlot.SECONDARY, click)
         })
-        gui.setSlot(33, GuiElement(baseModule(site, ModuleSlot.DIFFUSION, "扩散槽")) { _, click, _, _ ->
+        gui.setSlot(38, GuiElement(baseModule(site, ModuleSlot.DIFFUSION, "扩散槽")) { _, click, _, _ ->
             baseModuleClick(gui, site, ModuleSlot.DIFFUSION, click)
+        })
+        gui.setSlot(53, GuiElement(surrenderIcon(site)) { _, click, _, _ ->
+            if (!click.isLeft || click.shift) return@GuiElement
+            MatchSurrender.toggle(viewer)
+            paintBaseShop(gui, site)
         })
     }
 
@@ -70,7 +75,7 @@ object BuildingMenus {
             if (!site.moduleStack(slot).isEmpty) viewer.sendSystemMessage(Component.literal("这个模块不能拆卸"))
             return
         }
-        if (!click.isLeft || click.shift) return
+        if (!click.isLeft) return
         if (!cursor.isEmpty && !site.moduleStack(slot).isEmpty) {
             viewer.sendSystemMessage(Component.literal("这个模块不能拆卸"))
             return
@@ -94,12 +99,17 @@ object BuildingMenus {
         val previous = site.exchangeModule(slot, cursor)
         viewer.containerMenu.carried = previous
         viewer.containerMenu.broadcastChanges()
-        paintBaseShop(gui, site)
+        if (slot == ModuleSlot.DIFFUSION) {
+            gui.close()
+            viewer.level().server.execute { BaseShop.open(viewer, site, BaseShop.Page.BASE) }
+        } else {
+            paintBaseShop(gui, site)
+        }
     }
 
     private fun baseUpgrade(site: SiteCoreBlockEntity): ItemStack {
         val definition = Buildings.BASE
-        val builder = ItemStackBuilder.of(Items.EXPERIENCE_BOTTLE)
+        val builder = ItemStackBuilder.of(Items.ANVIL)
             .setName(plain(if (site.buildingLevel >= definition.maxLevel) "已满级" else "升级", ChatFormatting.YELLOW))
         for (upgrade in definition.upgrades) {
             val color = if (upgrade.toLevel == site.buildingLevel + 1) ChatFormatting.YELLOW else ChatFormatting.GRAY
@@ -110,23 +120,19 @@ object BuildingMenus {
 
     private fun baseInfo(site: SiteCoreBlockEntity): ItemStack {
         val definition = Buildings.BASE
-        val builder = ItemStackBuilder.of(definition.icon)
-            .setName(plain("${definition.displayName}（${levelMark(site.buildingLevel)}级）", ChatFormatting.YELLOW))
+        val builder = ItemStackBuilder.of(Items.BOOK)
+            .setName(plain(definition.displayName, ChatFormatting.YELLOW))
         builder.appendLore(plain("类别：${definition.categoryText()}"))
         builder.appendLore(plain("等级：${site.buildingLevel}"))
         builder.appendLore(plain("生命：${site.health}/${definition.maxHealth(site.buildingLevel)}"))
         builder.appendLore(plain("队伍：${site.team.ifEmpty { "无" }}"))
-        if (definition.summary.isNotEmpty()) builder.appendLore(plain(definition.summary))
-        for ((text, active) in site.productionLines()) {
-            builder.appendLore(plain(text, if (active) ChatFormatting.GREEN else ChatFormatting.GRAY))
-        }
         return builder.build()
     }
 
     private fun baseModule(site: SiteCoreBlockEntity, slot: ModuleSlot, label: String): ItemStack {
         val filled = site.moduleStack(slot)
         val builder = if (filled.isEmpty) {
-            ItemStackBuilder.of(emptyPane(slot))
+            ItemStackBuilder.of(emptyBasePane(slot))
         } else {
             ItemStackBuilder.of(filled)
         }
@@ -136,6 +142,35 @@ object BuildingMenus {
         if (slot == ModuleSlot.PRIMARY) {
             builder.appendLore(plain("放好后左键选择矿物"))
             builder.appendLore(plain("当前：${site.mineralLabel(slot)}"))
+        }
+        return builder.build()
+    }
+
+    private fun baseMineral(site: SiteCoreBlockEntity, mineral: MineralOutput): ItemStack {
+        val unlocked = site.buildingLevel >= mineral.minLevel
+        val interval = site.intervalOf(Buildings.BASE, mineral)
+        val builder = ItemStackBuilder.of(mineral.item)
+            .setName(plain(mineral.name, if (unlocked) ChatFormatting.YELLOW else ChatFormatting.GRAY))
+        when {
+            !unlocked -> builder.appendLore(plain("尚未解锁"))
+            interval == null -> builder.appendLore(plain("不生成"))
+            else -> builder.appendLore(plain(mineral.describe(interval)))
+        }
+        return builder.build()
+    }
+
+    private fun surrenderIcon(site: SiteCoreBlockEntity): ItemStack {
+        val builder = ItemStackBuilder.of(Items.RED_BANNER)
+            .setName(plain("投降", ChatFormatting.RED))
+        builder.appendLore(plain("本队在线成员全部同意后，对方获胜"))
+        val names = MatchSurrender.names(site.team)
+        if (names.isEmpty()) {
+            builder.appendLore(plain("还没有人同意"))
+        } else {
+            builder.appendLore(plain("已同意：" + names.joinToString("、")))
+        }
+        if (Match.phase != Match.Phase.FIGHT) {
+            builder.appendLore(plain("观察和结算阶段不能投降"))
         }
         return builder.build()
     }
@@ -157,6 +192,12 @@ private fun emptyPane(slot: ModuleSlot): Item = when (slot) {
     ModuleSlot.DIFFUSION -> Items.PURPLE_STAINED_GLASS_PANE
 }
 
+private fun emptyBasePane(slot: ModuleSlot): Item = when (slot) {
+    ModuleSlot.PRIMARY -> Items.LIGHT_BLUE_GLAZED_TERRACOTTA
+    ModuleSlot.SECONDARY -> Items.LIGHT_GRAY_GLAZED_TERRACOTTA
+    ModuleSlot.DIFFUSION -> Items.PURPLE_GLAZED_TERRACOTTA
+}
+
 private fun moduleName(slot: ModuleSlot): String = when (slot) {
     ModuleSlot.PRIMARY -> "强化模块"
     ModuleSlot.SECONDARY -> "强化模块 2"
@@ -166,7 +207,7 @@ private fun moduleName(slot: ModuleSlot): String = when (slot) {
 private fun baseEffect(slot: ModuleSlot): List<String> = when (slot) {
     ModuleSlot.PRIMARY -> listOf("指定一种当前可生成的矿物，该矿物的生成速率乘以 2。")
     ModuleSlot.SECONDARY -> listOf("每 5 秒回复这座基地 1 点生命，满血跳过。不改变矿物。")
-    ModuleSlot.DIFFUSION -> listOf("本队玩家得到便携终端，手持右键打开基地商店。")
+    ModuleSlot.DIFFUSION -> listOf("装上后，本队局内终端可使用建筑、武器和护甲栏，用法与右键己方基地核心相同。")
 }
 
 class BuildingPanelGui(
@@ -174,17 +215,19 @@ class BuildingPanelGui(
     private val site: SiteCoreBlockEntity,
     private val definition: BuildingDefinition,
 ) : SimpleGui(
-    if (definition.showsContainer || definition.id == Buildings.BARRACKS.id) MenuType.GENERIC_9x6 else MenuType.GENERIC_9x2,
+    if (definition.showsContainer || isProducer(definition)) MenuType.GENERIC_9x6 else MenuType.GENERIC_9x2,
     viewer,
     false,
 ) {
+    private val producer = isProducer(definition)
     private val barracks = definition.id == Buildings.BARRACKS.id
+    private val pillagerTower = definition.id == Buildings.PILLAGER.id
 
     init {
         title = Component.literal(definition.displayName)
         val glass = ItemStack(Items.GRAY_STAINED_GLASS_PANE).hideTooltip()
         val decorated = when {
-            barracks -> size
+            producer -> size
             definition.showsContainer -> STORAGE_ORIGIN
             else -> size
         }
@@ -196,11 +239,11 @@ class BuildingPanelGui(
                 setSlotRedirect(STORAGE_ORIGIN + slot, Slot(site.storage, slot, 0, 0))
             }
         }
-        if (barracks) {
+        if (producer) {
             for (row in 0 until 4) {
                 for (column in 0 until 4) {
                     val guiSlot = STORAGE_ORIGIN + row * 9 + column
-                    setSlotRedirect(guiSlot, FilterSlot(site.barracksMaterials, row * 4 + column) { BarracksSlots.acceptsMaterial(it) })
+                    setSlotRedirect(guiSlot, FilterSlot(site.barracksMaterials, row * 4 + column) { BarracksSlots.acceptsMaterial(it, wheat = definition.id == Buildings.PILLAGER.id) })
                 }
             }
         }
@@ -253,6 +296,21 @@ class BuildingPanelGui(
             })
             return
         }
+        if (definition.id == Buildings.FARMLAND.id) {
+            setSlot(0, GuiElement(farmCallIcon()) { _, clickType, _, _ ->
+                if (!clickType.isLeft || clickType.shift) return@GuiElement
+                val world = site.level as? ServerLevel
+                if (world == null || !FarmlandWork.call(site, world)) {
+                    viewer.playNotifySound(SoundEvents.VILLAGER_NO, SoundSource.PLAYERS, 1f, 1f)
+                }
+            })
+            setSlot(INFO_SLOT, GuiElement(infoIcon(), GuiElementInterface.EMPTY_CALLBACK))
+            setSlot(DEMOLISH_SLOT, GuiElement(demolishIcon()) { _, clickType, _, _ ->
+                if (!clickType.isLeft || clickType.shift) return@GuiElement
+                if (site.demolish(viewer)) close()
+            })
+            return
+        }
         setSlot(UPGRADE_SLOT, GuiElement(upgradeIcon()) { _, clickType, _, _ ->
             if (!clickType.isLeft || clickType.shift) return@GuiElement
             close()
@@ -263,7 +321,7 @@ class BuildingPanelGui(
             if (!clickType.isLeft || clickType.shift) return@GuiElement
             if (site.demolish(viewer)) close()
         })
-        if (barracks) {
+        if (producer) {
             paintProduction()
             setSlot(MARCH_SLOT, GuiElement(marchIcon()) { _, clickType, _, _ ->
                 if (!clickType.isLeft || clickType.shift) return@GuiElement
@@ -272,16 +330,32 @@ class BuildingPanelGui(
                 paintButtons()
             })
         }
+        if (pillagerTower) {
+            setSlot(HOLD_SLOT, GuiElement(holdIcon()) { _, clickType, _, _ ->
+                if (!clickType.isLeft || clickType.shift) return@GuiElement
+                site.holding = !site.holding
+                site.setChanged()
+                shina.wallwarRebirth.monster.SummonedUnits.reassertHome(site)
+                paintButtons()
+            })
+        }
     }
 
     private fun paintProduction() {
-        val monsters = Monsters.selectable()
+        val monsters = Monsters.selectable(
+            if (pillagerTower) shina.wallwarRebirth.monster.MonsterSource.TOWER
+            else shina.wallwarRebirth.monster.MonsterSource.BARRACKS,
+        )
         monsters.forEachIndexed { index, monster ->
             val slot = PRODUCTION_SLOTS.getOrElse(index) { return@forEachIndexed }
             setSlot(slot, GuiElement(monsterIcon(monster)) { _, clickType, _, _ ->
                 if (!clickType.isLeft || clickType.shift) return@GuiElement
+                if (!monster.productionReady) {
+                    viewer.playNotifySound(SoundEvents.VILLAGER_NO, SoundSource.PLAYERS, 1f, 1f)
+                    return@GuiElement
+                }
                 if (site.buildingLevel < monster.rank) {
-                    viewer.sendSystemMessage(Component.literal("兵营等级不够"))
+                    viewer.sendSystemMessage(Component.literal(rankShortage()))
                     return@GuiElement
                 }
                 if (site.producedMonster != monster.id) {
@@ -300,7 +374,7 @@ class BuildingPanelGui(
         val builder = ItemStackBuilder.of(monster.egg)
             .setName(line(monster.displayName, if (selected) ChatFormatting.GREEN else ChatFormatting.YELLOW))
         if (selected) builder.appendLore(line("当前生产", ChatFormatting.GREEN))
-        if (site.buildingLevel < monster.rank) builder.appendLore(line("兵营等级不够"))
+        if (site.buildingLevel < monster.rank) builder.appendLore(line(rankShortage()))
         for (text in monster.detailLines(site.buildingLevel)) builder.appendLore(line(text))
         val stack = builder.build()
         if (selected) stack.set(DataComponents.ENCHANTMENT_GLINT_OVERRIDE, true)
@@ -318,6 +392,13 @@ class BuildingPanelGui(
             .setName(line("召集", ChatFormatting.GOLD))
             .appendLore(line("召最近的我方矿工到这里"))
             .appendLore(line("赶到后交掉身上的矿，再去挖"))
+            .build()
+
+    private fun farmCallIcon(): ItemStack =
+        ItemStackBuilder.of(Items.BELL)
+            .setName(line("召集", ChatFormatting.GOLD))
+            .appendLore(line("召最近的我方无职业唤灵·村民到这里"))
+            .appendLore(line("赶到后成为农民"))
             .build()
 
     private fun shopIcon(): ItemStack =
@@ -350,12 +431,16 @@ class BuildingPanelGui(
             val color = if (site.buildingLevel >= detail.minLevel) ChatFormatting.GREEN else ChatFormatting.GRAY
             builder.appendLore(line(detail.text, color))
         }
-        if (barracks) {
-            val monster = Monsters.byId(site.producedMonster) ?: Monsters.ZOMBIE
+        if (producer) {
+            val monster = Monsters.byId(site.producedMonster) ?: if (pillagerTower) Monsters.PILLAGER else Monsters.ZOMBIE
             builder.appendLore(line("当前生产：${monster.displayName}"))
             builder.appendLore(line("当前间隔：${MatchRules.secondsText(monster.productionTicks(site.buildingLevel))} 秒"))
         }
-        return builder.build()
+        val built = builder.build()
+        if (definition.id == Buildings.PILLAGER.id) {
+            OminousBanners.apply(built, viewer.registryAccess())
+        }
+        return built
     }
 
     private fun upgradeIcon(): ItemStack {
@@ -374,6 +459,16 @@ class BuildingPanelGui(
             .appendLore(line("不返还购买或升级花掉的材料，容器物品掉在地上"))
             .build()
 
+    private fun holdIcon(): ItemStack {
+        val holding = site.holding
+        return ItemStackBuilder.of(if (holding) Items.SHIELD else Items.IRON_AXE)
+            .setName(line(if (holding) "固守" else "掠夺", if (holding) ChatFormatting.AQUA else ChatFormatting.GOLD))
+            .appendLore(line(if (holding) "正在固守，点击切换为掠夺" else "正在掠夺，点击切换为固守"))
+            .build()
+    }
+
+    private fun rankShortage(): String = if (pillagerTower) "哨塔等级不够" else "兵营等级不够"
+
     private fun marchIcon(): ItemStack {
         val marching = site.marching
         return ItemStackBuilder.of(if (marching) Items.EMERALD else Items.REDSTONE)
@@ -391,9 +486,13 @@ class BuildingPanelGui(
         const val DEMOLISH_SLOT = 6
         const val STORAGE_ORIGIN = 18
         const val MARCH_SLOT = 53
-        val PRODUCTION_SLOTS = intArrayOf(23, 24, 25, 26, 32, 33, 34, 35, 41)
+        const val HOLD_SLOT = 52
+        val PRODUCTION_SLOTS = intArrayOf(23, 24, 25, 26, 32, 33, 34, 35, 41, 42)
     }
 }
+
+private fun isProducer(definition: BuildingDefinition): Boolean =
+    definition.id == Buildings.BARRACKS.id || definition.id == Buildings.PILLAGER.id
 
 
 private class UpgradePanelGui(
@@ -438,7 +537,7 @@ private class UpgradePanelGui(
             if (!site.moduleStack(slot).isEmpty) viewer.sendSystemMessage(Component.literal("这个模块不能拆卸"))
             return
         }
-        if (!clickType.isLeft || clickType.shift) return
+        if (!clickType.isLeft) return
         if (!cursor.isEmpty && !site.moduleStack(slot).isEmpty) {
             viewer.sendSystemMessage(Component.literal("这个模块不能拆卸"))
             return
@@ -459,7 +558,7 @@ private class UpgradePanelGui(
                 viewer.level().server.execute { MineralPickerGui(viewer, site, definition, slot, choices).open() }
                 return
             }
-            if (definition.id == Buildings.BARRACKS.id && slot == ModuleSlot.SECONDARY) {
+            if ((definition.id == Buildings.BARRACKS.id || definition.id == Buildings.PILLAGER.id) && slot == ModuleSlot.SECONDARY) {
                 if (!site.isAlly(viewer)) {
                     viewer.sendSystemMessage(Component.literal("敌方打不开"))
                     return
@@ -494,7 +593,7 @@ private class UpgradePanelGui(
             builder.appendLore(line("放好后左键选择矿物"))
             builder.appendLore(line("当前：${site.mineralLabel(slot)}"))
         }
-        if (definition.id == Buildings.BARRACKS.id && slot == ModuleSlot.SECONDARY) {
+        if ((definition.id == Buildings.BARRACKS.id || definition.id == Buildings.PILLAGER.id) && slot == ModuleSlot.SECONDARY) {
             builder.appendLore(line("放好后左键选择只数"))
             val count = site.releaseCount
             val current = if (count in MatchRules.BARRACKS_RELEASE_MIN..MatchRules.BARRACKS_RELEASE_MAX) {
@@ -510,7 +609,7 @@ private class UpgradePanelGui(
     private fun effectLines(definition: BuildingDefinition, slot: ModuleSlot): List<String> = when (definition.id) {
         Buildings.BASE.id -> baseEffect(slot)
         Buildings.WALL.id -> when (slot) {
-            ModuleSlot.PRIMARY -> listOf("没在挨打时，每 ${MatchRules.WALL_HEAL_TICKS / MatchRules.TICKS_PER_SECOND} 秒回复自己和 ${MatchRules.WALL_HEAL_RANGE.toInt()} 格内的友方建筑各 ${MatchRules.WALL_HEAL_AMOUNT} 点。同一座建筑每 5 秒只吃到一次。")
+            ModuleSlot.PRIMARY -> listOf("没在挨打时，每 ${MatchRules.WALL_HEAL_TICKS / MatchRules.TICKS_PER_SECOND} 秒回复自己 ${MatchRules.WALL_HEAL_AMOUNT} 点。")
             ModuleSlot.SECONDARY -> listOf("被攻击时按原版荆棘反伤，固定 ${MatchRules.WALL_THORNS_DAMAGE} 点。")
             ModuleSlot.DIFFUSION -> listOf("32 格内的其他友方城墙视为装上这座城墙槽里已有的强化模块，已装的不叠加，扩散本身不外传。")
         }
@@ -526,6 +625,14 @@ private class UpgradePanelGui(
                 "骷髅死士按 3、6、9、12、15 放出。没选时按 1 轮。",
             )
             ModuleSlot.DIFFUSION -> listOf("32 格内的友方唤灵每 5 秒回复 1 点，满血跳过。多座各自计时。")
+        }
+        Buildings.PILLAGER.id -> when (slot) {
+            ModuleSlot.PRIMARY -> listOf("效果【暂定】占位。")
+            ModuleSlot.SECONDARY -> listOf(
+                "出征时改为囤满再一起放出的入口仍在。选定只数先按兵营入口，没选时按 1 只。",
+                "具体效果【暂定】占位。",
+            )
+            ModuleSlot.DIFFUSION -> listOf("效果【暂定】占位。")
         }
         Buildings.CANNON.id -> when (slot) {
             ModuleSlot.PRIMARY -> listOf("爆炸半径扩大 50%。威力半径 ${MatchRules.CANNON_POWER_WIDE.toInt()} 格，生物伤害在 ${MatchRules.CANNON_FALLOFF_WIDE.toInt()} 格归零。")

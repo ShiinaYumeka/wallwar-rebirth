@@ -150,7 +150,7 @@ object Buildings {
         details = listOf(
             LevelNote(
                 1,
-                "僵尸、骷髅和蜘蛛 ${MatchRules.ZOMBIE_PRODUCTION_TICKS / MatchRules.TICKS_PER_SECOND} 秒，尸壳、骷髅死士、苦力怕和僵尸战士同样是 ${MatchRules.ZOMBIE_PRODUCTION_TICKS / MatchRules.TICKS_PER_SECOND} 秒但要 2 级兵营，矿工僵尸 ${MatchRules.MINER_ZOMBIE_PRODUCTION_TICKS / MatchRules.TICKS_PER_SECOND} 秒，铁傀儡 ${MatchRules.GOLEM_PRODUCTION_TICKS / MatchRules.TICKS_PER_SECOND} 秒",
+                "僵尸、骷髅和蜘蛛 ${MatchRules.ZOMBIE_PRODUCTION_TICKS / MatchRules.TICKS_PER_SECOND} 秒，尸壳、骷髅死士、苦力怕和僵尸战士同样是 ${MatchRules.ZOMBIE_PRODUCTION_TICKS / MatchRules.TICKS_PER_SECOND} 秒但要 2 级兵营，矿工僵尸 ${MatchRules.MINER_ZOMBIE_PRODUCTION_TICKS / MatchRules.TICKS_PER_SECOND} 秒但要 2 级兵营，铁傀儡 ${MatchRules.GOLEM_PRODUCTION_TICKS / MatchRules.TICKS_PER_SECOND} 秒，村民 ${MatchRules.VILLAGER_PRODUCTION_TICKS / MatchRules.TICKS_PER_SECOND} 秒但要 2 级兵营",
             ),
             LevelNote(2, "产出速度加快 50%，间隔变为原来的 2/3"),
             LevelNote(3, "产出速度加快 100%，间隔变为原来的一半"),
@@ -205,11 +205,57 @@ object Buildings {
         production = emptyList(),
         healthByLevel = listOf(MatchRules.RELAY_HEALTH),
         icon = Items.HOPPER,
-        summary = "矿工交矿时的更近落点。可以打开基地商店，也可以召集矿工。",
+        summary = "矿工交矿时的更近落点。可以打开基地商店，也可以召集矿工。放置后在旁边额外生成一只本队矿工僵尸。",
         footprint = Footprint.SQUARE_3,
     )
 
-    private val all = listOf(BASE, WALL, TOWER, TESLA, BARRACKS, CANNON, RELAY)
+    val FARMLAND = BuildingDefinition(
+        id = "farmland",
+        displayName = "农田",
+        category = BuildingCategory.NORMAL,
+        maxLevel = 1,
+        structure = { _ -> WallwarMod.idOf("building/farmland/level_1") },
+        upgrades = emptyList(),
+        production = emptyList(),
+        healthByLevel = listOf(MatchRules.FARMLAND_HEALTH),
+        icon = Items.COMPOSTER,
+        summary = "召集无职业唤灵·村民成为农民。放置后在旁边生成一名已经是农民的本队村民。农民采集并补种本队麦田，小麦按间隔生长。",
+        realWorldParts = true,
+    )
+
+    val PILLAGER = BuildingDefinition(
+        id = "pillager",
+        displayName = "掠夺者哨塔",
+        category = BuildingCategory.NORMAL,
+        maxLevel = 3,
+        structure = { level -> WallwarMod.idOf("building/pillager/level_$level") },
+        upgrades = listOf(
+            UpgradeCost(2, listOf(ItemAmount(Items.IRON_INGOT, MatchRules.PILLAGER_TOWER_UPGRADE_2_IRON, "铁锭"))),
+            UpgradeCost(
+                3,
+                listOf(
+                    ItemAmount(Items.IRON_INGOT, MatchRules.PILLAGER_TOWER_UPGRADE_3_IRON, "铁锭"),
+                    ItemAmount(Items.DIAMOND, MatchRules.PILLAGER_TOWER_UPGRADE_3_DIAMOND, "钻石"),
+                ),
+            ),
+        ),
+        production = emptyList(),
+        healthByLevel = MatchRules.PILLAGER_TOWER_HEALTH,
+        icon = Items.WHITE_BANNER,
+        summary = "用左侧材料生产掠夺者系唤灵。生产规则照搬兵营，另有固守/掠夺切换。商店不出售这些唤灵。",
+        details = listOf(
+            LevelNote(
+                1,
+                "掠夺者、卫道士和幻术师 ${MatchRules.PILLAGER_PRODUCTION_TICKS / MatchRules.TICKS_PER_SECOND} 秒，幻魔者 ${MatchRules.EVOKER_PRODUCTION_TICKS / MatchRules.TICKS_PER_SECOND} 秒且要 2 级，劫掠兽 ${MatchRules.RAVAGER_PRODUCTION_TICKS / MatchRules.TICKS_PER_SECOND} 秒且要 3 级",
+            ),
+            LevelNote(2, "产出速度加快 50%，间隔变为原来的 2/3"),
+            LevelNote(3, "产出速度加快 100%，间隔变为原来的一半"),
+        ),
+        acceptsModules = true,
+        acceptsDiffusion = true,
+    )
+
+    private val all = listOf(BASE, WALL, TOWER, TESLA, BARRACKS, CANNON, RELAY, PILLAGER, FARMLAND)
 
     fun byId(id: String): BuildingDefinition? = all.firstOrNull { it.id == id }
 

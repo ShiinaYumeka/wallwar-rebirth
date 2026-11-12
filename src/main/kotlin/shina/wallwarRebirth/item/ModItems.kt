@@ -21,7 +21,7 @@ object ModItems {
             properties = properties.stacksTo(1)
                 .component(
                     DataComponents.CUSTOM_NAME,
-                    Component.literal("菜单").withStyle { style -> style.withItalic(false).withColor(ChatFormatting.WHITE) },
+                    Component.literal("大厅终端").withStyle { style -> style.withItalic(false).withColor(ChatFormatting.WHITE) },
                 )
                 .component(
                     DataComponents.LORE,
@@ -73,22 +73,54 @@ object ModItems {
     )
 
     @JvmField
+    val SKILL_MINER: Item = skill("skill_golden_hour", "黄金时刻", Items.CLOCK, "手持右键获得急迫 I，持续 30 秒，冷却 60 秒")
+
+    @JvmField
+    val SKILL_WRECKER: Item = skill("skill_practiced", "娴熟技巧", Items.EXPERIENCE_BOTTLE, "手持右键后 30 秒内挖掘建筑伤害翻倍，冷却 60 秒")
+
+    @JvmField
+    val SKILL_BASTION: Item = skill("skill_binder", "强力粘合剂", Items.SLIME_BALL, "手持右键己方城墙核心，恢复当前生命上限的 50%，冷却 60 秒")
+
+    @JvmField
+    val SKILL_SWORDSMAN: Item = skill("skill_sprint", "急速冲刺", Items.FEATHER, "手持右键获得速度 II，持续 5 秒，冷却 30 秒")
+
+    @JvmField
     val TERMINAL: Item = register("portable_terminal") { properties ->
         PortableTerminalItem(
             properties = properties.stacksTo(1)
                 .component(
                     DataComponents.CUSTOM_NAME,
-                    Component.literal("便携终端").withStyle { style -> style.withItalic(false).withColor(ChatFormatting.WHITE) },
+                    Component.literal("局内终端").withStyle { style -> style.withItalic(false).withColor(ChatFormatting.WHITE) },
                 )
                 .component(
                     DataComponents.LORE,
                     ItemLore(listOf(
-                        Component.literal("右键打开本队基地商店").withStyle { style ->
+                        Component.literal("右键打开局内终端").withStyle { style ->
                             style.withItalic(false).withColor(ChatFormatting.GRAY)
                         },
                     )),
                 ),
             polymerItem = Items.RECOVERY_COMPASS,
+        )
+    }
+
+    @JvmField
+    val RETURN_LOBBY: Item = register("return_lobby") { properties ->
+        ReturnLobbyItem(
+            properties = properties.stacksTo(1)
+                .component(
+                    DataComponents.CUSTOM_NAME,
+                    Component.literal("返回大厅").withStyle { style -> style.withItalic(false).withColor(ChatFormatting.WHITE) },
+                )
+                .component(
+                    DataComponents.LORE,
+                    ItemLore(listOf(
+                        Component.literal("点击返回大厅，对局继续进行").withStyle { style ->
+                            style.withItalic(false).withColor(ChatFormatting.GRAY)
+                        },
+                    )),
+                ),
+            polymerItem = Items.OAK_DOOR,
         )
     }
 
@@ -120,6 +152,24 @@ object ModItems {
     val EGG_WARRIOR: Item = egg("summon_warrior", "唤灵·僵尸战士", Items.ZOMBIE_SPAWN_EGG, "zombie_warrior")
 
     @JvmField
+    val EGG_PILLAGER: Item = egg("summon_pillager", "唤灵·掠夺者", Items.PILLAGER_SPAWN_EGG, "pillager")
+
+    @JvmField
+    val EGG_VINDICATOR: Item = egg("summon_vindicator", "唤灵·卫道士", Items.VINDICATOR_SPAWN_EGG, "vindicator")
+
+    @JvmField
+    val EGG_EVOKER: Item = egg("summon_evoker", "唤灵·幻魔者", Items.EVOKER_SPAWN_EGG, "evoker")
+
+    @JvmField
+    val EGG_ILLUSIONER: Item = egg("summon_illusioner", "唤灵·幻术师", Items.EVOKER_SPAWN_EGG, "illusioner")
+
+    @JvmField
+    val EGG_VILLAGER: Item = egg("summon_villager", "唤灵·村民", Items.VILLAGER_SPAWN_EGG, "villager")
+
+    @JvmField
+    val EGG_RAVAGER: Item = egg("summon_ravager", "唤灵·劫掠兽", Items.RAVAGER_SPAWN_EGG, "ravager")
+
+    @JvmField
     val CORE_WALL: Item = core("core_wall", "城墙核心", Items.STONE_BRICKS, "wall")
 
     @JvmField
@@ -137,12 +187,23 @@ object ModItems {
     @JvmField
     val CORE_RELAY: Item = core("core_relay", "传输装置核心", Items.HOPPER, "relay")
 
+    @JvmField
+    val CORE_PILLAGER: Item = core("core_pillager", "掠夺者哨塔核心", Items.WHITE_BANNER, "pillager")
+
+    @JvmField
+    val CORE_FARMLAND: Item = core("core_farmland", "农田核心", Items.COMPOSTER, "farmland")
+
     fun init() {
         MENU
+        SKILL_MINER
+        SKILL_WRECKER
+        SKILL_BASTION
+        SKILL_SWORDSMAN
         REINFORCE
         REINFORCE_TWO
         DIFFUSION
         TERMINAL
+        RETURN_LOBBY
         EGG_ZOMBIE
         EGG_SKELETON
         EGG_GOLEM
@@ -152,12 +213,37 @@ object ModItems {
         EGG_DEATH_KNIGHT
         EGG_CREEPER
         EGG_WARRIOR
+        EGG_PILLAGER
+        EGG_VINDICATOR
+        EGG_EVOKER
+        EGG_ILLUSIONER
+        EGG_RAVAGER
+        EGG_VILLAGER
         CORE_WALL
         CORE_TOWER
         CORE_TESLA
         CORE_BARRACKS
         CORE_CANNON
         CORE_RELAY
+        CORE_PILLAGER
+        CORE_FARMLAND
+    }
+
+    private fun skill(path: String, name: String, icon: Item, lore: String): Item = register(path) { properties ->
+        SkillItem(
+            properties = properties.stacksTo(1)
+                .component(
+                    DataComponents.CUSTOM_NAME,
+                    Component.literal(name).withStyle { style -> style.withItalic(false).withColor(ChatFormatting.AQUA) },
+                )
+                .component(
+                    DataComponents.LORE,
+                    ItemLore(listOf(
+                        Component.literal(lore).withStyle { style -> style.withItalic(false).withColor(ChatFormatting.GRAY) },
+                    )),
+                ),
+            polymerItem = icon,
+        )
     }
 
     private fun module(path: String, name: String, icon: Item, lore: List<String>): Item = register(path) { properties ->

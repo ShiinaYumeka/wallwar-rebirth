@@ -1,5 +1,7 @@
 package shina.wallwarRebirth.monster
 
+import net.minecraft.core.BlockPos
+import net.minecraft.server.level.ServerLevel
 import net.minecraft.world.entity.Entity
 
 object SummonedUnits {
@@ -19,5 +21,20 @@ object SummonedUnits {
             entity.isRemoved || !entity.isAlive
         }
         return ArrayList(units)
+    }
+
+    fun rebindHomes(level: ServerLevel, from: BlockPos, to: BlockPos) {
+        for (unit in all()) {
+            if (unit.living().level() !== level) continue
+            unit.mind.rebindHome(from, to)
+        }
+    }
+
+    fun reassertHome(site: shina.wallwarRebirth.building.SiteCoreBlockEntity) {
+        val world = site.level as? ServerLevel ?: return
+        for (unit in all()) {
+            if (unit.living().level() !== world) continue
+            unit.mind.reassertIfHome(site.blockPos)
+        }
     }
 }

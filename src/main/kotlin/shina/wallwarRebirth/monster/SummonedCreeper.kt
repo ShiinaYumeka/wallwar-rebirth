@@ -26,6 +26,7 @@ import net.minecraft.world.phys.Vec3
 import shina.wallwarRebirth.building.SiteCoreBlockEntity
 import shina.wallwarRebirth.match.Match
 import shina.wallwarRebirth.rules.MatchRules
+import shina.wallwarRebirth.targeting.Targeting
 import xyz.nucleoid.packettweaker.PacketContext
 import java.util.Optional
 import kotlin.math.sqrt
@@ -158,7 +159,7 @@ class SummonedCreeper(type: EntityType<out SummonedCreeper>, level: Level) : Cre
     }
 
     private fun teamOf(entity: LivingEntity): String? = when (entity) {
-        is Player -> if (entity.isSpectator) null else entity.team?.name ?: ""
+        is Player -> if (!Targeting.canTargetPlayer(entity)) null else entity.team?.name ?: ""
         is SummonedUnit -> entity.summonedTeam
         else -> null
     }

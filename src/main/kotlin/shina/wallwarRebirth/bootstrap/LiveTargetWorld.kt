@@ -7,15 +7,18 @@ import net.minecraft.world.entity.LivingEntity
 import net.minecraft.world.phys.AABB
 import shina.wallwarRebirth.building.Buildings
 import shina.wallwarRebirth.building.SiteCores
-import shina.wallwarRebirth.monster.SummonedUnit
 import shina.wallwarRebirth.monster.SummonedUnits
 import shina.wallwarRebirth.targeting.ActorTarget
 import shina.wallwarRebirth.targeting.CoreTarget
 import shina.wallwarRebirth.targeting.TargetWorld
+import shina.wallwarRebirth.targeting.Targeting
 
 object LiveTargetWorld : TargetWorld {
     override fun players(level: ServerLevel): List<ActorTarget> =
-        level.players().map { player -> ActorTarget(player, player.team?.name ?: "") }
+        level.players().mapNotNull { player ->
+            if (!Targeting.canTargetPlayer(player)) return@mapNotNull null
+            ActorTarget(player, player.team?.name ?: "")
+        }
 
     override fun summons(level: ServerLevel): List<ActorTarget> =
         SummonedUnits.all().mapNotNull { unit ->

@@ -66,6 +66,15 @@ object SummonedGear {
             val sword = ItemStack(Items.IRON_SWORD)
             sword.set(DataComponents.ATTRIBUTE_MODIFIERS, ItemAttributeModifiers.EMPTY)
             equip(mob, EquipmentSlot.MAINHAND, sword)
+        } else if (definition.axe) {
+            val axe = ItemStack(Items.IRON_AXE)
+            axe.set(DataComponents.ATTRIBUTE_MODIFIERS, ItemAttributeModifiers.EMPTY)
+            equip(mob, EquipmentSlot.MAINHAND, axe)
+        } else if (definition.usesCrossbow) {
+            val crossbow = ItemStack(Items.CROSSBOW)
+            crossbow.set(DataComponents.UNBREAKABLE, net.minecraft.util.Unit.INSTANCE)
+            mob.setItemSlot(EquipmentSlot.MAINHAND, crossbow)
+            mob.setDropChance(EquipmentSlot.MAINHAND, 0f)
         } else if (definition.bowRange != null && !definition.wornArmor) {
             val bow = ItemStack(Items.BOW)
             bow.set(DataComponents.UNBREAKABLE, net.minecraft.util.Unit.INSTANCE)

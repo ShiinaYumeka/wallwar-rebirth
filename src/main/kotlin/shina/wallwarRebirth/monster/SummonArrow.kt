@@ -1,6 +1,7 @@
 package shina.wallwarRebirth.monster
 
 import eu.pb4.polymer.core.api.entity.PolymerEntity
+import net.minecraft.network.chat.Component
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.world.entity.Entity
 import net.minecraft.world.entity.EntityType
@@ -11,6 +12,7 @@ import net.minecraft.world.level.Level
 import net.minecraft.world.level.storage.ValueInput
 import net.minecraft.world.level.storage.ValueOutput
 import net.minecraft.world.phys.EntityHitResult
+import shina.wallwarRebirth.targeting.Targeting
 import xyz.nucleoid.packettweaker.PacketContext
 
 class SummonArrow(type: EntityType<out SummonArrow>, level: Level) : Arrow(type, level), PolymerEntity {
@@ -23,9 +25,11 @@ class SummonArrow(type: EntityType<out SummonArrow>, level: Level) : Arrow(type,
 
     override fun getPolymerEntityType(context: PacketContext): EntityType<*> = EntityType.ARROW
 
+    override fun getTypeName(): Component = EntityType.ARROW.description
+
     override fun canHitEntity(target: Entity): Boolean {
         if (!super.canHitEntity(target)) return false
-        if (target is Player && target.isSpectator) return false
+        if (target is Player && !Targeting.canTargetPlayer(target)) return false
         val ownerEntity = getOwner()
         if (ownerEntity != null && ownerEntity.isAlliedTo(target)) return false
         val other = when (target) {
@@ -41,11 +45,7 @@ class SummonArrow(type: EntityType<out SummonArrow>, level: Level) : Arrow(type,
         val world = level() as? ServerLevel
         if (target != null && world != null) {
             val attacker = getOwner() as? LivingEntity
-            val source = if (attacker != null) {
-                damageSources().mobAttack(attacker)
-            } else {
-                damageSources().arrow(this, getOwner())
-            }
+            val source = damageSources().arrow(this, getOwner())
             target.hurtServer(world, source, attackDamage)
             (attacker as? SummonedUnit)?.mind?.noteExchange()
         }

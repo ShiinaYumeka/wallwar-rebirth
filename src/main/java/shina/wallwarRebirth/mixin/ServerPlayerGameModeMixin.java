@@ -32,7 +32,7 @@ public class ServerPlayerGameModeMixin {
     ) {
         if (action != ServerboundPlayerActionPacket.Action.STOP_DESTROY_BLOCK) return;
         BlockState state = this.player.level().getBlockState(pos);
-        if (!BuildingMining.holds(state)) return;
+        if (!BuildingMining.holds(this.player.level(), pos, state)) return;
         BuildingMining.lockBreakSpeed(this.player);
         BuildingMining.syncMiningView(this.player, pos, state);
         ci.cancel();
@@ -53,20 +53,20 @@ public class ServerPlayerGameModeMixin {
         }
         if (action != ServerboundPlayerActionPacket.Action.START_DESTROY_BLOCK) return;
         BlockState state = this.player.level().getBlockState(pos);
-        if (!BuildingMining.holds(state)) return;
+        if (!BuildingMining.holds(this.player.level(), pos, state)) return;
         BuildingMining.lockBreakSpeed(this.player);
         BuildingMining.syncMiningView(this.player, pos, state);
     }
 
     @Inject(method = "incrementDestroyProgress", at = @At("TAIL"))
     private void wallwar$keepBreakLock(BlockState state, BlockPos pos, int startTick, CallbackInfoReturnable<Float> cir) {
-        if (BuildingMining.holds(state)) BuildingMining.lockBreakSpeed(this.player);
+        if (BuildingMining.holds(this.player.level(), pos, state)) BuildingMining.lockBreakSpeed(this.player);
         else BuildingMining.unlockBreakSpeed(this.player);
     }
 
     @Inject(method = "destroyAndAck", at = @At("TAIL"))
     private void wallwar$relockAfterHit(BlockPos pos, int sequence, String reason, CallbackInfo ci) {
-        if (BuildingMining.holds(this.player.level().getBlockState(pos))) BuildingMining.lockBreakSpeed(this.player);
+        if (BuildingMining.holds(this.player.level(), pos, this.player.level().getBlockState(pos))) BuildingMining.lockBreakSpeed(this.player);
         else BuildingMining.unlockBreakSpeed(this.player);
     }
 }

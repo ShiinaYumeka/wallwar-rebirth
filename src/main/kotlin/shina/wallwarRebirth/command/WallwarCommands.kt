@@ -10,26 +10,19 @@ import net.minecraft.world.level.ClipContext
 import net.minecraft.world.phys.BlockHitResult
 import net.minecraft.world.phys.HitResult
 import net.minecraft.world.phys.Vec3
-import shina.wallwarRebirth.building.BuildingStructure
 import shina.wallwarRebirth.building.BuildingStyles
-import shina.wallwarRebirth.building.ModSites
-import shina.wallwarRebirth.monster.Monsters
-import shina.wallwarRebirth.monster.Summoning
-import shina.wallwarRebirth.match.Match
-import shina.wallwarRebirth.match.MatchGui
 import shina.wallwarRebirth.contract.WallwarTeams
 import shina.wallwarRebirth.item.ModItems
+import shina.wallwarRebirth.match.Match
+import shina.wallwarRebirth.match.MatchGui
+import shina.wallwarRebirth.monster.Monsters
+import shina.wallwarRebirth.monster.Summoning
 import shina.wallwarRebirth.shop.PlayerShopSettings
 import shina.wallwarRebirth.shop.ShopLayerRegistry
 import shina.wallwarRebirth.shop.ShopLayerTags
 import shina.wallwarRebirth.shop.ShopSession
 import shina.wallwarRebirth.shop.gui.ShopGui
-import shina.wallwarRebirth.util.command.builder.executes
-import shina.wallwarRebirth.util.command.builder.intArgument
-import shina.wallwarRebirth.util.command.builder.literal
-import shina.wallwarRebirth.util.command.builder.literalCommand
-import shina.wallwarRebirth.util.command.builder.requires
-import shina.wallwarRebirth.util.command.builder.wordArgument
+import shina.wallwarRebirth.util.command.builder.*
 import shina.wallwarRebirth.util.command.context.CommandContext
 
 object WallwarCommands {
@@ -184,7 +177,7 @@ object WallwarCommands {
     }
 
     private fun CommandContext.openMatch(): Int {
-        MatchGui.open(context.source.playerOrException)
+        MatchGui.openEntry(context.source.playerOrException)
         return Command.SINGLE_SUCCESS
     }
 

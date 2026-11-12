@@ -1,37 +1,27 @@
 package shina.wallwarRebirth.match
-import shina.wallwarRebirth.shop.match.PortableShop
-import shina.wallwarRebirth.profession.Classes
-import shina.wallwarRebirth.rules.MatchRules
-import shina.wallwarRebirth.world.ArenaReset
-import shina.wallwarRebirth.world.MatchWorld
 
 import net.minecraft.commands.Commands
 import net.minecraft.core.BlockPos
-import net.minecraft.nbt.CompoundTag
-import net.minecraft.nbt.ListTag
-import net.minecraft.nbt.NbtAccounter
-import net.minecraft.nbt.NbtIo
-import net.minecraft.nbt.NbtOps
 import net.minecraft.network.chat.Component
 import net.minecraft.server.MinecraftServer
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
-import net.minecraft.world.entity.EquipmentSlot
 import net.minecraft.world.item.ItemStack
-import net.minecraft.world.item.Items
 import net.minecraft.world.level.GameType
-import net.minecraft.world.level.gamerules.GameRules
-import net.minecraft.world.level.storage.LevelData
-import net.minecraft.world.level.storage.LevelResource
 import net.minecraft.world.level.Level
+import net.minecraft.world.level.gamerules.GameRules
 import shina.wallwarRebirth.contract.MatchPort
 import shina.wallwarRebirth.contract.WallwarTeams
+import shina.wallwarRebirth.profession.Classes
+import shina.wallwarRebirth.profession.SkillInventory
+import shina.wallwarRebirth.rules.MatchRules
 import shina.wallwarRebirth.shop.match.TeamWarehouses
 import shina.wallwarRebirth.util.clearTitle
 import shina.wallwarRebirth.util.showActionBar
 import shina.wallwarRebirth.util.showTitle
-import java.util.UUID
-import kotlin.math.hypot
+import shina.wallwarRebirth.world.ArenaReset
+import shina.wallwarRebirth.world.MatchWorld
+import java.util.*
 
 object Match : MatchPort {
     enum class Phase {
@@ -47,7 +37,8 @@ object Match : MatchPort {
         var team: String = ""
         var classId: String = Classes.MINER
         var classLocked: Boolean = true
-        var minerUntil: Long = 0
+        var skillReadyAt: Long = 0
+        var wreckerDigUntil: Long = 0
         var ready: Boolean = false
         var started: Boolean = false
         var ironGiven: Boolean = false
@@ -74,6 +65,7 @@ object Match : MatchPort {
     internal var watchBuildTick: Int = -1
     internal var watchEndsAt: Int = 0
     internal var watchSecond: Int = -1
+    internal var settleResetAt: Int = -1
     internal var server: MinecraftServer? = null
 
     fun attach(current: MinecraftServer) {
@@ -115,7 +107,11 @@ object Match : MatchPort {
             }
         }
         MatchRoster.tickRespawns(current)
-        if (phase == Phase.FIGHT) PortableShop.tick(current)
+        MatchMenu.tick(current)
+        if (phase == Phase.SETTLE) tickSettleReset(current)
+        if (phase == Phase.FIGHT) {
+            SkillInventory.tick(current)
+        }
     }
 
     override fun isFrozen(level: Level): Boolean = level.dimension() == MatchRules.DIMENSION && phase != Phase.FIGHT
@@ -158,8 +154,6 @@ object Match : MatchPort {
             member.started = false
         }
         member.team = team
-        member.classId = Classes.MINER
-        member.classLocked = true
         MatchMenu.give(player)
         when (phase) {
             Phase.LOBBY -> player.setGameMode(GameType.ADVENTURE)
@@ -174,27 +168,32 @@ object Match : MatchPort {
             Phase.SETTLE -> player.setGameMode(GameType.SPECTATOR)
         }
         MatchPersistence.save(current)
-        if (phase == Phase.LOBBY || phase == Phase.WATCH) MatchGui.open(player)
+        if (phase == Phase.LOBBY) MatchGui.open(player)
     }
 
-    fun castMiner(player: ServerPlayer, stack: ItemStack): Boolean {
-        val member = members[player.uuid] ?: return false
+    fun useSkill(player: ServerPlayer, stack: ItemStack, context: net.minecraft.world.item.context.UseOnContext?): net.minecraft.world.InteractionResult {
+        val member = members[player.uuid] ?: return net.minecraft.world.InteractionResult.PASS
         val now = player.level().server.overworld().gameTime
-        val cast = Classes.castMiner(
+        val cast = Classes.useSkill(
             member.classLocked,
             member.classId,
-            member.minerUntil,
+            member.skillReadyAt,
             isFight(),
             now,
             stack,
-        ) ?: return false
-        player.sendSystemMessage(Component.literal(cast.message))
-        val until = cast.minerUntil
-        if (until != null) {
-            member.minerUntil = until
+            context,
+        ) ?: return net.minecraft.world.InteractionResult.PASS
+        if (cast.message != null) player.sendSystemMessage(Component.literal(cast.message))
+        if (cast.readyAt != null) {
+            member.skillReadyAt = cast.readyAt
+            if (member.classId == Classes.WRECKER) {
+                member.wreckerDigUntil = now + MatchRules.WRECKER_ACTIVE_TICKS
+            } else {
+                Classes.applyEffect(player, member.classId)
+            }
             MatchPersistence.save(player.level().server)
         }
-        return true
+        return net.minecraft.world.InteractionResult.SUCCESS
     }
 
     fun confirmReady(player: ServerPlayer) {
@@ -217,8 +216,55 @@ object Match : MatchPort {
         MatchFlow.tryBeginWatch(player.level().server)
     }
 
+    fun toggleTeam(player: ServerPlayer, team: String) {
+        if (member(player.uuid)?.team == team) leaveTeam(player) else assign(player, team)
+    }
+
+    fun leaveTeam(player: ServerPlayer) {
+        if (phase != Phase.LOBBY) {
+            player.sendSystemMessage(Component.literal("现在不能退出队伍"))
+            return
+        }
+        val current = player.level().server
+        val member = members[player.uuid]
+        if (member == null || member.team.isEmpty()) return
+        member.team = ""
+        member.ready = false
+        member.started = false
+        current.scoreboard.removePlayerFromTeam(player.scoreboardName)
+        MatchPersistence.save(current)
+        player.sendSystemMessage(Component.literal("已退出队伍"))
+    }
+
+    fun toggleReady(player: ServerPlayer) {
+        if (members[player.uuid]?.ready == true) cancelReady(player) else confirmReady(player)
+    }
+
+    fun cancelReady(player: ServerPlayer) {
+        if (phase != Phase.LOBBY) {
+            player.sendSystemMessage(Component.literal("现在不是准备阶段"))
+            return
+        }
+        val member = members[player.uuid] ?: return
+        if (!member.ready) return
+        member.ready = false
+        MatchPersistence.save(player.level().server)
+        player.sendSystemMessage(Component.literal("已取消准备"))
+    }
+
+    fun leaveSpectate(player: ServerPlayer) {
+        val current = player.level().server
+        val overworld = current.overworld()
+        val spawn = overworld.respawnData.pos()
+        MatchRoster.teleport(player, overworld, spawn.x + 0.5, spawn.y.toDouble(), spawn.z + 0.5, player.yRot)
+        player.setGameMode(GameType.ADVENTURE)
+        MatchMenu.give(player)
+        player.sendSystemMessage(Component.literal("已离开旁观"))
+    }
+
     fun chooseClass(player: ServerPlayer, classId: String) {
-        if (classId != Classes.MINER) return
+        val chosen = Classes.normalize(classId)
+        if (chosen !in Classes.selectable) return
         if (phase != Phase.LOBBY) {
             player.sendSystemMessage(Component.literal("现在不能选择职业"))
             return
@@ -228,10 +274,12 @@ object Match : MatchPort {
             player.sendSystemMessage(Component.literal("先加入队伍"))
             return
         }
-        member.classId = Classes.MINER
+        member.classId = chosen
         member.classLocked = true
+        member.skillReadyAt = 0
+        member.wreckerDigUntil = 0
         MatchPersistence.save(player.level().server)
-        player.sendSystemMessage(Component.literal("职业：矿工"))
+        player.sendSystemMessage(Component.literal("职业：${Classes.name(chosen)}"))
     }
 
     fun adjustMapSize(player: ServerPlayer, delta: Int) {
@@ -254,6 +302,8 @@ object Match : MatchPort {
             actor.sendSystemMessage(Component.literal("只有管理员可以重置"))
             return
         }
+        settleResetAt = -1
+        MatchSurrender.clear()
         shina.wallwarRebirth.building.CannonCrew.settle(current, false)
         val arena = current.getLevel(MatchRules.DIMENSION)
         val overworld = current.overworld()
@@ -279,7 +329,8 @@ object Match : MatchPort {
         for (member in members.values) {
             member.classId = Classes.MINER
             member.classLocked = true
-            member.minerUntil = 0
+            member.skillReadyAt = 0
+            member.wreckerDigUntil = 0
             member.ready = false
             member.started = false
             member.ironGiven = false
@@ -304,7 +355,19 @@ object Match : MatchPort {
     fun onJoin(player: ServerPlayer) {
         shina.wallwarRebirth.building.CannonCrew.rejoin(player)
         val member = members[player.uuid]
-        if (member == null || member.team.isEmpty()) {
+        val inThisMatch = member != null &&
+            (member.team == WallwarTeams.RED || member.team == WallwarTeams.BLUE) &&
+            phase != Phase.LOBBY
+        if (!inThisMatch) {
+            val current = player.level().server
+            server = current
+            if (member != null && MatchRoster.applyBodyReset(player, member)) MatchPersistence.save(current)
+            if (player.level().dimension() == MatchRules.DIMENSION) {
+                val overworld = current.overworld()
+                val spawn = overworld.respawnData.pos()
+                MatchRoster.teleport(player, overworld, spawn.x + 0.5, spawn.y.toDouble(), spawn.z + 0.5, player.yRot)
+                player.setGameMode(GameType.ADVENTURE)
+            }
             MatchRoster.offerMenu(player)
             return
         }
@@ -354,9 +417,9 @@ object Match : MatchPort {
             current.scoreboard.removePlayerFromTeam(player.scoreboardName)
             MatchPersistence.save(current)
         }
-        MatchMenu.give(player)
         if (phase == Phase.LOBBY) player.setGameMode(GameType.ADVENTURE)
         spectate(player)
+        MatchMenu.give(player)
     }
 
     fun spectate(player: ServerPlayer) {
@@ -407,6 +470,8 @@ object Match : MatchPort {
         if (level.dimension() != MatchRules.DIMENSION) return
         val current = level.server
         phase = Phase.SETTLE
+        MatchSurrender.clear()
+        settleResetAt = current.tickCount + MatchRules.SETTLE_RESET_TICKS
         shina.wallwarRebirth.building.CannonCrew.settle(current, true)
         val winner = if (team == WallwarTeams.RED) WallwarTeams.BLUE else WallwarTeams.RED
         val text = "$winner 获胜"
@@ -424,6 +489,20 @@ object Match : MatchPort {
             }
         }
         MatchPersistence.save(current)
+    }
+
+    private fun tickSettleReset(current: MinecraftServer) {
+        if (settleResetAt < 0) return
+        val left = settleResetAt - current.tickCount
+        val seconds = if (left <= 0) 0 else (left + MatchRules.TICKS_PER_SECOND - 1) / MatchRules.TICKS_PER_SECOND
+        val text = Component.literal("重置倒计时 $seconds")
+        for (player in current.playerList.players) {
+            if (isArena(player.level())) player.showActionBar(text)
+        }
+        if (left <= 0) {
+            settleResetAt = -1
+            reset(null)
+        }
     }
 
     fun horizontal(a: BlockPos, b: BlockPos): Double = MatchPersistence.horizontal(a, b)

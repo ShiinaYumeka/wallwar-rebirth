@@ -22,6 +22,7 @@ import shina.wallwarRebirth.match.Match
 import shina.wallwarRebirth.rules.MatchRules
 import shina.wallwarRebirth.monster.ModMonsters
 import shina.wallwarRebirth.monster.SummonedUnit
+import shina.wallwarRebirth.targeting.Targeting
 import xyz.nucleoid.packettweaker.PacketContext
 import java.util.Optional
 import kotlin.math.ceil
@@ -152,6 +153,7 @@ class CannonShell(type: EntityType<out CannonShell>, level: Level) : PrimedTnt(t
     private fun enemy(entity: Entity): Boolean {
         val living = entity as? LivingEntity ?: return false
         if (!living.isAlive) return false
+        if (living is Player && !Targeting.canTargetPlayer(living)) return false
         val other = when (living) {
             is Player -> living.team?.name ?: ""
             is SummonedUnit -> living.summonedTeam
@@ -288,7 +290,7 @@ class CannonShell(type: EntityType<out CannonShell>, level: Level) : PrimedTnt(t
     }
 
     private fun teamOf(entity: LivingEntity): String? = when (entity) {
-        is Player -> entity.team?.name ?: ""
+        is Player -> if (!Targeting.canTargetPlayer(entity)) null else entity.team?.name ?: ""
         is SummonedUnit -> entity.summonedTeam
         else -> null
     }

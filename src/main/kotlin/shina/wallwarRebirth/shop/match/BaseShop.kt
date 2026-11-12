@@ -1,4 +1,5 @@
 package shina.wallwarRebirth.shop.match
+import shina.wallwarRebirth.profession.ProfessionEffects
 import shina.wallwarRebirth.match.Match
 import shina.wallwarRebirth.rules.MatchRules
 
@@ -17,11 +18,11 @@ import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
 import shina.wallwarRebirth.WallwarMod
 import shina.wallwarRebirth.building.BuildingMenus
+import shina.wallwarRebirth.building.ModuleSlot
 import shina.wallwarRebirth.building.SiteCoreBlockEntity
 import shina.wallwarRebirth.gui.ItemStackBuilder
 import shina.wallwarRebirth.item.ModItems
 import shina.wallwarRebirth.shop.ShopSession
-import shina.wallwarRebirth.shop.match.TeamWarehouses
 import shina.wallwarRebirth.shop.element.BaseShopItem
 import shina.wallwarRebirth.shop.element.ShopItemWithIndex
 import shina.wallwarRebirth.shop.element.ShopLayer
@@ -30,41 +31,71 @@ import shina.wallwarRebirth.shop.gui.ShopGui
 import shina.wallwarRebirth.util.hideTooltip
 
 object BaseShop {
-    enum class Page(val title: String, val icon: ItemStack) {
-        WEAPON("武器", ItemStack(Items.IRON_SWORD)),
-        ARMOR("防具", ItemStack(Items.IRON_CHESTPLATE)),
-        BUILDING("建筑", ItemStack(Items.BRICKS)),
-        BASE("基地", ItemStack(Items.BEACON)),
-        WAREHOUSE("团队仓库", ItemStack(Items.CHEST)),
+    enum class Access { CORE, TERMINAL }
+
+    enum class Page(val title: String, val icon: ItemStack, val tabSlot: Int) {
+        WAREHOUSE("团队箱", ItemStack(Items.CHEST), 0),
+        BUILDING("建筑", ItemStack(Items.BRICKS), 1),
+        WEAPON("武器", ItemStack(Items.IRON_SWORD), 2),
+        ARMOR("护甲", ItemStack(Items.IRON_CHESTPLATE), 3),
+        BASE("基地总览", ItemStack(Items.BEACON), 6),
     }
 
     private const val ROWS = 3
     private const val PAGE_SLOT = 53
+    private val LOCKED_PAGES = setOf(Page.BUILDING, Page.WEAPON, Page.ARMOR)
 
-    fun open(player: ServerPlayer, site: SiteCoreBlockEntity, page: Page = Page.WEAPON, sheet: Int = 0) {
-        if (!Match.isFight()) {
-            player.sendSystemMessage(Component.literal("商店只在战斗阶段可购买"))
+    fun open(
+        player: ServerPlayer,
+        site: SiteCoreBlockEntity,
+        page: Page = Page.WAREHOUSE,
+        sheet: Int = 0,
+        access: Access = Access.CORE,
+    ) {
+        if (Match.phase != Match.Phase.WATCH && Match.phase != Match.Phase.FIGHT && Match.phase != Match.Phase.SETTLE) {
+            player.sendSystemMessage(Component.literal("现在不能打开商店"))
             return
         }
-        if (site.team.isNotEmpty() && (player.team?.name ?: "") != site.team) {
+        if (!site.isAlly(player)) {
             player.sendSystemMessage(Component.literal("敌方打不开"))
             return
         }
-        val goods = listings(page)
-        val sheets = if (page == Page.WAREHOUSE) 2 else (goods.maxOfOrNull { it.row / ROWS } ?: 0) + 1
-        val current = sheet.coerceIn(0, sheets - 1)
+        val currentPage = if (locked(site, page, access)) Page.WAREHOUSE else page
+        val goods = listings(currentPage)
+        val sheets = when (currentPage) {
+            Page.WAREHOUSE -> 2
+            Page.BASE -> 1
+            else -> (goods.maxOfOrNull { it.row / ROWS } ?: 0) + 1
+        }
+        val current = sheet.coerceIn(0, (sheets - 1).coerceAtLeast(0))
         val items = ArrayList<ShopItemWithIndex>()
-        Page.entries.forEachIndexed { index, tab ->
-            items.add(Tab(index, tab, page, site))
+        for (tab in Page.entries) {
+            items.add(Tab(tab.tabSlot, tab, currentPage, site, access))
         }
         for (good in goods) {
             if (good.row / ROWS != current) continue
             items.add(Offer(slotOf(good.row % ROWS, good.column), good.item))
         }
-        if (sheets > 1) items.add(PageTurn(PAGE_SLOT, site, page, current, sheets))
+        if (sheets > 1) items.add(PageTurn(PAGE_SLOT, site, currentPage, current, sheets, access))
         val reserved = items.map { it.index() }.toSet()
-        PageGui(ShopSession(useTeamWarehouse = true), player, listOf(ShopLayer(6, items)), page.title, site, page, current, reserved).open()
+        PageGui(
+            ShopSession(useTeamWarehouse = true),
+            player,
+            listOf(ShopLayer(6, items)),
+            currentPage.title,
+            site,
+            currentPage,
+            current,
+            reserved,
+            access,
+        ).open()
     }
+
+    fun hasFlux(site: SiteCoreBlockEntity): Boolean =
+        !site.moduleStack(ModuleSlot.DIFFUSION).isEmpty
+
+    fun locked(site: SiteCoreBlockEntity, page: Page, access: Access): Boolean =
+        access == Access.TERMINAL && !hasFlux(site) && page in LOCKED_PAGES
 
     private fun slotOf(row: Int, column: Int): Int = (row + 2) * 9 + column
 
@@ -103,12 +134,31 @@ object BaseShop {
         )
         Page.BASE, Page.WAREHOUSE -> emptyList()
         Page.BUILDING -> listOf(
-            listing(0, 0, ItemStack(ModItems.CORE_WALL), copper(MatchRules.WALL_PRICE_COPPER)),
-            listing(0, 1, ItemStack(ModItems.CORE_BARRACKS), iron(MatchRules.BARRACKS_PRICE_IRON)),
-            listing(0, 2, ItemStack(ModItems.CORE_TOWER), copper(MatchRules.TOWER_PRICE_COPPER)),
-            listing(0, 3, ItemStack(ModItems.CORE_TESLA), copper(MatchRules.TESLA_PRICE_COPPER)),
             listing(
                 0,
+                1,
+                ItemStack(ModItems.CORE_RELAY),
+                mapOf(
+                    WallwarMod.idOf("iron") to MatchRules.RELAY_PRICE_IRON,
+                    WallwarMod.idOf("copper") to MatchRules.RELAY_PRICE_COPPER,
+                ),
+            ),
+            listing(
+                0,
+                2,
+                ItemStack(ModItems.CORE_FARMLAND),
+                mapOf(
+                    WallwarMod.idOf("iron") to MatchRules.FARMLAND_PRICE_IRON,
+                    WallwarMod.idOf("copper") to MatchRules.FARMLAND_PRICE_COPPER,
+                ),
+            ),
+            listing(1, 1, ItemStack(ModItems.CORE_BARRACKS), iron(MatchRules.BARRACKS_PRICE_IRON)),
+            listing(1, 2, ItemStack(ModItems.CORE_PILLAGER), iron(MatchRules.PILLAGER_TOWER_PRICE_IRON)),
+            listing(2, 1, ItemStack(ModItems.CORE_WALL), copper(MatchRules.WALL_PRICE_COPPER)),
+            listing(2, 2, ItemStack(ModItems.CORE_TOWER), copper(MatchRules.TOWER_PRICE_COPPER)),
+            listing(2, 3, ItemStack(ModItems.CORE_TESLA), copper(MatchRules.TESLA_PRICE_COPPER)),
+            listing(
+                2,
                 4,
                 ItemStack(ModItems.CORE_CANNON),
                 mapOf(
@@ -116,10 +166,9 @@ object BaseShop {
                     WallwarMod.idOf("copper") to MatchRules.CANNON_PRICE_COPPER,
                 ),
             ),
-            listing(0, 5, ItemStack(ModItems.CORE_RELAY), iron(MatchRules.RELAY_PRICE_IRON)),
-            listing(1, 0, ItemStack(ModItems.REINFORCE), lapis(MatchRules.MODULE_LAPIS)),
-            listing(1, 1, ItemStack(ModItems.REINFORCE_TWO), lapis(MatchRules.MODULE_TWO_LAPIS)),
-            listing(1, 2, ItemStack(ModItems.DIFFUSION), lapis(MatchRules.MODULE_DIFFUSION_LAPIS)),
+            listing(3, 0, ItemStack(ModItems.REINFORCE), lapis(MatchRules.MODULE_LAPIS)),
+            listing(3, 1, ItemStack(ModItems.REINFORCE_TWO), lapis(MatchRules.MODULE_TWO_LAPIS)),
+            listing(3, 2, ItemStack(ModItems.DIFFUSION), lapis(MatchRules.MODULE_DIFFUSION_LAPIS)),
         )
     }
 
@@ -158,6 +207,7 @@ private class PageGui(
     private val page: BaseShop.Page,
     sheet: Int,
     reserved: Set<Int>,
+    private val access: BaseShop.Access,
 ) : ShopGui(session, player, layers, 6) {
     init {
         title = Component.literal(heading)
@@ -166,32 +216,55 @@ private class PageGui(
             if (slot !in reserved) setSlot(slot, GuiElement(border, GuiElementInterface.EMPTY_CALLBACK))
         }
         val barrier = ItemStack(Items.BARRIER).hideTooltip()
-        for (slot in BaseShop.Page.entries.size..6) setSlot(slot, GuiElement(barrier, GuiElementInterface.EMPTY_CALLBACK))
-        val marker = ItemStack(Items.LIME_STAINED_GLASS_PANE).hideTooltip()
-        setSlot(9 + page.ordinal, GuiElement(marker, GuiElementInterface.EMPTY_CALLBACK))
+        for (slot in listOf(4, 5)) setSlot(slot, GuiElement(barrier, GuiElementInterface.EMPTY_CALLBACK))
+        if (page != BaseShop.Page.WAREHOUSE) {
+            val marker = ItemStack(Items.LIME_STAINED_GLASS_PANE).hideTooltip()
+            setSlot(9 + page.tabSlot, GuiElement(marker, GuiElementInterface.EMPTY_CALLBACK))
+        }
         if (page == BaseShop.Page.WAREHOUSE) fillWarehouse(sheet)
         if (page == BaseShop.Page.BASE) BuildingMenus.paintBaseShop(this, site)
+        if (page == BaseShop.Page.BUILDING && sheet == 0) paintBuildingLabels()
     }
+
+    override fun canSpectatorsClick(): Boolean = true
 
     override fun onTick() {
         super.onTick()
+        session.valid = stillOpen()
         if (page == BaseShop.Page.BASE && stillOpen()) BuildingMenus.paintBaseShop(this, site)
     }
 
     private fun fillWarehouse(sheet: Int) {
         val box = TeamWarehouses.of(site.team) ?: return
-        val width = 35
+        val width = 36
         val start = sheet * width
         for (offset in 0 until width) {
             val index = start + offset
             if (index >= box.containerSize) break
-            setSlotRedirect(18 + offset, Slot(box, index, 0, 0))
+            setSlotRedirect(9 + offset, Slot(box, index, 0, 0))
         }
     }
 
+    private fun paintBuildingLabels() {
+        setSlot(18, GuiElement(sectionLabel("资源类"), GuiElementInterface.EMPTY_CALLBACK))
+        setSlot(27, GuiElement(sectionLabel("生产类"), GuiElementInterface.EMPTY_CALLBACK))
+        setSlot(36, GuiElement(sectionLabel("防御类"), GuiElementInterface.EMPTY_CALLBACK))
+    }
+
+    private fun sectionLabel(title: String): ItemStack =
+        ItemStackBuilder.of(Items.NAME_TAG)
+            .setName(Component.literal(title).withStyle { style ->
+                style.withColor(ChatFormatting.YELLOW).withItalic(false)
+            })
+            .build()
+
     fun stillOpen(): Boolean {
         val world = site.level
-        return Match.isFight() && world != null && world.getBlockEntity(site.blockPos) === site
+        if (world == null || world.getBlockEntity(site.blockPos) !== site) return false
+        if (Match.phase != Match.Phase.WATCH && Match.phase != Match.Phase.FIGHT && Match.phase != Match.Phase.SETTLE) {
+            return false
+        }
+        return site.isAlly(player)
     }
 }
 
@@ -200,6 +273,7 @@ private class Tab(
     private val page: BaseShop.Page,
     private val current: BaseShop.Page,
     private val site: SiteCoreBlockEntity,
+    private val access: BaseShop.Access,
 ) : ShopItemWithIndex {
     override fun index(): Int = slot
 
@@ -212,17 +286,29 @@ private class Tab(
 
     override fun executeBuying(item: BaseShopItem, gui: ShopGui, clickType: ClickType, materialSuffix: Component?) {
         if (page == current) return
+        if (BaseShop.locked(site, page, access)) return
         val player = gui.player
         gui.close()
-        player.level().server.execute { BaseShop.open(player, site, page) }
+        player.level().server.execute { BaseShop.open(player, site, page, 0, access) }
     }
 
-    private fun icon(): ItemStack =
-        ItemStackBuilder.of(page.icon.copy())
+    private fun icon(): ItemStack {
+        if (BaseShop.locked(site, page, access)) {
+            return ItemStackBuilder.of(Items.BARRIER)
+                .setName(Component.literal(page.title).withStyle { style ->
+                    style.withColor(ChatFormatting.RED).withItalic(false)
+                })
+                .appendLore(Component.literal("需要本队基地装上扩散模块").withStyle { style ->
+                    style.withColor(ChatFormatting.GRAY).withItalic(false)
+                })
+                .build()
+        }
+        return ItemStackBuilder.of(page.icon.copy())
             .setName(Component.literal(page.title).withStyle { style ->
                 style.withColor(ChatFormatting.YELLOW).withItalic(false)
             })
             .build()
+    }
 }
 
 private class PageTurn(
@@ -231,6 +317,7 @@ private class PageTurn(
     private val page: BaseShop.Page,
     private val sheet: Int,
     private val sheets: Int,
+    private val access: BaseShop.Access,
 ) : ShopItemWithIndex {
     override fun index(): Int = slot
 
@@ -244,7 +331,7 @@ private class PageTurn(
     override fun executeBuying(item: BaseShopItem, gui: ShopGui, clickType: ClickType, materialSuffix: Component?) {
         val player = gui.player
         gui.close()
-        player.level().server.execute { BaseShop.open(player, site, page, (sheet + 1) % sheets) }
+        player.level().server.execute { BaseShop.open(player, site, page, (sheet + 1) % sheets, access) }
     }
 
     private fun icon(): ItemStack =
@@ -270,6 +357,16 @@ private class Offer(
     override fun updateView(gui: ShopGui, viewModel: ShopItemViewModel) {
         val page = gui as? PageGui
         gui.session.valid = page?.stillOpen() == true
+    }
+
+    override fun executeBuying(item: BaseShopItem, gui: ShopGui, clickType: ClickType, materialSuffix: Component?) {
+        val player = gui.player
+        if (ProfessionEffects.givePurchased(player, item)) {
+            if (!item.hideBuyText) player.sendSystemMessage(ProfessionEffects.boughtMessage(item, materialSuffix))
+        } else {
+            super.executeBuying(item, gui, clickType, materialSuffix)
+        }
+        ProfessionEffects.refundIfBastionWall(player, item)
     }
 
     private fun shown(gui: ShopGui?, locked: Boolean): ItemStack {

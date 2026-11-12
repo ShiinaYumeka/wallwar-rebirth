@@ -74,6 +74,7 @@ data class BuildingDefinition(
     val acceptsModules: Boolean = false,
     val acceptsDiffusion: Boolean = false,
     val defensive: Boolean = false,
+    val realWorldParts: Boolean = false,
 ) {
     fun categoryText(): String = if (defensive) "${category.label}（防御）" else category.label
 

@@ -43,10 +43,6 @@ internal fun SiteCoreBlockEntity.setModule(slot: ModuleSlot, stack: ItemStack) {
         ModuleSlot.DIFFUSION -> {
             diffuse = stack
             if (buildingId == Buildings.BARRACKS.id) healAge = 0
-            if (buildingId == Buildings.BASE.id && !stack.isEmpty) {
-                val world = level as? ServerLevel
-                if (world != null) shina.wallwarRebirth.shop.match.PortableShop.tick(world.server)
-            }
         }
     }
     if (definition != null) sanitizeMinerals(definition)

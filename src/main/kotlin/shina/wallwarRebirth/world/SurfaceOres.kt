@@ -7,6 +7,7 @@ import net.minecraft.core.BlockPos
 import net.minecraft.world.phys.Vec3
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
+import net.minecraft.world.effect.MobEffects
 import net.minecraft.stats.Stats
 import net.minecraft.tags.BlockTags
 import net.minecraft.world.entity.EquipmentSlot
@@ -206,9 +207,11 @@ object SurfaceOres {
         player.causeFoodExhaustion(0.005f)
         world.destroyBlock(pos, false, player)
         val member = Match.member(player.uuid)
-        val extra = member != null &&
-            Classes.isMiner(member.classLocked, member.classId) &&
-            world.random.nextFloat() < MatchRules.MINER_BONUS_CHANCE
+        val miner = member != null && Classes.isMiner(member.classLocked, member.classId)
+        val extra = miner && (
+            player.hasEffect(MobEffects.HASTE) ||
+                world.random.nextFloat() < MatchRules.MINER_BONUS_CHANCE
+        )
         for (stack in drops) {
             val smelted = smelt(stack)
             Block.popResource(world, pos, smelted)

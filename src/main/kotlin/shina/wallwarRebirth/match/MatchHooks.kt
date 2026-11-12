@@ -1,5 +1,5 @@
 package shina.wallwarRebirth.match
-import shina.wallwarRebirth.shop.match.PortableShop
+import shina.wallwarRebirth.profession.SkillInventory
 
 import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents
 import net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents
@@ -33,6 +33,7 @@ import net.minecraft.world.level.block.CraftingTableBlock
 import net.minecraft.world.level.block.LevelEvent
 import net.minecraft.world.level.block.state.BlockState
 import shina.wallwarRebirth.building.CannonCrew
+import shina.wallwarRebirth.building.FarmlandWork
 import shina.wallwarRebirth.world.SurfaceOres
 import shina.wallwarRebirth.building.SiteCoreBlock
 import shina.wallwarRebirth.building.SiteCores
@@ -85,7 +86,10 @@ object MatchHooks {
             }
         }
         ServerLivingEntityEvents.ALLOW_DEATH.register { entity, _, _ ->
-            if (entity is ServerPlayer) PortableShop.strip(entity)
+            if (entity is ServerPlayer) {
+                MatchMenu.stripOnDeath(entity)
+                SkillInventory.strip(entity)
+            }
             true
         }
         ServerLivingEntityEvents.ALLOW_DAMAGE.register { entity, source, _ ->
@@ -96,6 +100,7 @@ object MatchHooks {
         }
         PlayerBlockBreakEvents.BEFORE.register { world, player, pos, state, _ ->
             if (player !is ServerPlayer) return@register true
+            if (FarmlandWork.isProtected(world, pos)) return@register false
             if (Match.phase != Match.Phase.LOBBY && Match.restricted(player)) return@register false
             if (!SurfaceOres.harvest(world, player, pos, state)) return@register false
             if (Match.isArena(world) && !keepsDrop(state) && world is ServerLevel) {
@@ -114,15 +119,12 @@ object MatchHooks {
         }
         UseItemCallback.EVENT.register { player, level, hand ->
             if (player is ServerPlayer && CannonCrew.busy(player)) return@register InteractionResult.FAIL
-            if (player !is ServerPlayer || level.isClientSide) return@register InteractionResult.PASS
-            val stack = player.getItemInHand(hand)
-            if (!Match.castMiner(player, stack)) return@register InteractionResult.PASS
-            if (stack.isEmpty) player.setItemInHand(hand, ItemStack.EMPTY)
-            InteractionResult.SUCCESS
+            InteractionResult.PASS
         }
         UseBlockCallback.EVENT.register { player, world, hand, hit ->
             if (player !is ServerPlayer) return@register InteractionResult.PASS
             if (CannonCrew.busy(player)) return@register InteractionResult.FAIL
+            if (world is ServerLevel && FarmlandWork.isProtected(world, hit.blockPos)) return@register InteractionResult.FAIL
             if (Match.phase == Match.Phase.FIGHT) {
                 val block = world.getBlockState(hit.blockPos).block
                 if (block is CraftingTableBlock || block is CrafterBlock) {
@@ -131,10 +133,6 @@ object MatchHooks {
                 }
             }
             val stack = player.getItemInHand(hand)
-            if (Match.castMiner(player, stack)) {
-                if (stack.isEmpty) player.setItemInHand(hand, ItemStack.EMPTY)
-                return@register InteractionResult.FAIL
-            }
             val placeAt = placementPos(player, hand, stack, hit)
             if (placeAt != null && world is ServerLevel && SiteCores.insideBuilding(world, placeAt)) {
                 player.sendSystemMessage(Component.literal("这个位置不能放置"))

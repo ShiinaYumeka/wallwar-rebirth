@@ -22,13 +22,14 @@ import kotlin.math.atan2
 import kotlin.math.max
 
 object BarracksSlots {
-    fun acceptsMaterial(stack: ItemStack): Boolean =
+    fun acceptsMaterial(stack: ItemStack, wheat: Boolean = false): Boolean =
         stack.`is`(Items.IRON_INGOT) ||
             stack.`is`(Items.COPPER_INGOT) ||
             stack.`is`(Items.REDSTONE) ||
             stack.`is`(Items.LAPIS_LAZULI) ||
             stack.`is`(Items.DIAMOND) ||
-            stack.`is`(ItemTags.LOGS)
+            stack.`is`(ItemTags.LOGS) ||
+            (wheat && stack.`is`(Items.WHEAT))
 
     fun acceptsEgg(stack: ItemStack): Boolean =
         stack.`is`(ModItems.EGG_ZOMBIE) ||
@@ -39,15 +40,41 @@ object BarracksSlots {
             stack.`is`(ModItems.EGG_HUSK) ||
             stack.`is`(ModItems.EGG_DEATH_KNIGHT) ||
             stack.`is`(ModItems.EGG_CREEPER) ||
-            stack.`is`(ModItems.EGG_WARRIOR)
+            stack.`is`(ModItems.EGG_WARRIOR) ||
+            stack.`is`(ModItems.EGG_VILLAGER)
+}
+
+object TowerSlots {
+    fun acceptsEgg(stack: ItemStack): Boolean =
+        stack.`is`(ModItems.EGG_PILLAGER) ||
+            stack.`is`(ModItems.EGG_VINDICATOR) ||
+            stack.`is`(ModItems.EGG_EVOKER) ||
+            stack.`is`(ModItems.EGG_ILLUSIONER) ||
+            stack.`is`(ModItems.EGG_RAVAGER)
+}
+
+private class Producer(
+    val defaultId: String,
+    val source: shina.wallwarRebirth.monster.MonsterSource,
+    val bindHome: Boolean,
+    val applySwift: Boolean,
+    val healSummons: Boolean,
+)
+
+private fun producerOf(site: SiteCoreBlockEntity): Producer? = when (site.buildingId) {
+    Buildings.BARRACKS.id -> Producer(Monsters.ZOMBIE.id, shina.wallwarRebirth.monster.MonsterSource.BARRACKS, bindHome = false, applySwift = true, healSummons = true)
+    Buildings.PILLAGER.id -> Producer(Monsters.PILLAGER.id, shina.wallwarRebirth.monster.MonsterSource.TOWER, bindHome = true, applySwift = false, healSummons = false)
+    else -> null
 }
 
 object BarracksWork {
     fun tick(site: SiteCoreBlockEntity, level: ServerLevel) {
-        heal(site, level)
-        if (Monsters.byId(site.producedMonster) == null) site.producedMonster = Monsters.ZOMBIE.id
+        val producer = producerOf(site) ?: return
+        if (producer.healSummons) heal(site, level)
+        val current = Monsters.byId(site.producedMonster)
+        if (current == null || current.source != producer.source) site.producedMonster = producer.defaultId
         if (!site.marching) return
-        val definition = Monsters.byId(site.producedMonster) ?: Monsters.ZOMBIE
+        val definition = Monsters.byId(site.producedMonster) ?: Monsters.byId(producer.defaultId) ?: return
         produce(site, level, definition)
         drip(site, level)
         if (!site.reinforceTwo.isEmpty && site.barracksStock.size >= releaseQuota(site)) {
@@ -67,6 +94,7 @@ object BarracksWork {
     fun releaseNow(site: SiteCoreBlockEntity, level: ServerLevel): Boolean = releaseOne(site, level)
 
     private fun produce(site: SiteCoreBlockEntity, level: ServerLevel, definition: MonsterDefinition) {
+        if (!definition.productionReady) return
         if (site.buildingLevel < definition.rank) return
         val costs = definition.cost.map { ItemAmount(it.item, it.count, it.name) }
         val warehouse = TeamWarehouses.of(site.team)
@@ -226,6 +254,7 @@ object BarracksWork {
     ): LivingEntity? {
         val step = spawnStep(site, level)
         val yaw = Math.toDegrees(atan2(-step.x.toDouble(), step.z.toDouble())).toFloat()
+        val producer = producerOf(site)
         return Summoning.place(
             level,
             definition,
@@ -234,7 +263,8 @@ object BarracksWork {
             feet.y.toDouble(),
             feet.z + 0.5,
             yaw,
-            swift = !site.reinforce.isEmpty,
+            swift = producer?.applySwift == true && !site.reinforce.isEmpty,
+            home = if (producer?.bindHome == true) site.blockPos.immutable() else null,
         )
     }
 

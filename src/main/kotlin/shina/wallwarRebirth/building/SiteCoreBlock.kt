@@ -43,6 +43,18 @@ class SiteCoreBlock(properties: Properties) : BaseEntityBlock(properties), Polym
         CoreForm.DISPENSER -> Blocks.DISPENSER.defaultBlockState().setValue(DispenserBlock.FACING, Direction.UP)
         CoreForm.HOPPER -> Blocks.HOPPER.defaultBlockState()
         CoreForm.LIGHTNING_ROD -> Blocks.LIGHTNING_ROD.defaultBlockState()
+        CoreForm.PILLAGER_BANNER -> Blocks.WHITE_BANNER.defaultBlockState()
+        CoreForm.COMPOSTER -> Blocks.COMPOSTER.defaultBlockState()
+    }
+
+    override fun onPolymerBlockSend(
+        state: BlockState,
+        pos: BlockPos.MutableBlockPos,
+        context: PacketContext.NotNullWithPlayer,
+    ) {
+        if (state.getValue(FORM) != CoreForm.PILLAGER_BANNER) return
+        val player = context.player ?: return
+        player.connection.send(OminousBanners.packet(pos.immutable(), player.registryAccess()))
     }
 
     override fun createBlockStateDefinition(builder: StateDefinition.Builder<Block, BlockState>) {
@@ -123,6 +135,8 @@ enum class CoreForm : StringRepresentable {
     DISPENSER,
     HOPPER,
     LIGHTNING_ROD,
+    PILLAGER_BANNER,
+    COMPOSTER,
     ;
 
     override fun getSerializedName(): String = name.lowercase()

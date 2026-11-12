@@ -10,9 +10,16 @@ import net.minecraft.world.entity.EntityType
 import net.minecraft.world.entity.MobCategory
 import net.minecraft.world.entity.animal.golem.IronGolem
 import net.minecraft.world.entity.monster.Creeper
+import net.minecraft.world.entity.monster.Ravager
+import net.minecraft.world.entity.monster.Vex
+import net.minecraft.world.entity.monster.illager.Evoker
+import net.minecraft.world.entity.monster.illager.Illusioner
+import net.minecraft.world.entity.monster.illager.Pillager
+import net.minecraft.world.entity.monster.illager.Vindicator
 import net.minecraft.world.entity.monster.skeleton.AbstractSkeleton
 import net.minecraft.world.entity.monster.spider.Spider
 import net.minecraft.world.entity.monster.zombie.Zombie
+import net.minecraft.world.entity.npc.villager.Villager
 import shina.wallwarRebirth.WallwarMod
 import shina.wallwarRebirth.building.BuildingHealthLabel
 import shina.wallwarRebirth.building.CannonShell
@@ -37,6 +44,20 @@ object ModMonsters {
     lateinit var CREEPER: EntityType<SummonedCreeper>
         private set
     lateinit var WARRIOR: EntityType<SummonedWarrior>
+        private set
+    lateinit var PILLAGER: EntityType<SummonedPillager>
+        private set
+    lateinit var VINDICATOR: EntityType<SummonedVindicator>
+        private set
+    lateinit var EVOKER: EntityType<SummonedEvoker>
+        private set
+    lateinit var ILLUSIONER: EntityType<SummonedIllusioner>
+        private set
+    lateinit var RAVAGER: EntityType<SummonedRavager>
+        private set
+    lateinit var VEX: EntityType<SummonedVex>
+        private set
+    lateinit var VILLAGER: EntityType<SummonedVillager>
         private set
     lateinit var SUMMON_ARROW: EntityType<SummonArrow>
         private set
@@ -68,6 +89,20 @@ object ModMonsters {
         FabricDefaultAttributeRegistry.register(CREEPER, Creeper.createAttributes())
         WARRIOR = register("summoned_zombie_warrior", ::SummonedWarrior, MobCategory.MONSTER, 0.6f, 1.95f, 8)
         FabricDefaultAttributeRegistry.register(WARRIOR, Zombie.createAttributes())
+        PILLAGER = register("summoned_pillager", ::SummonedPillager, MobCategory.MONSTER, 0.6f, 1.95f, 8)
+        FabricDefaultAttributeRegistry.register(PILLAGER, Pillager.createAttributes())
+        VINDICATOR = register("summoned_vindicator", ::SummonedVindicator, MobCategory.MONSTER, 0.6f, 1.95f, 8)
+        FabricDefaultAttributeRegistry.register(VINDICATOR, Vindicator.createAttributes())
+        EVOKER = register("summoned_evoker", ::SummonedEvoker, MobCategory.MONSTER, 0.6f, 1.95f, 8)
+        FabricDefaultAttributeRegistry.register(EVOKER, Evoker.createAttributes())
+        ILLUSIONER = register("summoned_illusioner", ::SummonedIllusioner, MobCategory.MONSTER, 0.6f, 1.95f, 8)
+        FabricDefaultAttributeRegistry.register(ILLUSIONER, Illusioner.createAttributes())
+        RAVAGER = register("summoned_ravager", ::SummonedRavager, MobCategory.MONSTER, 1.95f, 2.2f, 10)
+        FabricDefaultAttributeRegistry.register(RAVAGER, Ravager.createAttributes())
+        VEX = register("summoned_vex", ::SummonedVex, MobCategory.MONSTER, 0.4f, 0.8f, 8)
+        FabricDefaultAttributeRegistry.register(VEX, Vex.createAttributes())
+        VILLAGER = register("summoned_villager", ::SummonedVillager, MobCategory.MISC, 0.6f, 1.95f, 8)
+        FabricDefaultAttributeRegistry.register(VILLAGER, Villager.createAttributes())
         val arrowId = WallwarMod.idOf("summon_arrow")
         val arrowKey = ResourceKey.create(Registries.ENTITY_TYPE, arrowId)
         SUMMON_ARROW = Registry.register(

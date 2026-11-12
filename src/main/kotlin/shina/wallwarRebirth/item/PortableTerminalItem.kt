@@ -22,14 +22,14 @@ class PortableTerminalItem(
     override fun use(level: Level, player: Player, hand: InteractionHand): InteractionResult {
         val serverPlayer = player as? ServerPlayer ?: return InteractionResult.PASS
         if (level.isClientSide) return InteractionResult.SUCCESS
-        PortableShop.open(serverPlayer, serverPlayer.getItemInHand(hand))
+        PortableShop.open(serverPlayer)
         return InteractionResult.SUCCESS
     }
 
     override fun useOn(context: UseOnContext): InteractionResult {
         val player = context.player as? ServerPlayer ?: return InteractionResult.PASS
         if (context.level.isClientSide) return InteractionResult.SUCCESS
-        PortableShop.open(player, context.itemInHand)
+        PortableShop.open(player)
         return InteractionResult.SUCCESS
     }
 

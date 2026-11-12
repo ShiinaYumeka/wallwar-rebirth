@@ -3,21 +3,19 @@ package shina.wallwarRebirth.building
 import net.minecraft.core.BlockPos
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
+import net.minecraft.tags.BlockTags
 import net.minecraft.world.effect.MobEffectInstance
 import net.minecraft.world.effect.MobEffects
-import net.minecraft.tags.BlockTags
 import net.minecraft.world.entity.LivingEntity
 import net.minecraft.world.level.block.state.BlockState
 import net.minecraft.world.phys.AABB
 import net.minecraft.world.phys.Vec3
+import shina.wallwarRebirth.monster.ModMonsters
 import shina.wallwarRebirth.rules.MatchRules
 import shina.wallwarRebirth.targeting.CannonTargeting
 import shina.wallwarRebirth.targeting.TargetWorlds
 import shina.wallwarRebirth.targeting.TeslaTargeting
 import shina.wallwarRebirth.targeting.TowerTargeting
-import shina.wallwarRebirth.mixin.AbstractArrowAccess
-import shina.wallwarRebirth.monster.ModMonsters
-import shina.wallwarRebirth.monster.SummonedUnit
 import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.sin
@@ -29,11 +27,12 @@ object BuildingCombat {
         val beforeEgg = site.eggReleaseAge
         when (site.buildingId) {
             Buildings.BASE.id -> tickBase(site)
-            Buildings.WALL.id -> tickWall(site, level)
+            Buildings.WALL.id -> tickWall(site)
             Buildings.TOWER.id -> tickTower(site, level)
             Buildings.TESLA.id -> tickTesla(site, level)
             Buildings.CANNON.id -> tickCannon(site, level)
-            Buildings.BARRACKS.id -> BarracksWork.tick(site, level)
+            Buildings.BARRACKS.id, Buildings.PILLAGER.id -> BarracksWork.tick(site, level)
+            Buildings.FARMLAND.id -> FarmlandWork.tick(site, level)
         }
         if (site.actionAge != before && (site.actionAge % 20 == 0 || site.actionAge == 30)) site.setChanged()
         if (site.eggReleaseAge != beforeEgg && site.eggReleaseAge == 0) site.setChanged()
@@ -54,24 +53,15 @@ object BuildingCombat {
         site.setChanged()
     }
 
-    private fun tickWall(site: SiteCoreBlockEntity, level: ServerLevel) {
+    private fun tickWall(site: SiteCoreBlockEntity) {
         if (!site.moduleActive(ModuleSlot.PRIMARY) || site.health <= 0) return
         if (site.age % MatchRules.WALL_HEAL_TICKS != 0) return
         if (site.lastHurtAge >= site.age - MatchRules.TICKS_PER_SECOND) return
-        val origin = Vec3.atCenterOf(site.blockPos)
-        val now = level.gameTime
-        for (other in SiteCores.all()) {
-            if (other.level !== level || other.isRemoved || other.health <= 0 || other.buildingId.isEmpty()) continue
-            if (site.team.isEmpty() || other.team != site.team) continue
-            if (origin.distanceTo(Vec3.atCenterOf(other.blockPos)) > MatchRules.WALL_HEAL_RANGE) continue
-            if (now - other.wallHealedGameTime < MatchRules.WALL_HEAL_TICKS) continue
-            val definition = Buildings.byId(other.buildingId) ?: continue
-            val maxHealth = definition.maxHealth(other.buildingLevel)
-            if (other.health >= maxHealth) continue
-            other.health = minOf(maxHealth, other.health + MatchRules.WALL_HEAL_AMOUNT)
-            other.wallHealedGameTime = now
-            other.setChanged()
-        }
+        val definition = Buildings.byId(site.buildingId) ?: return
+        val maxHealth = definition.maxHealth(site.buildingLevel)
+        if (site.health >= maxHealth) return
+        site.health = minOf(maxHealth, site.health + MatchRules.WALL_HEAL_AMOUNT)
+        site.setChanged()
     }
 
     private fun tickTower(site: SiteCoreBlockEntity, level: ServerLevel) {
@@ -201,7 +191,7 @@ object BuildingCombat {
         val arrow = TowerArrow(ModMonsters.TOWER_ARROW, level)
         arrow.setBaseDamage(MatchRules.TOWER_ARROW_BASE_DAMAGE)
         arrow.towerTeam = site.team
-        if (pierce) (arrow as AbstractArrowAccess).wallwarSetPierceLevel((MatchRules.TOWER_PIERCE_HITS - 1).toByte())
+        if (pierce) arrow.setPierceHits(MatchRules.TOWER_PIERCE_HITS)
         val yaw = Math.toDegrees(atan2(-direction.x, direction.z)).toFloat()
         arrow.snapTo(muzzle.x, muzzle.y, muzzle.z, yaw, 0f)
         arrow.shoot(direction.x, direction.y, direction.z, speed, 0f)

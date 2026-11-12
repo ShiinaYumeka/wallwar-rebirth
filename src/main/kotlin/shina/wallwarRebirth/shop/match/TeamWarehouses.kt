@@ -18,12 +18,18 @@ import shina.wallwarRebirth.shop.TeamStores
 import shina.wallwarRebirth.shop.element.Material
 
 object TeamWarehouses {
-    const val SIZE = 54
+    const val SIZE = 72
 
     private val boxes = HashMap<String, SimpleContainer>()
 
     fun init() {
         TeamStores.lookup = TeamStoreLookup { _, team -> store(team) }
+    }
+
+    fun deposit(team: String, stack: ItemStack): ItemStack {
+        if (stack.isEmpty) return ItemStack.EMPTY
+        val box = of(team) ?: return stack
+        return ChestStore(box).quickPut(stack)
     }
 
     fun acceptAll(team: String, stack: ItemStack): Boolean {

@@ -38,7 +38,8 @@ object MatchPersistence {
             entry.putString("Team", member.team)
             entry.putString("ClassId", member.classId)
             entry.putBoolean("ClassLocked", member.classLocked)
-            entry.putLong("MinerUntil", member.minerUntil)
+            entry.putLong("SkillReadyAt", member.skillReadyAt)
+            entry.putLong("WreckerDigUntil", member.wreckerDigUntil)
             entry.putBoolean("Ready", member.ready)
             entry.putBoolean("Started", member.started)
             entry.putBoolean("IronGiven", member.ironGiven)
@@ -88,9 +89,10 @@ object MatchPersistence {
             val id = runCatching { UUID.fromString(entry.getStringOr("Id", "")) }.getOrNull() ?: continue
             val member = Match.Member(id)
             member.team = entry.getStringOr("Team", "")
-            member.classId = Classes.MINER
-            member.classLocked = true
-            member.minerUntil = entry.getLongOr("MinerUntil", 0L)
+            member.classId = Classes.normalize(entry.getStringOr("ClassId", Classes.MINER))
+            member.classLocked = entry.getBooleanOr("ClassLocked", true)
+            member.skillReadyAt = entry.getLongOr("SkillReadyAt", 0L)
+            member.wreckerDigUntil = entry.getLongOr("WreckerDigUntil", 0L)
             member.ready = entry.getBooleanOr("Ready", false)
             member.started = entry.getBooleanOr("Started", false)
             member.ironGiven = entry.getBooleanOr("IronGiven", false)

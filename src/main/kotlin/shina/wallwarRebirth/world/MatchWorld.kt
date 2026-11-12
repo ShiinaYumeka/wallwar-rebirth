@@ -11,6 +11,8 @@ import net.minecraft.server.level.TicketType
 import net.minecraft.world.level.ChunkPos
 import net.minecraft.world.level.block.Blocks
 import net.minecraft.world.level.block.Block
+import net.minecraft.world.level.block.DoublePlantBlock
+import net.minecraft.world.level.block.state.properties.DoubleBlockHalf
 import net.minecraft.world.level.block.LeavesBlock
 import net.minecraft.world.level.block.RotatedPillarBlock
 import net.minecraft.world.level.levelgen.Heightmap
@@ -103,6 +105,7 @@ object MatchWorld {
         placeRearTree(level, redCore, blueCore)
         placeRearTree(level, blueCore, redCore)
         SurfaceOres.scatter(level, redCore, blueCore)
+        shortenGrass(level, min, max)
         level.dayTime = MatchRules.DAY_TIME
         level.setWeatherParameters(6000, 0, false, false)
         return Built(
@@ -124,6 +127,29 @@ object MatchWorld {
             for (cz in chunkMin..chunkMax) positions.add(ChunkPos(cx, cz))
         }
         return positions
+    }
+
+    private fun shortenGrass(level: ServerLevel, min: Int, max: Int) {
+        val minY = level.minY
+        val maxY = minY + level.height - 1
+        for (x in min..max) {
+            for (z in min..max) {
+                val surface = level.getHeight(Heightmap.Types.MOTION_BLOCKING, x, z)
+                val top = (surface + 8).coerceAtMost(maxY)
+                val bottom = (surface - 1).coerceAtLeast(minY)
+                for (y in top downTo bottom) {
+                    val pos = BlockPos(x, y, z)
+                    val state = level.getBlockState(pos)
+                    if (!state.`is`(Blocks.TALL_GRASS)) continue
+                    if (state.hasProperty(DoublePlantBlock.HALF) &&
+                        state.getValue(DoublePlantBlock.HALF) == DoubleBlockHalf.UPPER) {
+                        level.setBlock(pos, Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL)
+                    } else {
+                        level.setBlock(pos, Blocks.SHORT_GRASS.defaultBlockState(), Block.UPDATE_ALL)
+                    }
+                }
+            }
+        }
     }
 
     private fun ease(level: ServerLevel, min: Int, max: Int) {

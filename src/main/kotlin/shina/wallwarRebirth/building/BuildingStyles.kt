@@ -9,6 +9,9 @@ import net.minecraft.nbt.CompoundTag
 import net.minecraft.nbt.NbtIo
 import net.minecraft.nbt.NbtUtils
 import net.minecraft.server.level.ServerLevel
+import net.minecraft.tags.BlockTags
+import net.minecraft.world.level.BlockGetter
+import net.minecraft.world.level.Level
 import net.minecraft.world.level.block.Blocks
 import net.minecraft.world.level.block.Rotation
 import net.minecraft.world.level.block.entity.StructureBlockEntity
@@ -104,6 +107,7 @@ object BuildingStyles {
             if (!BuildingFootprints.inside(definition, relative.x, relative.z)) continue
             val pos = origin.offset(relative.x, relative.y, relative.z)
             if (pos == origin || level.isOutsideBuildHeight(pos)) continue
+            if (skipRelative(definition, relative)) continue
             if (pos.y == origin.y - 1) {
                 val current = level.getBlockState(pos)
                 if (!current.isAir &&
@@ -114,14 +118,28 @@ object BuildingStyles {
                     remember(pos, current)
                 }
             }
+            val real = realWorldState(definition, relative)
+            if (real != null) {
+                level.setBlock(pos, real, net.minecraft.world.level.block.Block.UPDATE_ALL)
+                placed.add(pos)
+                continue
+            }
             val state = ModSites.STRUCTURE.defaultBlockState()
             level.setBlock(pos, state, net.minecraft.world.level.block.Block.UPDATE_ALL)
             val entity = level.getBlockEntity(pos) as? SiteStructureBlockEntity ?: continue
-            entity.appearance = piece.state
+            entity.appearance = relative.state
             entity.corePos = origin
             entity.setChanged()
             level.chunkSource.blockChanged(pos)
             placed.add(pos)
+        }
+        if (definition.id == Buildings.RELAY.id) {
+            for (dy in 1..2) {
+                val pos = origin.offset(0, dy, 0)
+                if (pos == origin || level.isOutsideBuildHeight(pos)) continue
+                level.setBlock(pos, Blocks.BARRIER.defaultBlockState(), net.minecraft.world.level.block.Block.UPDATE_ALL)
+                placed.add(pos)
+            }
         }
         return placed
     }
@@ -157,6 +175,9 @@ object BuildingStyles {
         return piece.copy(x = x, z = z, state = state)
     }
 
+    private fun skipRelative(definition: BuildingDefinition, relative: Piece): Boolean =
+        definition.id == Buildings.FARMLAND.id && relative.x == 0 && relative.y == 1 && relative.z == 0
+
     private fun coverable(level: ServerLevel, pos: BlockPos): Boolean {
         val state = level.getBlockState(pos)
         if (state.block is SiteCoreBlock || state.block is SiteStructureBlock || state.block is SitePartBlock) return false
@@ -172,22 +193,108 @@ object BuildingStyles {
             return owner != origin
         }
         if (state.block is SitePartBlock) return false
-        if (state.`is`(net.minecraft.tags.BlockTags.LEAVES)) return false
-        if (state.`is`(net.minecraft.tags.BlockTags.FLOWERS)) return false
-        if (state.`is`(net.minecraft.tags.BlockTags.SAPLINGS)) return false
-        return state.block != Blocks.SHORT_GRASS &&
-            state.block != Blocks.TALL_GRASS &&
-            state.block != Blocks.FERN &&
-            state.block != Blocks.LARGE_FERN
+        return !isNonSolid(level, pos)
     }
 
-    private fun clearOwned(level: ServerLevel, origin: BlockPos, previous: List<BlockPos>) {
-        for (pos in previous) {
+    fun isNonSolid(level: Level, pos: BlockPos): Boolean {
+        val state = level.getBlockState(pos)
+        if (state.isAir) return true
+        if (!state.fluidState.isEmpty) return false
+        if (state.`is`(BlockTags.LEAVES) || state.`is`(BlockTags.FLOWERS) || state.`is`(BlockTags.SAPLINGS)) return true
+        if (state.block == Blocks.SHORT_GRASS ||
+            state.block == Blocks.TALL_GRASS ||
+            state.block == Blocks.FERN ||
+            state.block == Blocks.LARGE_FERN) return true
+        return state.getCollisionShape(level, pos).isEmpty
+    }
+
+    fun hasRealWorldParts(definition: BuildingDefinition): Boolean =
+        definition.realWorldParts ||
+            definition.id == Buildings.TESLA.id ||
+            definition.id == Buildings.RELAY.id
+
+    private fun realWorldState(definition: BuildingDefinition, relative: Piece): BlockState? {
+        if (definition.realWorldParts && !relative.state.isAir) return relative.state
+        if (definition.id == Buildings.TESLA.id &&
+            relative.y == -1 &&
+            relative.state.block == Blocks.POLISHED_DIORITE_STAIRS
+        ) {
+            return relative.state
+        }
+        return null
+    }
+
+    fun isProtectedPart(core: SiteCoreBlockEntity, pos: BlockPos): Boolean {
+        if (pos == core.blockPos || pos !in core.partPositions) return false
+        val world = core.level as? ServerLevel ?: return false
+        val state = world.getBlockState(pos)
+        if (state.block is SiteCoreBlock || state.block is SiteStructureBlock || state.block is SitePartBlock) return false
+        return when (core.buildingId) {
+            Buildings.FARMLAND.id -> true
+            Buildings.TESLA.id -> state.block == Blocks.POLISHED_DIORITE_STAIRS
+            Buildings.RELAY.id -> state.block == Blocks.BARRIER
+            else -> false
+        }
+    }
+
+    fun isProtectedPart(level: BlockGetter, pos: BlockPos): Boolean {
+        val world = level as? ServerLevel ?: return false
+        return SiteCores.all().any { core ->
+            core.level === world && !core.isRemoved && isProtectedPart(core, pos)
+        }
+    }
+
+    fun ensureRealParts(site: SiteCoreBlockEntity, level: ServerLevel) {
+        var changed = false
+        if (site.buildingId == Buildings.TESLA.id) {
+            for (pos in site.partPositions) {
+                if (pos == site.blockPos || pos.y != site.blockPos.y - 1) continue
+                val entity = level.getBlockEntity(pos) as? SiteStructureBlockEntity ?: continue
+                if (entity.appearance.block != Blocks.POLISHED_DIORITE_STAIRS) continue
+                level.setBlock(pos, entity.appearance, net.minecraft.world.level.block.Block.UPDATE_ALL)
+                changed = true
+            }
+        }
+        if (site.buildingId == Buildings.RELAY.id) {
+            for (dy in 1..2) {
+                val pos = site.blockPos.offset(0, dy, 0)
+                if (level.isOutsideBuildHeight(pos) || pos == site.blockPos) continue
+                val state = level.getBlockState(pos)
+                if (state.block == Blocks.BARRIER) {
+                    if (pos !in site.partPositions) {
+                        site.partPositions.add(pos)
+                        changed = true
+                    }
+                    continue
+                }
+                if (state.isAir || state.block is SiteStructureBlock) {
+                    level.setBlock(pos, Blocks.BARRIER.defaultBlockState(), net.minecraft.world.level.block.Block.UPDATE_ALL)
+                    if (pos !in site.partPositions) site.partPositions.add(pos)
+                    changed = true
+                }
+            }
+        }
+        if (changed) site.setChanged()
+    }
+
+    fun clearTrackedParts(level: ServerLevel, origin: BlockPos, parts: List<BlockPos>, realWorldParts: Boolean) {
+        for (pos in parts) {
+            if (pos == origin || level.isOutsideBuildHeight(pos)) continue
             val state = level.getBlockState(pos)
-            if (state.block is SiteStructureBlock || state.block is SitePartBlock) {
+            if (state.block is SiteStructureBlock ||
+                state.block is SitePartBlock ||
+                (realWorldParts && !state.isAir && state.block !is SiteCoreBlock)
+            ) {
                 level.setBlock(pos, Blocks.AIR.defaultBlockState(), net.minecraft.world.level.block.Block.UPDATE_ALL)
             }
         }
+    }
+
+    private fun clearOwned(level: ServerLevel, origin: BlockPos, previous: List<BlockPos>) {
+        val real = (level.getBlockEntity(origin) as? SiteCoreBlockEntity)?.let { core ->
+            Buildings.byId(core.buildingId)?.realWorldParts == true
+        } == true
+        clearTrackedParts(level, origin, previous, real)
         for (dx in -2..2) {
             for (dz in -2..2) {
                 for (dy in -1..1) {
@@ -211,6 +318,8 @@ object BuildingStyles {
             Buildings.CANNON.id -> CoreForm.DISPENSER
             Buildings.TESLA.id -> CoreForm.LIGHTNING_ROD
             Buildings.RELAY.id -> CoreForm.HOPPER
+            Buildings.PILLAGER.id -> CoreForm.PILLAGER_BANNER
+            Buildings.FARMLAND.id -> CoreForm.COMPOSTER
             else -> CoreForm.BEACON
         }
         if (state.getValue(SiteCoreBlock.FORM) == form) return

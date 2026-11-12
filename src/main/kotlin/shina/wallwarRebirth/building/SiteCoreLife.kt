@@ -1,4 +1,5 @@
 package shina.wallwarRebirth.building
+import shina.wallwarRebirth.profession.ProfessionEffects
 
 import net.minecraft.core.BlockPos
 import net.minecraft.core.particles.ParticleTypes
@@ -62,12 +63,7 @@ internal fun SiteCoreBlockEntity.descend(level: ServerLevel, definition: Buildin
     }
     val parts = partPositions.toList()
     partPositions.clear()
-    for (pos in parts) {
-        val state = level.getBlockState(pos)
-        if (state.block is SiteStructureBlock || state.block is SitePartBlock) {
-            level.setBlock(pos, Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL)
-        }
-    }
+    BuildingStyles.clearTrackedParts(level, blockPos, parts, BuildingStyles.hasRealWorldParts(definition))
     val from = blockPos
     val state = level.getBlockState(from)
     level.setBlock(to, state, Block.UPDATE_ALL)
@@ -82,6 +78,7 @@ internal fun SiteCoreBlockEntity.descend(level: ServerLevel, definition: Buildin
         },
     )
     moved.repositionDisplays(level)
+    shina.wallwarRebirth.monster.SummonedUnits.rebindHomes(level, from, to)
     moved.setChanged()
     return true
 }
@@ -111,25 +108,25 @@ internal fun SiteCoreBlockEntity.pathClear(level: ServerLevel): Boolean {
         val under = pos.below()
         if (under in occupied) continue
         val state = level.getBlockState(under)
-        if (state.isAir || state.`is`(BlockTags.PLANKS)) continue
+        if (state.`is`(BlockTags.PLANKS) || BuildingStyles.isNonSolid(level, under)) continue
         return false
     }
     return true
 }
 
-internal fun SiteCoreBlockEntity.unsupported(level: ServerLevel, definition: BuildingDefinition, supports: List<BlockPos>): Boolean {
+internal fun unsupported(level: ServerLevel, definition: BuildingDefinition, supports: List<BlockPos>): Boolean {
     if (definition.footprint == Footprint.SQUARE_1 && supports.size == 1) {
         val state = level.getBlockState(supports[0])
         if (state.`is`(BlockTags.PLANKS)) {
             val under = supports[0].below()
             if (level.isOutsideBuildHeight(under)) return false
             val below = level.getBlockState(under)
-            return below.isAir || below.`is`(BlockTags.PLANKS)
+            return below.`is`(BlockTags.PLANKS) || BuildingStyles.isNonSolid(level, under)
         }
     }
     return supports.all { pos ->
         val state = level.getBlockState(pos)
-        state.isAir || state.`is`(BlockTags.PLANKS)
+        state.`is`(BlockTags.PLANKS) || BuildingStyles.isNonSolid(level, pos)
     }
 }
 
@@ -144,6 +141,7 @@ internal fun SiteCoreBlockEntity.absorb(from: SiteCoreBlockEntity) {
     actionAge = from.actionAge
     producedMonster = from.producedMonster
     marching = from.marching
+    holding = from.holding
     eggReleaseAge = from.eggReleaseAge
     healthDisplayId = from.healthDisplayId
     crossbowId = from.crossbowId
@@ -171,7 +169,7 @@ internal fun SiteCoreBlockEntity.absorb(from: SiteCoreBlockEntity) {
     copyItems(from.barracksEggs, barracksEggs)
 }
 
-internal fun SiteCoreBlockEntity.copyItems(from: SimpleContainer, to: SimpleContainer) {
+internal fun copyItems(from: SimpleContainer, to: SimpleContainer) {
     for (slot in 0 until to.containerSize) {
         val stack = if (slot < from.containerSize) from.getItem(slot).copy() else ItemStack.EMPTY
         to.setItem(slot, stack)
@@ -193,6 +191,7 @@ internal fun SiteCoreBlockEntity.repositionDisplays(level: ServerLevel) {
 
 internal fun SiteCoreBlockEntity.storedDamage(amount: Int, struck: BlockPos = blockPos, attackerName: String? = null, attacker: LivingEntity? = null) {
     if (amount <= 0 || isRemoved || buildingId.isEmpty() || health <= 0) return
+    if (FarmlandWork.isPart(this, struck) || BuildingStyles.isProtectedPart(this, struck)) return
     val world = level as? ServerLevel
     if (world != null) {
         val state = world.getBlockState(struck)
@@ -220,6 +219,7 @@ internal fun SiteCoreBlockEntity.storedDamage(amount: Int, struck: BlockPos = bl
                 val fallen = level as? ServerLevel
                 if (fallen != null) Ports.match.onBaseFallen(fallen, team)
             }
+            ProfessionEffects.dropIfWrecker(this, attacker as? Player)
             destroy()
         }
 }
@@ -234,14 +234,15 @@ internal fun SiteCoreBlockEntity.storedDestroy() {
     TowerCrossbows.discard(this)
     val world = level as? ServerLevel ?: return
     BarracksWork.discardStock(this, world)
+    FarmlandWork.dropStored(this, world)
     val parts = partPositions.toList()
     partPositions.clear()
-    for (pos in parts) {
-        val state = world.getBlockState(pos)
-        if (state.block is SiteStructureBlock || state.block is SitePartBlock) {
-            world.setBlock(pos, Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL)
-        }
-    }
+    BuildingStyles.clearTrackedParts(
+        world,
+        blockPos,
+        parts,
+        Buildings.byId(buildingId)?.let { BuildingStyles.hasRealWorldParts(it) } == true,
+    )
     BuildingStructure.clearLegacy(world, blockPos)
     restoreCovered(world)
     if (world.getBlockState(blockPos).block is SiteCoreBlock) {

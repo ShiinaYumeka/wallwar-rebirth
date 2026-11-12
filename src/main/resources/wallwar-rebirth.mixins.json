@@ -5,15 +5,21 @@
   "compatibilityLevel": "JAVA_21",
   "mixins": [
     "AbstractArrowAccess",
+    "AbstractContainerMenuMixin",
+    "AbstractArrowKnockbackMixin",
     "ChunkMapAccess",
     "ChunkMapMixin",
     "LevelSeedMixin",
+    "LivingEntityKnockbackMixin",
     "CrafterBlockEntityMixin",
     "ResultSlotMixin",
     "ServerChunkCacheAccess",
     "ServerPlayerGameModeMixin",
     "PlayerRidingMixin",
-    "CreeperExplodeMixin"
+    "CreeperExplodeMixin",
+    "EvokerFangsMixin",
+    "CropBlockMixin",
+    "FarmBlockMixin"
   ],
   "injectors": {
     "defaultRequire": 1

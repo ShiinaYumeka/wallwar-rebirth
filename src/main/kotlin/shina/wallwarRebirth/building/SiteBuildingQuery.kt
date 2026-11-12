@@ -28,6 +28,7 @@ object SiteBuildingQuery : BuildingQuery {
     override fun strikePoints(level: ServerLevel, origin: BlockPos, radius: Int): List<StrikePoint> {
         val points = ArrayList<StrikePoint>()
         fun add(core: SiteCoreBlockEntity, pos: BlockPos) {
+            if (FarmlandWork.isPart(core, pos)) return
             if (core.isRemoved || core.health <= 0 || core.buildingId.isEmpty()) return
             points.add(
                 StrikePoint(

@@ -15,8 +15,11 @@ import shina.wallwarRebirth.building.Relay
 import shina.wallwarRebirth.rules.MatchRules
 import shina.wallwarRebirth.world.SurfaceOres
 import shina.wallwarRebirth.building.Buildings
+import shina.wallwarRebirth.building.FarmlandWork
 import shina.wallwarRebirth.building.SiteCoreBlockEntity
 import shina.wallwarRebirth.targeting.CounterTargeting
+import shina.wallwarRebirth.targeting.HoldTargeting
+import shina.wallwarRebirth.targeting.Targeting
 import shina.wallwarRebirth.targeting.SpiderTargeting
 import shina.wallwarRebirth.targeting.SummonDefaultTargeting
 import shina.wallwarRebirth.targeting.TargetWorlds
@@ -50,10 +53,21 @@ class SummonedBrain(private val mob: Mob, private val unit: SummonedUnit) {
     private val minerPile = ArrayList<Long>()
     private var depositPos: BlockPos? = null
     private var summonPos: BlockPos? = null
+    private var homePos: BlockPos? = null
+    private var returningHome = false
+    private var patrolTicks = 0
     private var fuseLive = false
     private var fuseBuilding: SiteCoreBlockEntity? = null
 
     fun called(): Boolean = summonPos != null
+
+    fun callDestination(): BlockPos? = summonPos
+
+    fun finishCall() {
+        summonPos = null
+    }
+
+    fun distanceToCenter(pos: BlockPos): Double = distanceToCore(pos)
 
     fun acceptCall(pos: BlockPos) {
         summonPos = pos.immutable()
@@ -68,8 +82,50 @@ class SummonedBrain(private val mob: Mob, private val unit: SummonedUnit) {
 
     internal var ignoreDefensiveBuildings: Boolean = false
 
+    fun bindHome(pos: BlockPos?) {
+        homePos = pos?.immutable()
+    }
+
+    fun homePos(): BlockPos? = homePos
+
+    fun homeSite(level: ServerLevel): SiteCoreBlockEntity? {
+        val pos = homePos ?: return null
+        val site = level.getBlockEntity(pos) as? SiteCoreBlockEntity ?: return null
+        if (site.isRemoved || site.buildingId != Buildings.PILLAGER.id || site.health <= 0) return null
+        return site
+    }
+
+    fun rebindHome(from: BlockPos, to: BlockPos) {
+        if (homePos == from) homePos = to.immutable()
+    }
+
+    fun reassertIfHome(pos: BlockPos) {
+        if (homePos != pos) return
+        enterPath()
+        returningHome = false
+    }
+
+    fun holdingActive(level: ServerLevel): Boolean {
+        val site = homeSite(level) ?: return false
+        return site.holding
+    }
+
+    fun siegingTeam(team: String): Boolean {
+        if (team.isEmpty() || phase != Phase.PATH) return false
+        val hit = nearestSiegeTarget() ?: return false
+        return hit.core.team == team
+    }
+
     internal fun tickCombat(level: ServerLevel) {
         if (!prepare(level)) return
+        if (stats.buildingsOnly && !holdingActive(level) && (phase == Phase.COUNTER || phase == Phase.CHASE)) {
+            enterPath()
+        }
+        if (holdingActive(level)) {
+            tickHold(level)
+            return
+        }
+        returningHome = false
         when (phase) {
             Phase.COUNTER -> tickCounter(level)
             else -> tickSeek(level)
@@ -96,6 +152,11 @@ class SummonedBrain(private val mob: Mob, private val unit: SummonedUnit) {
     }
 
     fun onDamaged(level: ServerLevel, source: DamageSource) {
+        if (stats.buildingsOnly && !holdingActive(level)) return
+        if (holdingActive(level)) {
+            onHoldDamaged(level, source)
+            return
+        }
         val attacker = source.entity as? LivingEntity
         val chosen = CounterTargeting.select(
             TargetWorlds.world,
@@ -146,11 +207,12 @@ class SummonedBrain(private val mob: Mob, private val unit: SummonedUnit) {
         output.putInt("MinerTicks", minerTicks)
         writePos(output, "Deposit", depositPos)
         writePos(output, "Summon", summonPos)
+        writePos(output, "Home", homePos)
     }
 
     fun load(input: net.minecraft.world.level.storage.ValueInput) {
         unit.kindId = input.getStringOr("Kind", unit.kindId)
-        if (Monsters.byId(unit.kindId) == null) unit.kindId = Monsters.ZOMBIE.id
+        if (unit.kindId != SummonedVex.VEX_ID && Monsters.byId(unit.kindId) == null) unit.kindId = Monsters.ZOMBIE.id
         unit.summonedTeam = input.getStringOr("Team", "")
         phase = runCatching { Phase.valueOf(input.getStringOr("Phase", Phase.PATH.name)) }.getOrDefault(Phase.PATH)
         chaseRadius = input.getDoubleOr("ChaseRadius", MonsterRules.CHASE_RADIUS_START)
@@ -178,8 +240,9 @@ class SummonedBrain(private val mob: Mob, private val unit: SummonedUnit) {
         minerTicks = input.getIntOr("MinerTicks", 0)
         depositPos = readPos(input, "Deposit")
         summonPos = readPos(input, "Summon")
+        homePos = readPos(input, "Home")
         minerPile.clear()
-        SummonedGear.applyStats(mob, stats, fill = false)
+        if (unit.kindId != SummonedVex.VEX_ID) SummonedGear.applyStats(mob, stats, fill = false)
     }
 
     private fun tickMiner(level: ServerLevel) {
@@ -333,6 +396,94 @@ class SummonedBrain(private val mob: Mob, private val unit: SummonedUnit) {
         return best
     }
 
+    private fun tickHold(level: ServerLevel) {
+        val site = homeSite(level)
+        if (site == null) {
+            returningHome = false
+            when (phase) {
+                Phase.COUNTER -> tickCounter(level)
+                else -> tickSeek(level)
+            }
+            return
+        }
+        val origin = Vec3.atCenterOf(site.blockPos)
+        val range = MatchRules.PILLAGER_HOLD_RANGE
+        val distance = Targeting.distanceToBox(origin, mob.boundingBox)
+        if (distance > range) {
+            returningHome = true
+            phase = Phase.PATH
+            focusId = null
+            counterSourceId = null
+            mob.setTarget(null)
+            if (mob.tickCount % MonsterRules.REPATH_TICKS == 0) {
+                mob.navigation.moveTo(origin.x, origin.y, origin.z, 1.0)
+            }
+            return
+        }
+        returningHome = false
+        if (phase == Phase.COUNTER) {
+            tickHoldCounter(level, origin, range)
+            return
+        }
+        val target = HoldTargeting.select(TargetWorlds.world, level, origin, unit.summonedTeam, range, mob)
+        if (target == null) {
+            patrolHold(origin, range)
+            return
+        }
+        enterChase(target)
+        tryAttack(target)
+        if (Targeting.distanceToBox(origin, target.boundingBox) > range || !target.isAlive) {
+            enterPath()
+            patrolHold(origin, range)
+        }
+    }
+
+    private fun tickHoldCounter(level: ServerLevel, origin: Vec3, range: Double) {
+        val focus = living(level, focusId)
+        if (focus == null || !focus.isAlive || Targeting.distanceToBox(origin, focus.boundingBox) > range) {
+            enterPath()
+            return
+        }
+        if (focus is ServerPlayer && !Targeting.canTargetPlayer(focus)) {
+            enterPath()
+            return
+        }
+        tryAttack(focus)
+        if (ticksSinceExchange >= MonsterRules.COUNTER_END_TICKS) enterPath()
+    }
+
+    private fun onHoldDamaged(level: ServerLevel, source: DamageSource) {
+        val site = homeSite(level) ?: return
+        val origin = Vec3.atCenterOf(site.blockPos)
+        val range = MatchRules.PILLAGER_HOLD_RANGE
+        val attacker = source.entity as? LivingEntity ?: return
+        if (Targeting.distanceToBox(origin, attacker.boundingBox) > range) return
+        val chosen = HoldTargeting.select(TargetWorlds.world, level, origin, unit.summonedTeam, range, mob) ?: attacker
+        if (chosen is ServerPlayer && !Targeting.canTargetPlayer(chosen)) return
+        if (Targeting.distanceToBox(origin, chosen.boundingBox) > range) return
+        phase = Phase.COUNTER
+        counterSourceId = attacker.uuid
+        focusId = chosen.uuid
+        ticksSinceExchange = 0
+        stuckReady = false
+        mob.setTarget(chosen)
+    }
+
+    private fun patrolHold(origin: Vec3, range: Double) {
+        if (phase != Phase.PATH) enterPath()
+        mob.setTarget(null)
+        patrolTicks++
+        if (patrolTicks < MonsterRules.REPATH_TICKS && mob.navigation.isInProgress) return
+        patrolTicks = 0
+        val random = mob.random
+        val radius = (range * 0.6).coerceAtLeast(2.0)
+        val angle = random.nextDouble() * Math.PI * 2
+        val dist = random.nextDouble() * radius
+        val x = origin.x + Math.cos(angle) * dist
+        val z = origin.z + Math.sin(angle) * dist
+        mob.navigation.moveTo(x, origin.y, z, 1.0)
+    }
+
     private fun tickSeek(level: ServerLevel) {
         val core = refreshCore(level)
         if (core != null) {
@@ -348,13 +499,13 @@ class SummonedBrain(private val mob: Mob, private val unit: SummonedUnit) {
             siege(core)
             return
         }
-        val monster = preferredMonster(level)
+        val monster = if (stats.buildingsOnly) null else preferredMonster(level)
         if (monster != null) {
             if (phase != Phase.CHASE || focusId != monster.living().uuid) enterChase(monster.living())
             tickChase(level)
             return
         }
-        val player = preferredPlayer(level)
+        val player = if (stats.buildingsOnly) null else preferredPlayer(level)
         if (player != null) {
             if (phase != Phase.CHASE || focusId != player.uuid) enterChase(player)
             tickChase(level)
@@ -423,6 +574,7 @@ class SummonedBrain(private val mob: Mob, private val unit: SummonedUnit) {
         var best: SiegeHit? = null
         var bestDist = Double.POSITIVE_INFINITY
         fun consider(core: SiteCoreBlockEntity, pos: BlockPos) {
+            if (FarmlandWork.isPart(core, pos)) return
             if (core.isRemoved || core.health <= 0 || core.team == unit.summonedTeam || skipsDefensive(core)) return
             val dist = mob.position().distanceTo(Vec3.atCenterOf(pos))
             if (dist <= range && dist < bestDist) {
@@ -433,7 +585,10 @@ class SummonedBrain(private val mob: Mob, private val unit: SummonedUnit) {
         for (core in SiteCores.all()) {
             if (core.level !== world) continue
             consider(core, core.blockPos)
-            for (part in core.partPositions) consider(core, part)
+            for (part in core.partPositions) {
+                if (FarmlandWork.isPart(core, part)) continue
+                consider(core, part)
+            }
         }
         val radius = kotlin.math.ceil(range).toInt() + 1
         val origin = mob.blockPosition()
@@ -662,7 +817,7 @@ class SummonedBrain(private val mob: Mob, private val unit: SummonedUnit) {
     }
 
     private fun isHostilePlayer(player: ServerPlayer): Boolean {
-        if (!player.isAlive || player.isRemoved) return false
+        if (!player.isAlive || player.isRemoved || !Targeting.canTargetPlayer(player)) return false
         return shina.wallwarRebirth.contract.WallwarTeams.hostile(unit.summonedTeam, player.team?.name ?: "")
     }
 

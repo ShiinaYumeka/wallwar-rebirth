@@ -1,6 +1,7 @@
 package shina.wallwarRebirth.targeting
 
 import net.minecraft.world.entity.LivingEntity
+import net.minecraft.world.entity.player.Player
 import net.minecraft.world.phys.AABB
 import net.minecraft.world.phys.Vec3
 import shina.wallwarRebirth.contract.WallwarTeams
@@ -10,6 +11,10 @@ object Targeting {
     const val TIE = 0.001
 
     fun hostile(left: String, right: String): Boolean = WallwarTeams.hostile(left, right)
+
+    /** Spectator and creative players never enter targeting, chase, or counter lists. */
+    @JvmStatic
+    fun canTargetPlayer(player: Player): Boolean = !player.isSpectator && !player.isCreative
 
     fun distanceToBox(origin: Vec3, box: AABB): Double {
         val dx = if (origin.x in box.minX..box.maxX) 0.0 else origin.x.coerceIn(box.minX, box.maxX) - origin.x

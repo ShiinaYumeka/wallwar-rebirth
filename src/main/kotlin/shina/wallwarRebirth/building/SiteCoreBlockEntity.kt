@@ -2,11 +2,10 @@ package shina.wallwarRebirth.building
 
 import com.mojang.serialization.Codec
 import com.mojang.serialization.codecs.RecordCodecBuilder
+import net.minecraft.ChatFormatting
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
 import net.minecraft.core.registries.BuiltInRegistries
-import net.minecraft.ChatFormatting
-import net.minecraft.core.particles.ParticleTypes
 import net.minecraft.network.chat.Component
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
@@ -20,24 +19,18 @@ import net.minecraft.world.entity.player.Player
 import net.minecraft.world.item.Item
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.Level
-import net.minecraft.tags.BlockTags
-import net.minecraft.world.level.block.Block
-import net.minecraft.world.level.block.Blocks
-import net.minecraft.world.level.block.LevelEvent
 import net.minecraft.world.level.block.entity.BlockEntity
 import net.minecraft.world.level.block.state.BlockState
-import net.minecraft.world.phys.Vec3
 import net.minecraft.world.level.storage.ValueInput
 import net.minecraft.world.level.storage.ValueOutput
 import shina.wallwarRebirth.match.Match
 import shina.wallwarRebirth.match.MatchPlacement
+import shina.wallwarRebirth.profession.ProfessionEffects
 import shina.wallwarRebirth.rules.MatchRules
-import shina.wallwarRebirth.monster.SummonedUnit
 import shina.wallwarRebirth.shop.match.TeamWarehouses
 import shina.wallwarRebirth.util.playNotifySound
-import shina.wallwarRebirth.util.showActionBar
 import shina.wallwarRebirth.util.showTitle
-import java.util.UUID
+import java.util.*
 import kotlin.math.max
 import kotlin.math.min
 
@@ -52,6 +45,7 @@ class SiteCoreBlockEntity(pos: BlockPos, state: BlockState) : BlockEntity(ModSit
     var actionAge: Int = 0
     var producedMonster: String = "zombie"
     var marching: Boolean = true
+    var holding: Boolean = false
     var eggReleaseAge: Int = 0
     var healthDisplayId: UUID? = null
     override var crossbowId: UUID? = null
@@ -93,6 +87,8 @@ class SiteCoreBlockEntity(pos: BlockPos, state: BlockState) : BlockEntity(ModSit
             deferredDrops.clear()
         }
         val definition = Buildings.byId(buildingId) ?: return
+        if (buildingId == Buildings.FARMLAND.id) FarmlandWork.ensureRealParts(this, level)
+        BuildingStyles.ensureRealParts(this, level)
         if (buildingLevel <= 0) return
         fallAge++
         if (fallAge >= MatchRules.BUILDING_FALL_TICKS) {
@@ -146,8 +142,9 @@ class SiteCoreBlockEntity(pos: BlockPos, state: BlockState) : BlockEntity(ModSit
         age = 0
         fallAge = 0
         actionAge = 0
-        producedMonster = "zombie"
+        producedMonster = defaultMonster(definition)
         marching = true
+        holding = false
         eggReleaseAge = 0
         Containers.dropContents(world, blockPos, barracksMaterials as Container)
         Containers.dropContents(world, blockPos, barracksEggs as Container)
@@ -269,6 +266,9 @@ class SiteCoreBlockEntity(pos: BlockPos, state: BlockState) : BlockEntity(ModSit
             return false
         }
         InventoryCosts.take(player, storage, warehouse, next.costs)
+        if (buildingId == Buildings.WALL.id) {
+            ProfessionEffects.refundWallUpgrade(player, next.costs)
+        }
         val oldMax = definition.maxHealth(buildingLevel)
         buildingLevel += 1
         val newMax = definition.maxHealth(buildingLevel)
@@ -406,6 +406,9 @@ class SiteCoreBlockEntity(pos: BlockPos, state: BlockState) : BlockEntity(ModSit
         const val STORAGE_SIZE = 36
         const val BARRACKS_MATERIALS = 16
         const val BARRACKS_EGGS = 12
+
+        fun defaultMonster(definition: BuildingDefinition): String =
+            if (definition.id == Buildings.PILLAGER.id) "pillager" else "zombie"
 
         fun itemKey(item: Item): String = BuiltInRegistries.ITEM.getKey(item).toString()
 
