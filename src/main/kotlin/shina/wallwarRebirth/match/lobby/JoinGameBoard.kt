@@ -72,8 +72,8 @@ class JoinGameBoard(private val viewer: ServerPlayer) : SimpleGui(MenuType.GENER
         listOf(
             "队伍：${Match.member(viewer.uuid)?.team?.ifEmpty { "无" } ?: "无"}",
             "职业：${Classes.name(Match.member(viewer.uuid)?.classId ?: Classes.MINER)}",
-            "红队准备 ${readyText(WallwarTeams.RED)}",
-            "蓝队准备 ${readyText(WallwarTeams.BLUE)}",
+            "红队准备（${readyText(WallwarTeams.RED)}）",
+            "蓝队准备（${readyText(WallwarTeams.BLUE)}）",
         ),
     )
 
@@ -98,9 +98,11 @@ class JoinGameBoard(private val viewer: ServerPlayer) : SimpleGui(MenuType.GENER
     private fun readyButton(): net.minecraft.world.item.ItemStack {
         val member = Match.member(viewer.uuid)
         val ready = member?.ready == true
+        val team = member?.team.orEmpty()
+        val title = (if (ready) "已准备" else "未准备") + if (team.isEmpty()) "" else "（${readyText(team)}）"
         return named(
             if (ready) Items.LIME_DYE else Items.GRAY_DYE,
-            if (ready) "已准备" else "未准备",
+            title,
             if (ready) ChatFormatting.GREEN else ChatFormatting.GRAY,
             listOf(
                 if (Match.phase != Match.Phase.LOBBY) phaseName()
@@ -116,7 +118,7 @@ class JoinGameBoard(private val viewer: ServerPlayer) : SimpleGui(MenuType.GENER
         "旁观",
         ChatFormatting.AQUA,
         listOf(
-            if (Match.worldReady) "点击进入旁观，会退出当前队伍和准备" else "现在没有对局",
+            if (Match.worldReady) "点击进入旁观，会退出当前队伍和准备" else "地图尚未生成，点击后将在观察阶段开始时进入场地",
             "在局内面板可以返回大厅",
         ),
     )

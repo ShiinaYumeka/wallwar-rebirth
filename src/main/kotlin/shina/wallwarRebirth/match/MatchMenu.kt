@@ -36,8 +36,12 @@ object MatchMenu {
         }
     }
 
+    @JvmStatic
+    fun isBound(stack: ItemStack): Boolean =
+        MatchMenuItem.isMenu(stack) || PortableTerminalItem.isTerminal(stack)
+
     fun stripOnDeath(player: Player) {
-        takeMatching(player) { PortableTerminalItem.isTerminal(it) || ReturnLobbyItem.isReturn(it) }
+        takeMatching(player) { isBound(it) || ReturnLobbyItem.isReturn(it) }
     }
 
     private fun reconcile(

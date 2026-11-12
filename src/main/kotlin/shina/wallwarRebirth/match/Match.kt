@@ -40,6 +40,7 @@ object Match : MatchPort {
         var skillReadyAt: Long = 0
         var wreckerDigUntil: Long = 0
         var ready: Boolean = false
+        var spectating: Boolean = false
         var started: Boolean = false
         var ironGiven: Boolean = false
         var respawnAt: Int = 0
@@ -66,6 +67,7 @@ object Match : MatchPort {
     internal var watchEndsAt: Int = 0
     internal var watchSecond: Int = -1
     internal var settleResetAt: Int = -1
+    private val pendingLobby = LinkedHashSet<UUID>()
     internal var server: MinecraftServer? = null
 
     fun attach(current: MinecraftServer) {
@@ -81,6 +83,7 @@ object Match : MatchPort {
 
     fun tick(current: MinecraftServer) {
         server = current
+        flushLobbyReturns(current)
         for (level in current.allLevels) {
             val rules = level.gameRules
             if (rules.get(GameRules.IMMEDIATE_RESPAWN) == true) continue
@@ -154,13 +157,11 @@ object Match : MatchPort {
             member.started = false
         }
         member.team = team
+        member.spectating = false
         MatchMenu.give(player)
         when (phase) {
             Phase.LOBBY -> player.setGameMode(GameType.ADVENTURE)
-            Phase.WATCH -> {
-                player.setGameMode(GameType.SPECTATOR)
-                MatchRoster.teleportSpawn(player, team)
-            }
+            Phase.WATCH -> MatchRoster.teleportThenSpectate(player, team)
             Phase.FIGHT -> {
                 if (!member.ironGiven) MatchRoster.resetVitals(player)
                 MatchRoster.enterFight(player, member)
@@ -207,11 +208,11 @@ object Match : MatchPort {
             return
         }
         if (member.ready) {
-            player.sendSystemMessage(Component.literal("已准备"))
+            player.sendSystemMessage(Component.literal(readyText(player, member.team, "已准备")))
             return
         }
         member.ready = true
-        player.sendSystemMessage(Component.literal("已准备"))
+        MatchRoster.notifyTeam(player.level().server, member.team, readyText(player, member.team, "已准备"))
         MatchPersistence.save(player.level().server)
         MatchFlow.tryBeginWatch(player.level().server)
     }
@@ -249,15 +250,17 @@ object Match : MatchPort {
         if (!member.ready) return
         member.ready = false
         MatchPersistence.save(player.level().server)
-        player.sendSystemMessage(Component.literal("已取消准备"))
+        MatchRoster.notifyTeam(player.level().server, member.team, readyText(player, member.team, "已取消准备"))
+    }
+
+    private fun readyText(player: ServerPlayer, team: String, action: String): String {
+        val (done, total) = counts(player.level().server, team, readyFlag = true)
+        return "$action（$done/$total）"
     }
 
     fun leaveSpectate(player: ServerPlayer) {
-        val current = player.level().server
-        val overworld = current.overworld()
-        val spawn = overworld.respawnData.pos()
-        MatchRoster.teleport(player, overworld, spawn.x + 0.5, spawn.y.toDouble(), spawn.z + 0.5, player.yRot)
-        player.setGameMode(GameType.ADVENTURE)
+        members[player.uuid]?.spectating = false
+        MatchRoster.sendToLobby(player)
         MatchMenu.give(player)
         player.sendSystemMessage(Component.literal("已离开旁观"))
     }
@@ -306,14 +309,14 @@ object Match : MatchPort {
         MatchSurrender.clear()
         shina.wallwarRebirth.building.CannonCrew.settle(current, false)
         val arena = current.getLevel(MatchRules.DIMENSION)
-        val overworld = current.overworld()
+        pendingLobby.clear()
         for (player in current.playerList.players.toList()) {
-            if (player.level().dimension() == MatchRules.DIMENSION) {
-                val spawn = overworld.respawnData.pos()
-                MatchRoster.teleport(player, overworld, spawn.x + 0.5, spawn.y.toDouble(), spawn.z + 0.5, player.yRot)
+            if (player.level().dimension() == MatchRules.DIMENSION || members.containsKey(player.uuid)) {
+                MatchRoster.sendToLobby(player)
             }
-            if (members.containsKey(player.uuid)) player.setGameMode(GameType.ADVENTURE)
         }
+        MatchRoster.clearScoreboardTeams(current)
+        MatchRoster.discardLooseItems(current)
         MatchWorld.release(current)
         if (arena != null && !ArenaReset.wipe(arena)) {
             actor?.sendSystemMessage(Component.literal("重置地形失败，请看服务器日志"))
@@ -327,15 +330,17 @@ object Match : MatchPort {
         watchSecond = -1
         MatchFlow.clearTerrainTitle(current)
         for (member in members.values) {
+            member.team = ""
             member.classId = Classes.MINER
             member.classLocked = true
             member.skillReadyAt = 0
             member.wreckerDigUntil = 0
             member.ready = false
+            member.spectating = false
             member.started = false
             member.ironGiven = false
             member.respawnAt = 0
-            member.pendingReset = member.team == WallwarTeams.RED || member.team == WallwarTeams.BLUE
+            member.pendingReset = true
             member.heldItems = emptyList()
             member.heldLevel = 0
             member.heldProgress = 0f
@@ -355,49 +360,46 @@ object Match : MatchPort {
     fun onJoin(player: ServerPlayer) {
         shina.wallwarRebirth.building.CannonCrew.rejoin(player)
         val member = members[player.uuid]
-        val inThisMatch = member != null &&
-            (member.team == WallwarTeams.RED || member.team == WallwarTeams.BLUE) &&
-            phase != Phase.LOBBY
+        val inThisMatch = inThisMatch(member)
         if (!inThisMatch) {
             val current = player.level().server
             server = current
             if (member != null && MatchRoster.applyBodyReset(player, member)) MatchPersistence.save(current)
-            if (player.level().dimension() == MatchRules.DIMENSION) {
-                val overworld = current.overworld()
-                val spawn = overworld.respawnData.pos()
-                MatchRoster.teleport(player, overworld, spawn.x + 0.5, spawn.y.toDouble(), spawn.z + 0.5, player.yRot)
-                player.setGameMode(GameType.ADVENTURE)
+            if (player.level().dimension() != current.overworld().dimension()) {
+                pendingLobby.add(player.uuid)
+            } else {
+                MatchRoster.clearArenaRespawn(player)
             }
             MatchRoster.offerMenu(player)
             return
         }
+        val present = member ?: return
         val current = player.level().server
         server = current
-        if (MatchRoster.applyBodyReset(player, member)) MatchPersistence.save(current)
+        if (MatchRoster.applyBodyReset(player, present)) MatchPersistence.save(current)
         when (phase) {
             Phase.LOBBY -> player.setGameMode(GameType.ADVENTURE)
             Phase.WATCH -> {
-                player.setGameMode(GameType.SPECTATOR)
-                MatchRoster.teleportSpawn(player, member.team)
-                MatchGui.open(player)
+                sendIntoWatch(player, present)
+                if (isTeamed(present)) MatchGui.open(player)
             }
             Phase.FIGHT -> {
-                if (member.respawnAt > current.tickCount) {
-                    player.setGameMode(GameType.SPECTATOR)
-                    MatchRoster.teleportSpawn(player, member.team)
-                    val left = member.respawnAt - current.tickCount
-                    val seconds = (left + MatchRules.TICKS_PER_SECOND - 1) / MatchRules.TICKS_PER_SECOND
-                    MatchRoster.showRespawnTitle(player, seconds)
+                if (isTeamed(present)) {
+                    if (present.respawnAt > current.tickCount) {
+                        MatchRoster.teleportThenSpectate(player, present.team)
+                        val left = present.respawnAt - current.tickCount
+                        val seconds = (left + MatchRules.TICKS_PER_SECOND - 1) / MatchRules.TICKS_PER_SECOND
+                        MatchRoster.showRespawnTitle(player, seconds)
+                    } else {
+                        present.respawnAt = 0
+                        if (!present.ironGiven) MatchRoster.resetVitals(player)
+                        MatchRoster.enterFight(player, present)
+                    }
                 } else {
-                    member.respawnAt = 0
-                    if (!member.ironGiven) MatchRoster.resetVitals(player)
-                    MatchRoster.enterFight(player, member)
+                    sendIntoWatch(player, present)
                 }
             }
-            Phase.SETTLE -> {
-                player.setGameMode(GameType.SPECTATOR)
-                if (worldReady) MatchRoster.teleportSpawn(player, member.team)
-            }
+            Phase.SETTLE -> sendIntoSettle(player, present)
         }
         MatchMenu.give(player)
     }
@@ -409,33 +411,30 @@ object Match : MatchPort {
 
     fun leaveAndSpectate(player: ServerPlayer) {
         val current = player.level().server
-        val member = members[player.uuid]
-        if (member != null) {
-            member.team = ""
-            member.ready = false
-            member.started = false
-            current.scoreboard.removePlayerFromTeam(player.scoreboardName)
-            MatchPersistence.save(current)
+        val member = members.getOrPut(player.uuid) { Member(player.uuid) }
+        if (member.team.isNotEmpty()) current.scoreboard.removePlayerFromTeam(player.scoreboardName)
+        member.team = ""
+        member.ready = false
+        member.started = false
+        member.spectating = true
+        MatchPersistence.save(current)
+        if (worldReady) {
+            spectate(player)
+        } else {
+            if (phase == Phase.LOBBY) player.setGameMode(GameType.ADVENTURE)
+            player.sendSystemMessage(Component.literal("将在观察阶段开始时进入场地"))
         }
-        if (phase == Phase.LOBBY) player.setGameMode(GameType.ADVENTURE)
-        spectate(player)
         MatchMenu.give(player)
     }
 
     fun spectate(player: ServerPlayer) {
         val member = members[player.uuid]
         if (member != null && member.team.isNotEmpty()) return
-        val current = player.level().server
-        val arena = current.getLevel(MatchRules.DIMENSION)
-        if (!worldReady || arena == null) {
+        if (!worldReady) {
             player.sendSystemMessage(Component.literal("现在没有对局"))
             return
         }
-        player.setGameMode(GameType.SPECTATOR)
-        val x = (redSpawn.x + blueSpawn.x) / 2.0
-        val y = (redSpawn.y + blueSpawn.y) / 2.0
-        val z = (redSpawn.z + blueSpawn.z) / 2.0
-        MatchRoster.teleport(player, arena, x, y, z, player.yRot)
+        MatchRoster.teleportSpectator(player)
     }
 
     fun afterRespawn(player: ServerPlayer) {
@@ -445,8 +444,11 @@ object Match : MatchPort {
         member.heldProgress = 0f
         when (phase) {
             Phase.FIGHT -> {
-                if (member.team == WallwarTeams.RED || member.team == WallwarTeams.BLUE) {
+                if (isTeamed(member)) {
                     MatchRoster.startRespawnWait(player, member)
+                } else if (member.spectating && worldReady) {
+                    member.respawnAt = 0
+                    MatchRoster.teleportSpectator(player)
                 } else {
                     member.respawnAt = 0
                     player.clearTitle()
@@ -454,8 +456,7 @@ object Match : MatchPort {
             }
             Phase.WATCH, Phase.SETTLE -> {
                 member.respawnAt = 0
-                player.setGameMode(GameType.SPECTATOR)
-                if (worldReady) MatchRoster.teleportSpawn(player, member.team)
+                sendIntoSettle(player, member)
             }
             Phase.LOBBY -> {
                 member.respawnAt = 0
@@ -502,6 +503,50 @@ object Match : MatchPort {
         if (left <= 0) {
             settleResetAt = -1
             reset(null)
+        }
+    }
+
+    private fun isTeamed(member: Member): Boolean =
+        member.team == WallwarTeams.RED || member.team == WallwarTeams.BLUE
+
+    private fun inThisMatch(member: Member?): Boolean {
+        if (member == null || phase == Phase.LOBBY) return false
+        return isTeamed(member) || member.spectating
+    }
+
+    private fun inThisMatch(player: ServerPlayer): Boolean = inThisMatch(members[player.uuid])
+
+    private fun sendIntoWatch(player: ServerPlayer, member: Member) {
+        if (isTeamed(member)) MatchRoster.teleportThenSpectate(player, member.team)
+        else if (member.spectating) MatchRoster.teleportSpectator(player)
+    }
+
+    private fun sendIntoSettle(player: ServerPlayer, member: Member) {
+        if (!worldReady) {
+            player.setGameMode(GameType.SPECTATOR)
+            return
+        }
+        if (isTeamed(member)) {
+            MatchRoster.teleportSpawn(player, member.team)
+            player.setGameMode(GameType.SPECTATOR)
+        } else if (member.spectating) {
+            MatchRoster.teleportSpectator(player)
+        }
+    }
+
+    private fun flushLobbyReturns(current: MinecraftServer) {
+        if (pendingLobby.isEmpty()) return
+        val ids = pendingLobby.toList()
+        pendingLobby.clear()
+        for (id in ids) {
+            val player = current.playerList.getPlayer(id) ?: continue
+            if (inThisMatch(player)) continue
+            if (player.level().dimension() != current.overworld().dimension()) {
+                MatchRoster.sendToLobby(player)
+            } else {
+                MatchRoster.clearArenaRespawn(player)
+            }
+            MatchRoster.offerMenu(player)
         }
     }
 

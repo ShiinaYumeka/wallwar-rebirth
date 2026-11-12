@@ -14,6 +14,7 @@
     "CrafterBlockEntityMixin",
     "ResultSlotMixin",
     "ServerChunkCacheAccess",
+    "ServerPlayerDropMixin",
     "ServerPlayerGameModeMixin",
     "PlayerRidingMixin",
     "CreeperExplodeMixin",

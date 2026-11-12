@@ -7,6 +7,7 @@ import net.minecraft.server.MinecraftServer
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.entity.EquipmentSlot
+import net.minecraft.world.entity.item.ItemEntity
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
 import net.minecraft.world.level.GameType
@@ -57,9 +58,8 @@ object MatchRoster {
     internal fun startRespawnWait(player: ServerPlayer, member: Match.Member) {
         player.removeAllEffects()
         player.clearFire()
-        player.setGameMode(GameType.SPECTATOR)
         member.respawnAt = player.level().server.tickCount + MatchRules.RESPAWN_TICKS
-        teleportSpawn(player, member.team)
+        teleportThenSpectate(player, member.team)
         MatchMenu.give(player)
         showRespawnTitle(player, MatchRules.RESPAWN_TICKS / MatchRules.TICKS_PER_SECOND)
     }
@@ -71,9 +71,9 @@ object MatchRoster {
     internal fun applyBodyReset(player: ServerPlayer, member: Match.Member): Boolean {
         if (!member.pendingReset) return false
         member.pendingReset = false
-        if (member.team != WallwarTeams.RED && member.team != WallwarTeams.BLUE) return true
         resetVitals(player)
         clearBelongings(player)
+        SkillInventory.strip(player)
         MatchMenu.give(player)
         return true
     }
@@ -147,8 +147,84 @@ object MatchRoster {
         teleport(player, arena, spawn.x, spawn.y, spawn.z, spawn.yaw)
     }
 
+    internal fun teleportThenSpectate(player: ServerPlayer, team: String) {
+        teleportSpawn(player, team)
+        player.setGameMode(GameType.SPECTATOR)
+    }
+
+    internal fun teleportThenSpectate(
+        player: ServerPlayer,
+        level: ServerLevel,
+        x: Double,
+        y: Double,
+        z: Double,
+        yaw: Float,
+    ) {
+        teleport(player, level, x, y, z, yaw)
+        player.setGameMode(GameType.SPECTATOR)
+    }
+
+    internal fun teleportSpectator(player: ServerPlayer) {
+        val current = player.level().server
+        val arena = current.getLevel(MatchRules.DIMENSION) ?: return
+        if (!Match.worldReady) return
+        val x = (Match.redSpawn.x + Match.blueSpawn.x) / 2.0
+        val y = (Match.redSpawn.y + Match.blueSpawn.y) / 2.0
+        val z = (Match.redSpawn.z + Match.blueSpawn.z) / 2.0
+        teleportThenSpectate(player, arena, x, y, z, player.yRot)
+    }
+
     internal fun teleport(player: ServerPlayer, level: ServerLevel, x: Double, y: Double, z: Double, yaw: Float) {
         player.teleportTo(level, x, y, z, setOf(), yaw, 0f, false)
+    }
+
+    internal fun sendToLobby(player: ServerPlayer) {
+        val current = player.level().server
+        val overworld = current.overworld()
+        val spawn = overworld.respawnData.pos()
+        teleport(player, overworld, spawn.x + 0.5, spawn.y.toDouble(), spawn.z + 0.5, player.yRot)
+        player.setGameMode(GameType.ADVENTURE)
+        rememberLobbySpawn(player)
+        player.closeContainer()
+        player.clearTitle()
+        player.clearFire()
+        player.removeAllEffects()
+    }
+
+    internal fun rememberLobbySpawn(player: ServerPlayer) {
+        val overworld = player.level().server.overworld()
+        player.setRespawnPosition(ServerPlayer.RespawnConfig(overworld.respawnData, false), false)
+    }
+
+    internal fun clearArenaRespawn(player: ServerPlayer) {
+        val config = player.respawnConfig ?: return
+        if (config.respawnData.dimension() != MatchRules.DIMENSION) return
+        rememberLobbySpawn(player)
+    }
+
+    internal fun clearScoreboardTeams(current: MinecraftServer) {
+        WallwarTeams.ensure(current)
+        val board = current.scoreboard
+        for (name in listOf(WallwarTeams.RED, WallwarTeams.BLUE)) {
+            val team = board.getPlayerTeam(name) ?: continue
+            for (entry in team.players.toList()) board.removePlayerFromTeam(entry)
+        }
+    }
+
+    internal fun discardLooseItems(current: MinecraftServer) {
+        for (level in current.allLevels) {
+            val present = ArrayList<ItemEntity>()
+            level.allEntities.forEach { entity ->
+                if (entity is ItemEntity && !entity.isRemoved) present.add(entity)
+            }
+            for (entity in present) entity.discard()
+        }
+    }
+
+    internal fun notifyTeam(current: MinecraftServer, team: String, text: String) {
+        for ((player, _) in onlineTeam(current, team)) {
+            player.sendSystemMessage(Component.literal(text))
+        }
     }
 
     internal fun teamDone(current: MinecraftServer, team: String, test: (Match.Member) -> Boolean): Boolean {

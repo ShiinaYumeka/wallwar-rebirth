@@ -39,15 +39,27 @@ object MatchSurrender {
         val votes = agreed.getOrPut(team) { HashSet() }
         if (player.uuid in votes) {
             votes.remove(player.uuid)
-            player.sendSystemMessage(Component.literal("已撤回投降"))
+            MatchRoster.notifyTeam(player.level().server, team, statusText(team, "已撤回投降"))
         } else {
             votes.add(player.uuid)
-            player.sendSystemMessage(Component.literal("已同意投降"))
+            MatchRoster.notifyTeam(player.level().server, team, statusText(team, "已同意投降"))
         }
         if (allAgreed(team)) {
             val world = player.level().server.getLevel(shina.wallwarRebirth.rules.MatchRules.DIMENSION) ?: return
             Match.onBaseFallen(world, team)
         }
+    }
+
+    fun counts(team: String): Pair<Int, Int> {
+        val current = Match.server ?: return 0 to 0
+        val online = MatchRoster.onlineTeam(current, team)
+        val votes = agreed[team] ?: emptySet()
+        return online.count { it.first.uuid in votes } to online.size
+    }
+
+    private fun statusText(team: String, action: String): String {
+        val (done, total) = counts(team)
+        return "$action（$done/$total）"
     }
 
     private fun allAgreed(team: String): Boolean {

@@ -160,8 +160,9 @@ object BuildingMenus {
     }
 
     private fun surrenderIcon(site: SiteCoreBlockEntity): ItemStack {
+        val (done, total) = MatchSurrender.counts(site.team)
         val builder = ItemStackBuilder.of(Items.RED_BANNER)
-            .setName(plain("投降", ChatFormatting.RED))
+            .setName(plain("投降（$done/$total）", ChatFormatting.RED))
         builder.appendLore(plain("本队在线成员全部同意后，对方获胜"))
         val names = MatchSurrender.names(site.team)
         if (names.isEmpty()) {

@@ -2,7 +2,6 @@ package shina.wallwarRebirth.match
 
 import net.minecraft.network.chat.Component
 import net.minecraft.server.MinecraftServer
-import net.minecraft.world.level.GameType
 import shina.wallwarRebirth.building.CannonCrew
 import shina.wallwarRebirth.contract.WallwarTeams
 import shina.wallwarRebirth.rules.MatchRules
@@ -109,9 +108,15 @@ object MatchFlow {
         Match.watchSecond = -1
         for (member in Match.members.values) member.started = false
         clearTerrainTitle(current)
-        for (player in MatchRoster.onlineMembers(current)) {
-            player.setGameMode(GameType.SPECTATOR)
-            MatchRoster.teleportSpawn(player, Match.members[player.uuid]?.team ?: "")
+        for (player in current.playerList.players) {
+            val member = Match.members[player.uuid] ?: continue
+            if (member.team == WallwarTeams.RED || member.team == WallwarTeams.BLUE) {
+                MatchRoster.teleportThenSpectate(player, member.team)
+            } else if (member.spectating) {
+                MatchRoster.teleportSpectator(player)
+            } else {
+                continue
+            }
             player.closeContainer()
         }
         showWatchRemaining(current, MatchRules.WATCH_TICKS)

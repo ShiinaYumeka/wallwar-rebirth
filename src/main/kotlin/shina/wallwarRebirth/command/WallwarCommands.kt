@@ -27,28 +27,6 @@ import shina.wallwarRebirth.util.command.context.CommandContext
 
 object WallwarCommands {
     val root = literalCommand("ww") {
-        literal("shop") {
-            executes { openShop() }
-            literal("teamrepo") {
-                executes { toggleTeamRepo() }
-            }
-        }
-        literal("build") {
-            requires { Commands.LEVEL_GAMEMASTERS.check(permissions()) }
-            executes { placeSite() }
-        }
-        literal("zombie") {
-            requires { Commands.LEVEL_GAMEMASTERS.check(permissions()) }
-            executes { placeZombie() }
-        }
-        literal("side") {
-            literal("red") {
-                executes { joinSide(WallwarTeams.RED) }
-            }
-            literal("blue") {
-                executes { joinSide(WallwarTeams.BLUE) }
-            }
-        }
         literal("match") {
             executes { openMatch() }
             literal("reset") {
@@ -56,17 +34,38 @@ object WallwarCommands {
                 executes { resetMatch() }
             }
         }
-        literal("style") {
+        literal("test") {
             requires { Commands.LEVEL_GAMEMASTERS.check(permissions()) }
-            wordArgument("building") {
-                intArgument("level", 1, 3) {
-                    executes { saveStyle() }
+            literal("shop") {
+                executes { openShop() }
+                literal("teamrepo") {
+                    executes { toggleTeamRepo() }
                 }
             }
-        }
-        literal("module") {
-            requires { Commands.LEVEL_GAMEMASTERS.check(permissions()) }
-            executes { giveModules() }
+            literal("build") {
+                executes { placeSite() }
+            }
+            literal("zombie") {
+                executes { placeZombie() }
+            }
+            literal("side") {
+                literal("red") {
+                    executes { joinSide(WallwarTeams.RED) }
+                }
+                literal("blue") {
+                    executes { joinSide(WallwarTeams.BLUE) }
+                }
+            }
+            literal("style") {
+                wordArgument("building") {
+                    intArgument("level", 1, 3) {
+                        executes { saveStyle() }
+                    }
+                }
+            }
+            literal("module") {
+                executes { giveModules() }
+            }
         }
     }
 
