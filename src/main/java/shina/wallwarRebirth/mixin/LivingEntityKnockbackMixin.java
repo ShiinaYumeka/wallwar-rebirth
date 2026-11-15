@@ -9,11 +9,16 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.ModifyVariable;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import shina.wallwarRebirth.combat.ArrowKnockback;
+import shina.wallwarRebirth.combat.FriendlyFire;
 
 @Mixin(LivingEntity.class)
 public class LivingEntityKnockbackMixin {
-    @Inject(method = "hurtServer", at = @At("HEAD"))
+    @Inject(method = "hurtServer", at = @At("HEAD"), cancellable = true)
     private void wallwar$enterArrowKnockback(ServerLevel level, DamageSource source, float amount, CallbackInfoReturnable<Boolean> cir) {
+        if (FriendlyFire.blocked((LivingEntity) (Object) this, source)) {
+            cir.setReturnValue(false);
+            return;
+        }
         ArrowKnockback.enter(source);
     }
 

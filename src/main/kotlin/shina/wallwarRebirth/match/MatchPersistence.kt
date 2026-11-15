@@ -24,6 +24,7 @@ object MatchPersistence {
         val tag = CompoundTag()
         tag.putString("Phase", Match.phase.name)
         tag.putBoolean("WorldReady", Match.worldReady)
+        tag.putBoolean("TestMode", Match.testMode)
         tag.putInt("MapSize", Match.mapSize)
         tag.putLong("TerrainSeed", Match.terrainSeed)
         tag.putLong("RedBase", Match.redBase.asLong())
@@ -69,6 +70,7 @@ object MatchPersistence {
         val tag = NbtIo.readCompressed(path, NbtAccounter.unlimitedHeap())
         Match.phase = runCatching { Match.Phase.valueOf(tag.getStringOr("Phase", Match.Phase.LOBBY.name)) }.getOrDefault(Match.Phase.LOBBY)
         Match.worldReady = tag.getBooleanOr("WorldReady", false)
+        Match.testMode = tag.getBooleanOr("TestMode", false)
         val loadedSize = tag.getIntOr("MapSize", MatchRules.MAP_SIZE)
         Match.mapSize = if (loadedSize >= MatchRules.minimumMapSize() && (loadedSize - MatchRules.MAP_SIZE) % MatchRules.MAP_SIZE_STEP == 0) {
             loadedSize

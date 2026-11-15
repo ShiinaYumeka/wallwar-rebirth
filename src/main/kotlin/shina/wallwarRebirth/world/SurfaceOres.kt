@@ -255,7 +255,7 @@ object SurfaceOres {
             state.`is`(Blocks.LARGE_FERN) ||
             state.`is`(Blocks.BUSH)
 
-    fun nearestPile(level: ServerLevel, from: Vec3): List<BlockPos> {
+    fun nearestPile(level: ServerLevel, from: Vec3, ignore: Set<Long> = emptySet()): List<BlockPos> {
         val ores = ArrayList<BlockPos>()
         val size = Match.mapSize
         val min = -size / 2
@@ -265,7 +265,7 @@ object SurfaceOres {
                 val top = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z)
                 for (y in top - 2..top + 1) {
                     val pos = BlockPos(x, y, z)
-                    if (isOre(level.getBlockState(pos).block)) ores.add(pos)
+                    if (isOre(level.getBlockState(pos).block) && pos.asLong() !in ignore) ores.add(pos)
                 }
             }
         }

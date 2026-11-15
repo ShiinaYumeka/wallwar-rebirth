@@ -29,6 +29,10 @@ class SummonedVindicator(type: EntityType<out SummonedVindicator>, level: Level)
     override fun registerGoals() {
         super.registerGoals()
         targetSelector.removeAllGoals { true }
+        goalSelector.removeAllGoals { goal ->
+            val name = goal.javaClass.simpleName
+            name.contains("Stroll") || name.contains("BreakDoor") || name.contains("OpenDoor")
+        }
     }
 
     override fun canJoinRaid(): Boolean = false

@@ -1,16 +1,12 @@
 package shina.wallwarRebirth.match
-import shina.wallwarRebirth.profession.SkillInventory
 
 import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents
 import net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents
-import net.fabricmc.fabric.api.loot.v3.LootTableEvents
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents
-import net.fabricmc.fabric.api.event.player.AttackBlockCallback
-import net.fabricmc.fabric.api.event.player.AttackEntityCallback
-import net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents
-import net.fabricmc.fabric.api.event.player.UseBlockCallback
-import net.fabricmc.fabric.api.event.player.UseItemCallback
+import net.fabricmc.fabric.api.event.player.*
+import net.fabricmc.fabric.api.loot.v3.LootTableEvents
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents
+import net.minecraft.core.BlockPos
 import net.minecraft.network.chat.Component
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
@@ -23,26 +19,20 @@ import net.minecraft.world.entity.monster.Monster
 import net.minecraft.world.entity.player.Player
 import net.minecraft.world.item.BlockItem
 import net.minecraft.world.item.ItemStack
-import net.minecraft.world.item.context.BlockPlaceContext
-import net.minecraft.core.BlockPos
 import net.minecraft.world.item.Items
-import net.minecraft.world.level.storage.loot.parameters.LootContextParams
+import net.minecraft.world.item.context.BlockPlaceContext
 import net.minecraft.world.level.block.Block
 import net.minecraft.world.level.block.CrafterBlock
 import net.minecraft.world.level.block.CraftingTableBlock
 import net.minecraft.world.level.block.LevelEvent
 import net.minecraft.world.level.block.state.BlockState
-import shina.wallwarRebirth.building.CannonCrew
-import shina.wallwarRebirth.building.FarmlandWork
-import shina.wallwarRebirth.world.SurfaceOres
-import shina.wallwarRebirth.building.SiteCoreBlock
-import shina.wallwarRebirth.building.SiteCores
-import shina.wallwarRebirth.building.SitePartBlock
-import shina.wallwarRebirth.building.SiteStructureBlock
+import net.minecraft.world.level.storage.loot.parameters.LootContextParams
+import shina.wallwarRebirth.building.*
 import shina.wallwarRebirth.item.BuildingCoreItem
 import shina.wallwarRebirth.item.SummonEggItem
 import shina.wallwarRebirth.monster.SummonedUnit
-import java.util.UUID
+import shina.wallwarRebirth.world.SurfaceOres
+import java.util.*
 
 object MatchHooks {
     private val craftTold = HashMap<UUID, Int>()
@@ -87,8 +77,8 @@ object MatchHooks {
         }
         ServerLivingEntityEvents.ALLOW_DEATH.register { entity, _, _ ->
             if (entity is ServerPlayer) {
+                BoundItems.stash(entity)
                 MatchMenu.stripOnDeath(entity)
-                SkillInventory.strip(entity)
             }
             true
         }

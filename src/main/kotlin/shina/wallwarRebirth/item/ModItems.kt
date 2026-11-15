@@ -105,6 +105,69 @@ object ModItems {
     }
 
     @JvmField
+    val COMMAND: Item = register("command_horn") { properties ->
+        CommandItem(
+            properties = properties.stacksTo(1)
+                .component(ModComponents.COMMAND_FOLLOW, true)
+                .component(
+                    DataComponents.CUSTOM_NAME,
+                    Component.literal("指挥：跟随").withStyle { style ->
+                        style.withItalic(false).withColor(ChatFormatting.WHITE)
+                    },
+                )
+                .component(
+                    DataComponents.LORE,
+                    ItemLore(listOf(
+                        Component.literal("选中时按副手键（默认 F）切换跟随和出征").withStyle { style ->
+                            style.withItalic(false).withColor(ChatFormatting.GRAY)
+                        },
+                        Component.literal("右键指挥面向的一只同队唤灵").withStyle { style ->
+                            style.withItalic(false).withColor(ChatFormatting.GRAY)
+                        },
+                        Component.literal("蹲下右键指挥 8 格内的同队唤灵").withStyle { style ->
+                            style.withItalic(false).withColor(ChatFormatting.GRAY)
+                        },
+                    )),
+                ),
+            polymerItem = Items.GOAT_HORN,
+        )
+    }
+
+    @JvmField
+    val PLUNDER_BANNER: Item = register("plunder_banner") { properties ->
+        PlunderBannerItem(
+            properties = properties.stacksTo(1)
+                .component(
+                    DataComponents.CUSTOM_NAME,
+                    Component.literal("掠夺之旗").withStyle { style ->
+                        style.withItalic(false).withColor(ChatFormatting.WHITE)
+                    },
+                ),
+            polymerItem = Items.WHITE_BANNER,
+        )
+    }
+
+    @JvmField
+    val SWITCH_TEAM: Item = register("switch_team") { properties ->
+        SwitchTeamItem(
+            properties = properties.stacksTo(1)
+                .component(
+                    DataComponents.CUSTOM_NAME,
+                    Component.literal("换队伍").withStyle { style -> style.withItalic(false).withColor(ChatFormatting.WHITE) },
+                )
+                .component(
+                    DataComponents.LORE,
+                    ItemLore(listOf(
+                        Component.literal("右键切换到另一队").withStyle { style ->
+                            style.withItalic(false).withColor(ChatFormatting.GRAY)
+                        },
+                    )),
+                ),
+            polymerItem = Items.ORANGE_BANNER,
+        )
+    }
+
+    @JvmField
     val RETURN_LOBBY: Item = register("return_lobby") { properties ->
         ReturnLobbyItem(
             properties = properties.stacksTo(1)
@@ -149,6 +212,9 @@ object ModItems {
     val EGG_CREEPER: Item = egg("summon_creeper", "唤灵·苦力怕", Items.CREEPER_SPAWN_EGG, "creeper")
 
     @JvmField
+    val EGG_CHARGED_CREEPER: Item = egg("summon_charged_creeper", "唤灵·高压苦力怕", Items.CREEPER_SPAWN_EGG, "charged_creeper")
+
+    @JvmField
     val EGG_WARRIOR: Item = egg("summon_warrior", "唤灵·僵尸战士", Items.ZOMBIE_SPAWN_EGG, "zombie_warrior")
 
     @JvmField
@@ -158,7 +224,7 @@ object ModItems {
     val EGG_VINDICATOR: Item = egg("summon_vindicator", "唤灵·卫道士", Items.VINDICATOR_SPAWN_EGG, "vindicator")
 
     @JvmField
-    val EGG_EVOKER: Item = egg("summon_evoker", "唤灵·幻魔者", Items.EVOKER_SPAWN_EGG, "evoker")
+    val EGG_EVOKER: Item = egg("summon_evoker", "唤灵·唤魔者", Items.EVOKER_SPAWN_EGG, "evoker")
 
     @JvmField
     val EGG_ILLUSIONER: Item = egg("summon_illusioner", "唤灵·幻术师", Items.EVOKER_SPAWN_EGG, "illusioner")
@@ -203,6 +269,9 @@ object ModItems {
         REINFORCE_TWO
         DIFFUSION
         TERMINAL
+        COMMAND
+        PLUNDER_BANNER
+        SWITCH_TEAM
         RETURN_LOBBY
         EGG_ZOMBIE
         EGG_SKELETON
@@ -212,6 +281,7 @@ object ModItems {
         EGG_HUSK
         EGG_DEATH_KNIGHT
         EGG_CREEPER
+        EGG_CHARGED_CREEPER
         EGG_WARRIOR
         EGG_PILLAGER
         EGG_VINDICATOR

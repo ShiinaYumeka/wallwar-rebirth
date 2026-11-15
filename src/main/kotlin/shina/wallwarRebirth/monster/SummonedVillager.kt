@@ -17,6 +17,7 @@ import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
 import net.minecraft.world.level.Level
 import shina.wallwarRebirth.match.Match
+import shina.wallwarRebirth.rules.MatchRules
 import xyz.nucleoid.packettweaker.PacketContext
 
 class SummonedVillager(type: EntityType<out SummonedVillager>, level: Level) : Villager(type, level), PolymerEntity, SummonedUnit {
@@ -82,7 +83,21 @@ class SummonedVillager(type: EntityType<out SummonedVillager>, level: Level) : V
         isCustomNameVisible = true
     }
 
-    fun takeWheat(): Boolean = inventory.addItem(ItemStack(Items.WHEAT)).isEmpty
+    fun wheatCount(): Int {
+        var total = 0
+        for (slot in 0 until inventory.containerSize) {
+            val stack = inventory.getItem(slot)
+            if (!stack.isEmpty && stack.`is`(Items.WHEAT)) total += stack.count
+        }
+        return total
+    }
+
+    fun wheatFull(): Boolean = wheatCount() >= MatchRules.FARMER_WHEAT_CAP
+
+    fun takeWheat(): Boolean {
+        if (wheatFull()) return false
+        return inventory.addItem(ItemStack(Items.WHEAT)).isEmpty
+    }
 
     override fun mobInteract(player: Player, hand: InteractionHand): InteractionResult = InteractionResult.PASS
 

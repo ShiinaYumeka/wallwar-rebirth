@@ -19,9 +19,21 @@ object ModComponents {
         persistent(Codec.STRING)
     }
 
+    @JvmField
+    val COMMAND_FOLLOW: DataComponentType<Boolean> = register("command_follow") {
+        persistent(Codec.BOOL)
+    }
+
+    @JvmField
+    val BANNER_TOWER: DataComponentType<Long> = register("banner_tower") {
+        persistent(Codec.LONG)
+    }
+
     fun init() {
         PRIOR_ITEM_LORE
         TERMINAL_TEAM
+        COMMAND_FOLLOW
+        BANNER_TOWER
     }
 
     private inline fun <reified T : Any> register(

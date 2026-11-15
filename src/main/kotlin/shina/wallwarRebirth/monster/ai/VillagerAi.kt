@@ -20,6 +20,7 @@ object VillagerAi {
 
     fun tick(mob: SummonedVillager, level: ServerLevel) {
         if (!mob.isAlive) return
+        if (mob.mind.tickVillagerCommand(level)) return
         SummonedUnits.add(mob)
         mob.target = null
         mob.forgetPanic()
@@ -30,6 +31,12 @@ object VillagerAi {
         }
         if (mob.isFarmer()) {
             tickFarmer(mob, level)
+            return
+        }
+        val idle = FarmlandWork.nearestIdle(level, mob.summonedTeam, mob.position(), mob)
+        if (idle != null) {
+            mob.mind.acceptCall(idle.blockPos)
+            tickCall(mob, level, idle.blockPos)
             return
         }
         wander(mob)
@@ -53,6 +60,10 @@ object VillagerAi {
 
     private fun tickFarmer(mob: SummonedVillager, level: ServerLevel) {
         if (mob.workAge > 0) mob.workAge--
+        if (mob.wheatFull()) {
+            tickDeposit(mob, level)
+            return
+        }
         val origin = mob.position()
         val target = FarmlandWork.nearestWheat(level, mob.summonedTeam, origin)
         if (target != null) {
@@ -98,7 +109,7 @@ object VillagerAi {
             wander(mob)
             return
         }
-        if (mob.mind.distanceToCenter(site.blockPos) > 8.0) {
+        if (mob.mind.distanceToCenter(site.blockPos) > MatchRules.FARMLAND_PRESENCE) {
             pathTo(mob, site.blockPos, WANDER_SPEED)
             return
         }

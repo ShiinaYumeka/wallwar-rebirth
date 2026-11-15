@@ -5,6 +5,6 @@ import shina.wallwarRebirth.monster.SummonedVex
 
 object VexAi {
     fun tick(unit: SummonedVex, level: ServerLevel) {
-        unit.mind.tickCombat(level)
+        unit.mind.tickVexCombat(level)
     }
 }

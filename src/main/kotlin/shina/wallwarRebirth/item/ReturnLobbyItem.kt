@@ -66,6 +66,10 @@ class ReturnLobbyItem(
 
         fun activate(player: ServerPlayer) {
             if (player.level().dimension() != MatchRules.DIMENSION) return
+            if (Match.phase == Match.Phase.SETTLE) {
+                Match.agreeSettleReset(player)
+                return
+            }
             val member = Match.member(player.uuid)
             if (member != null && member.team.isNotEmpty()) return
             Match.leaveSpectate(player)

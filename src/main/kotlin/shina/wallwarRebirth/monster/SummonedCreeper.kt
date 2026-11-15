@@ -24,6 +24,7 @@ import net.minecraft.world.level.ServerExplosion
 import net.minecraft.world.phys.AABB
 import net.minecraft.world.phys.Vec3
 import shina.wallwarRebirth.building.SiteCoreBlockEntity
+import shina.wallwarRebirth.mixin.CreeperAccess
 import shina.wallwarRebirth.match.Match
 import shina.wallwarRebirth.rules.MatchRules
 import shina.wallwarRebirth.targeting.Targeting
@@ -36,6 +37,7 @@ class SummonedCreeper(type: EntityType<out SummonedCreeper>, level: Level) : Cre
     override var summonedTeam: String = ""
     override val mind: SummonedBrain = SummonedBrain(this, this)
     var siegeTarget: SiteCoreBlockEntity? = null
+    private var doomed = false
 
     init {
         SummonedGear.applyStats(this, Monsters.CREEPER, fill = true)
@@ -43,8 +45,20 @@ class SummonedCreeper(type: EntityType<out SummonedCreeper>, level: Level) : Cre
         setPersistenceRequired()
     }
 
+    fun isDoomed(): Boolean = doomed
+
+    fun refreshLook() {
+        if (kindId == Monsters.CHARGED_CREEPER.id) entityData.set(CreeperAccess.wallwarPoweredData(), true)
+    }
+
     fun arm(live: Boolean, building: SiteCoreBlockEntity?) {
-        setSwellDir(if (live) 1 else -1)
+        if (doomed) {
+            swellDir = 1
+            navigation.stop()
+            setTarget(null)
+            return
+        }
+        swellDir = if (live) 1 else -1
         siegeTarget = if (live) building else null
     }
 
@@ -53,6 +67,7 @@ class SummonedCreeper(type: EntityType<out SummonedCreeper>, level: Level) : Cre
         val center = position()
         val building = siegeTarget
         val knocks = HashMap<ServerPlayer, Vec3>()
+        val definition = Monsters.byId(kindId) ?: Monsters.CREEPER
         val reach = MatchRules.CREEPER_FALLOFF
         val area = AABB.ofSize(center, (reach + 2.0) * 2.0, (reach + 2.0) * 2.0, (reach + 2.0) * 2.0)
         for (entity in level.getEntities(this, area)) {
@@ -66,7 +81,7 @@ class SummonedCreeper(type: EntityType<out SummonedCreeper>, level: Level) : Cre
             val seen = ServerExplosion.getSeenPercent(center, living).toDouble()
             val exposure = (1.0 - norm) * seen
             if (exposure <= 0.0) continue
-            val raw = MatchRules.CREEPER_ATTACK * (exposure * exposure + exposure) / 2.0
+            val raw = definition.playerAttack * (exposure * exposure + exposure) / 2.0
             if (raw > 0.0) living.hurtServer(level, level.damageSources().explosion(this, null), raw.toFloat())
             val eye = living.eyePosition.subtract(center)
             if (eye.lengthSqr() <= 1.0e-8) continue
@@ -79,9 +94,9 @@ class SummonedCreeper(type: EntityType<out SummonedCreeper>, level: Level) : Cre
             building.damageFromMonster(
                 this,
                 summonedTeam,
-                MatchRules.CREEPER_BUILDING_DAMAGE,
+                definition.buildingDamage,
                 building.blockPos,
-                Monsters.CREEPER.displayName,
+                definition.displayName,
             )
         }
         val particle = ParticleTypes.EXPLOSION_EMITTER
@@ -131,9 +146,20 @@ class SummonedCreeper(type: EntityType<out SummonedCreeper>, level: Level) : Cre
     }
 
     override fun hurtServer(level: ServerLevel, source: DamageSource, amount: Float): Boolean {
+        if (doomed) return false
         val hurt = super.hurtServer(level, source, amount)
+        if (doomed) return hurt
         if (hurt && amount > 0f) mind.onDamaged(level, source)
         return hurt
+    }
+
+    override fun die(source: DamageSource) {
+        if (doomed) return
+        doomed = true
+        health = 1.0f
+        setSwellDir(1)
+        navigation.stop()
+        setTarget(null)
     }
 
     override fun dropCustomDeathLoot(level: ServerLevel, source: DamageSource, recentlyHit: Boolean) {}
@@ -156,6 +182,7 @@ class SummonedCreeper(type: EntityType<out SummonedCreeper>, level: Level) : Cre
         super.readAdditionalSaveData(input)
         mind.load(input)
         SummonedGear.apply(this, this)
+        refreshLook()
     }
 
     private fun teamOf(entity: LivingEntity): String? = when (entity) {

@@ -13,6 +13,7 @@ import net.minecraft.world.item.Items
 import net.minecraft.world.level.GameType
 import net.minecraft.world.level.storage.LevelData
 import shina.wallwarRebirth.contract.WallwarTeams
+import shina.wallwarRebirth.server.ChunkTracking
 import shina.wallwarRebirth.rules.MatchRules
 import shina.wallwarRebirth.util.clearTitle
 import shina.wallwarRebirth.util.showTitle
@@ -79,6 +80,7 @@ object MatchRoster {
     }
 
     internal fun clearBelongings(player: ServerPlayer) {
+        BoundItems.forget(player)
         player.inventory.clearContent()
         player.containerMenu.carried = ItemStack.EMPTY
         for (slot in EquipmentSlot.entries) player.setItemSlot(slot, ItemStack.EMPTY)
@@ -94,6 +96,7 @@ object MatchRoster {
         }
         MatchMenu.give(player)
         SkillInventory.offer(player)
+        CommandInventory.offer(player)
     }
 
     internal fun resetVitals(player: ServerPlayer) {
@@ -150,6 +153,7 @@ object MatchRoster {
     internal fun teleportThenSpectate(player: ServerPlayer, team: String) {
         teleportSpawn(player, team)
         player.setGameMode(GameType.SPECTATOR)
+        followChunks(player)
     }
 
     internal fun teleportThenSpectate(
@@ -162,6 +166,7 @@ object MatchRoster {
     ) {
         teleport(player, level, x, y, z, yaw)
         player.setGameMode(GameType.SPECTATOR)
+        followChunks(player)
     }
 
     internal fun teleportSpectator(player: ServerPlayer) {
@@ -176,6 +181,17 @@ object MatchRoster {
 
     internal fun teleport(player: ServerPlayer, level: ServerLevel, x: Double, y: Double, z: Double, yaw: Float) {
         player.teleportTo(level, x, y, z, setOf(), yaw, 0f, false)
+        followChunks(player)
+        val id = player.uuid
+        level.server.execute {
+            val live = level.server.playerList.getPlayer(id) ?: return@execute
+            followChunks(live)
+        }
+    }
+
+    internal fun followChunks(player: ServerPlayer) {
+        val tracking = player.level().chunkSource.chunkMap as? ChunkTracking ?: return
+        tracking.`wallwar$follow`(player)
     }
 
     internal fun sendToLobby(player: ServerPlayer) {
@@ -184,6 +200,12 @@ object MatchRoster {
         val spawn = overworld.respawnData.pos()
         teleport(player, overworld, spawn.x + 0.5, spawn.y.toDouble(), spawn.z + 0.5, player.yRot)
         player.setGameMode(GameType.ADVENTURE)
+        val abilities = player.abilities
+        abilities.mayfly = false
+        abilities.flying = false
+        abilities.invulnerable = false
+        player.onUpdateAbilities()
+        followChunks(player)
         rememberLobbySpawn(player)
         player.closeContainer()
         player.clearTitle()

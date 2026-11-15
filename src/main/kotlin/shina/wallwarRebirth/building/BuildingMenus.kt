@@ -80,17 +80,7 @@ object BuildingMenus {
             viewer.sendSystemMessage(Component.literal("这个模块不能拆卸"))
             return
         }
-        if (cursor.isEmpty) {
-            if (site.moduleStack(slot).isEmpty || slot != ModuleSlot.PRIMARY) return
-            val choices = site.choicesFor(slot, Buildings.BASE)
-            if (choices.isEmpty()) {
-                viewer.sendSystemMessage(Component.literal("没有可以强化的矿物"))
-                return
-            }
-            gui.close()
-            viewer.level().server.execute { MineralPickerGui(viewer, site, Buildings.BASE, slot, choices).open() }
-            return
-        }
+        if (cursor.isEmpty) return
         val refusal = site.moduleRefusal(slot, cursor)
         if (refusal != null) {
             viewer.sendSystemMessage(Component.literal(refusal))
@@ -139,10 +129,6 @@ object BuildingMenus {
         builder.setName(plain(label, ChatFormatting.YELLOW))
         if (filled.isEmpty) builder.appendLore(plain("左键放入${moduleName(slot)}"))
         for (text in baseEffect(slot)) builder.appendLore(plain(text))
-        if (slot == ModuleSlot.PRIMARY) {
-            builder.appendLore(plain("放好后左键选择矿物"))
-            builder.appendLore(plain("当前：${site.mineralLabel(slot)}"))
-        }
         return builder.build()
     }
 
@@ -206,7 +192,7 @@ private fun moduleName(slot: ModuleSlot): String = when (slot) {
 }
 
 private fun baseEffect(slot: ModuleSlot): List<String> = when (slot) {
-    ModuleSlot.PRIMARY -> listOf("指定一种当前可生成的矿物，该矿物的生成速率乘以 2。")
+    ModuleSlot.PRIMARY -> listOf("装上后，所有矿物的产出间隔从 7 秒变为 5 秒。")
     ModuleSlot.SECONDARY -> listOf("每 5 秒回复这座基地 1 点生命，满血跳过。不改变矿物。")
     ModuleSlot.DIFFUSION -> listOf("装上后，本队局内终端可使用建筑、武器和护甲栏，用法与右键己方基地核心相同。")
 }
@@ -335,6 +321,10 @@ class BuildingPanelGui(
             setSlot(HOLD_SLOT, GuiElement(holdIcon()) { _, clickType, _, _ ->
                 if (!clickType.isLeft || clickType.shift) return@GuiElement
                 site.holding = !site.holding
+                if (site.holding) {
+                    site.holdEpoch++
+                    shina.wallwarRebirth.monster.SummonedUnits.recallHold(site)
+                }
                 site.setChanged()
                 shina.wallwarRebirth.monster.SummonedUnits.reassertHome(site)
                 paintButtons()
@@ -379,7 +369,18 @@ class BuildingPanelGui(
         for (text in monster.detailLines(site.buildingLevel)) builder.appendLore(line(text))
         val stack = builder.build()
         if (selected) stack.set(DataComponents.ENCHANTMENT_GLINT_OVERRIDE, true)
+        if (selected && producer) showRemainingSeconds(stack, monster)
         return stack
+    }
+
+    private fun showRemainingSeconds(stack: ItemStack, monster: MonsterDefinition) {
+        val interval = monster.productionTicks(site.buildingLevel)
+        val remainingTicks = (interval - site.actionAge).coerceAtLeast(0)
+        val seconds = ((remainingTicks + MatchRules.TICKS_PER_SECOND - 1) / MatchRules.TICKS_PER_SECOND)
+            .coerceAtLeast(1)
+        val count = seconds.coerceAtMost(MAX_DISPLAY_STACK)
+        stack.set(DataComponents.MAX_STACK_SIZE, count)
+        stack.count = count
     }
 
     private fun openShopIcon(): ItemStack =
@@ -488,7 +489,8 @@ class BuildingPanelGui(
         const val STORAGE_ORIGIN = 18
         const val MARCH_SLOT = 53
         const val HOLD_SLOT = 52
-        val PRODUCTION_SLOTS = intArrayOf(23, 24, 25, 26, 32, 33, 34, 35, 41, 42)
+        val PRODUCTION_SLOTS = intArrayOf(23, 24, 25, 26, 32, 33, 34, 35, 41, 42, 43)
+        const val MAX_DISPLAY_STACK = 99
     }
 }
 
@@ -549,17 +551,7 @@ private class UpgradePanelGui(
                 return
             }
             if (site.moduleStack(slot).isEmpty || slot == ModuleSlot.DIFFUSION) return
-            if (definition.id == Buildings.BASE.id && slot == ModuleSlot.PRIMARY) {
-                val choices = site.choicesFor(slot, definition)
-                if (choices.isEmpty()) {
-                    viewer.sendSystemMessage(Component.literal("没有可以强化的矿物"))
-                    return
-                }
-                close()
-                viewer.level().server.execute { MineralPickerGui(viewer, site, definition, slot, choices).open() }
-                return
-            }
-            if ((definition.id == Buildings.BARRACKS.id || definition.id == Buildings.PILLAGER.id) && slot == ModuleSlot.SECONDARY) {
+            if (definition.id == Buildings.BARRACKS.id && slot == ModuleSlot.SECONDARY) {
                 if (!site.isAlly(viewer)) {
                     viewer.sendSystemMessage(Component.literal("敌方打不开"))
                     return
@@ -590,11 +582,7 @@ private class UpgradePanelGui(
         builder.setName(line(label, ChatFormatting.YELLOW))
         if (filled.isEmpty) builder.appendLore(line("左键放入${moduleName(slot)}"))
         for (text in effectLines(definition, slot)) builder.appendLore(line(text))
-        if (definition.id == Buildings.BASE.id && slot == ModuleSlot.PRIMARY) {
-            builder.appendLore(line("放好后左键选择矿物"))
-            builder.appendLore(line("当前：${site.mineralLabel(slot)}"))
-        }
-        if ((definition.id == Buildings.BARRACKS.id || definition.id == Buildings.PILLAGER.id) && slot == ModuleSlot.SECONDARY) {
+        if (definition.id == Buildings.BARRACKS.id && slot == ModuleSlot.SECONDARY) {
             builder.appendLore(line("放好后左键选择只数"))
             val count = site.releaseCount
             val current = if (count in MatchRules.BARRACKS_RELEASE_MIN..MatchRules.BARRACKS_RELEASE_MAX) {
@@ -625,15 +613,17 @@ private class UpgradePanelGui(
                 "凑满选定只数乘以每轮只数再一起放出。选择仍是 1 到 5。",
                 "骷髅死士按 3、6、9、12、15 放出。没选时按 1 轮。",
             )
-            ModuleSlot.DIFFUSION -> listOf("32 格内的友方唤灵每 5 秒回复 1 点，满血跳过。多座各自计时。")
+            ModuleSlot.DIFFUSION -> listOf("装上后给同队玩家发放指挥物品。兵营拆掉后收回。")
         }
         Buildings.PILLAGER.id -> when (slot) {
-            ModuleSlot.PRIMARY -> listOf("效果【暂定】占位。")
-            ModuleSlot.SECONDARY -> listOf(
-                "出征时改为囤满再一起放出的入口仍在。选定只数先按兵营入口，没选时按 1 只。",
-                "具体效果【暂定】占位。",
-            )
-            ModuleSlot.DIFFUSION -> listOf("效果【暂定】占位。")
+            ModuleSlot.PRIMARY -> listOf("这座哨塔之后生成的唤灵拥有 5 点基础护甲。已经在场的不变。")
+            ModuleSlot.SECONDARY -> listOf("附近 32 格内的我方唤灵获得抗性提升 I，离开后消失。")
+            ModuleSlot.DIFFUSION -> listOf("给同队玩家发放掠夺之旗。右键方块可把这座哨塔的固守地点改到那里。")
+        }
+        Buildings.TESLA.id -> when (slot) {
+            ModuleSlot.PRIMARY -> listOf("攻击范围扩大 50%，16 格变为 24 格。")
+            ModuleSlot.SECONDARY -> listOf("命中给予的挖掘疲劳从 I 提升到 II，仍持续 10 秒。")
+            ModuleSlot.DIFFUSION -> listOf("每次攻击时，对射程内已经有蓄风的敌方唤灵再造成一次本次的闪电伤害。")
         }
         Buildings.CANNON.id -> when (slot) {
             ModuleSlot.PRIMARY -> listOf("爆炸半径扩大 50%。威力半径 ${MatchRules.CANNON_POWER_WIDE.toInt()} 格，生物伤害在 ${MatchRules.CANNON_FALLOFF_WIDE.toInt()} 格归零。")
@@ -643,9 +633,9 @@ private class UpgradePanelGui(
         else -> emptyList()
     }
 
-    private fun towerIntervals(): String = MatchRules.TOWER_INTERVAL.joinToString(" / ") { ticks ->
+    private fun towerIntervals(): String = MatchRules.TOWER_INTERVAL.map { ticks ->
         MatchRules.secondsText(ticks * 4 / 5)
-    }
+    }.distinct().joinToString(" / ")
 
     private fun upgradeIcon(): ItemStack {
         val builder = ItemStackBuilder.of(Items.EXPERIENCE_BOTTLE)
@@ -659,50 +649,6 @@ private class UpgradePanelGui(
 
     private fun line(text: String, color: ChatFormatting = ChatFormatting.GRAY): Component =
         Component.literal(text).withStyle { style -> style.withColor(color).withItalic(false) }
-}
-
-private class MineralPickerGui(
-    private val viewer: ServerPlayer,
-    private val site: SiteCoreBlockEntity,
-    private val definition: BuildingDefinition,
-    private val slot: ModuleSlot,
-    choices: List<MineralOutput>,
-) : SimpleGui(MenuType.GENERIC_9x1, viewer, false) {
-    init {
-        title = Component.literal("选择强化的矿物")
-        val glass = ItemStack(Items.GRAY_STAINED_GLASS_PANE).hideTooltip()
-        for (index in 0 until size) setSlot(index, GuiElement(glass, GuiElementInterface.EMPTY_CALLBACK))
-        choices.forEachIndexed { index, mineral ->
-            if (index >= size) return@forEachIndexed
-            setSlot(index, GuiElement(choiceIcon(mineral)) { _, clickType, _, _ ->
-                if (!clickType.isLeft || clickType.shift) return@GuiElement
-                site.setMineral(slot, mineral.item)
-                close()
-                viewer.level().server.execute {
-                    if (definition.id == Buildings.BASE.id) BaseShop.open(viewer, site, BaseShop.Page.BASE)
-                    else UpgradePanelGui(viewer, site, definition).open()
-                }
-            })
-        }
-    }
-
-    override fun onTick() {
-        super.onTick()
-        val world = site.level
-        if (world == null || world.getBlockEntity(site.blockPos) !== site) close()
-    }
-
-    private fun choiceIcon(mineral: MineralOutput): ItemStack {
-        val hint = "这种矿物的间隔减半"
-        return ItemStackBuilder.of(mineral.item)
-            .setName(Component.literal(mineral.name).withStyle { style ->
-                style.withColor(ChatFormatting.YELLOW).withItalic(false)
-            })
-            .appendLore(Component.literal(hint).withStyle { style ->
-                style.withColor(ChatFormatting.GRAY).withItalic(false)
-            })
-            .build()
-    }
 }
 
 private class ReleaseCountGui(

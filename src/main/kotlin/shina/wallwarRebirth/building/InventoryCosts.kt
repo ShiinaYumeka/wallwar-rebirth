@@ -1,6 +1,7 @@
 package shina.wallwarRebirth.building
 
 import net.minecraft.server.level.ServerPlayer
+import shina.wallwarRebirth.match.Match
 import net.minecraft.world.Container
 import net.minecraft.world.entity.EquipmentSlot
 import net.minecraft.world.item.Item
@@ -46,9 +47,10 @@ object InventoryCosts {
     }
 
     fun has(player: ServerPlayer, container: Container, extra: Container?, costs: List<ItemAmount>): Boolean =
-        costs.all { count(player, it.item) + count(container, it.item) + stored(extra, it.item) >= it.count }
+        Match.testMode || costs.all { count(player, it.item) + count(container, it.item) + stored(extra, it.item) >= it.count }
 
     fun take(player: ServerPlayer, container: Container, extra: Container?, costs: List<ItemAmount>) {
+        if (Match.testMode) return
         for (cost in costs) {
             var left = cost.count
             val fromPlayer = minOf(left, count(player, cost.item))

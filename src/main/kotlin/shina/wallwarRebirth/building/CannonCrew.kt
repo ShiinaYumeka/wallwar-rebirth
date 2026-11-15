@@ -1,5 +1,4 @@
 package shina.wallwarRebirth.building
-import shina.wallwarRebirth.rules.MatchRules
 
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
@@ -12,7 +11,9 @@ import net.minecraft.world.level.GameType
 import net.minecraft.world.level.Level
 import net.minecraft.world.phys.Vec3
 import shina.wallwarRebirth.match.Match
-import java.util.UUID
+import shina.wallwarRebirth.match.MatchRoster
+import shina.wallwarRebirth.rules.MatchRules
+import java.util.*
 
 object CannonCrew {
     private val sneakArmed = HashSet<UUID>()
@@ -120,7 +121,7 @@ object CannonCrew {
     }
 
     fun settle(server: MinecraftServer, killRiders: Boolean) {
-        val arena = server.getLevel(shina.wallwarRebirth.rules.MatchRules.DIMENSION) ?: return
+        val arena = server.getLevel(MatchRules.DIMENSION) ?: return
         val shells = ArrayList<CannonShell>()
         for (entity in arena.allEntities) {
             val shell = entity as? CannonShell ?: continue
@@ -154,6 +155,7 @@ object CannonCrew {
         player.snapTo(spot.x, spot.y, spot.z, player.yRot, player.xRot)
         player.setDeltaMovement(Vec3.ZERO)
         player.fallDistance = 0.0
+        MatchRoster.followChunks(player)
     }
 
     private fun conceal(player: ServerPlayer, level: ServerLevel, core: BlockPos) {
@@ -166,6 +168,7 @@ object CannonCrew {
         player.fallDistance = 0.0
         if (player.level() !== level) return
         player.snapTo(center.x, center.y, center.z, player.yRot, player.xRot)
+        MatchRoster.followChunks(player)
     }
 
     private fun reveal(player: ServerPlayer) {
@@ -178,6 +181,7 @@ object CannonCrew {
         reveal(player)
         player.stopRiding()
         player.snapTo(point.x, point.y, point.z, player.yRot, player.xRot)
+        MatchRoster.followChunks(player)
         player.hurtServer(level, level.damageSources().genericKill(), Float.MAX_VALUE)
     }
 

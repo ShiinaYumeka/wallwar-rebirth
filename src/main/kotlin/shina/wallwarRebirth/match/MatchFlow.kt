@@ -38,21 +38,63 @@ object MatchFlow {
         }
     }
 
+    internal fun allPlayersReady(current: MinecraftServer): Boolean {
+        val red = MatchRoster.onlineTeam(current, WallwarTeams.RED)
+        val blue = MatchRoster.onlineTeam(current, WallwarTeams.BLUE)
+        if (red.isEmpty() && blue.isEmpty()) return false
+        if (!Match.testMode && (red.isEmpty() || blue.isEmpty())) return false
+        return (red + blue).all { it.second.ready && it.second.classLocked }
+    }
+
     internal fun tryBeginWatch(current: MinecraftServer) {
         if (Match.phase != Match.Phase.LOBBY || Match.generating || Match.watchBuildTick >= 0) return
-        if (!MatchRoster.teamDone(current, WallwarTeams.RED) { it.ready && it.classLocked }) return
-        if (!MatchRoster.teamDone(current, WallwarTeams.BLUE) { it.ready && it.classLocked }) return
-        Match.watchBuildTick = current.tickCount + 1
-        showTerrainTitle(current)
+        if (!allPlayersReady(current)) {
+            cancelReadyCountdown(current)
+            return
+        }
+        if (Match.readyCountdownEndsAt >= 0) return
+        Match.readyCountdownEndsAt = current.tickCount + MatchRules.READY_COUNTDOWN_TICKS
+        Match.readyCountdownSecond = -1
+        showReadyCountdown(current, MatchRules.READY_COUNTDOWN_TICKS)
+    }
+
+    internal fun tickReadyCountdown(current: MinecraftServer) {
+        if (Match.readyCountdownEndsAt < 0) return
+        if (Match.phase != Match.Phase.LOBBY || Match.generating || Match.watchBuildTick >= 0 || !allPlayersReady(current)) {
+            cancelReadyCountdown(current)
+            return
+        }
+        val left = Match.readyCountdownEndsAt - current.tickCount
+        if (left <= 0) {
+            Match.readyCountdownEndsAt = -1
+            Match.readyCountdownSecond = -1
+            Match.watchBuildTick = current.tickCount + 1
+            showTerrainTitle(current)
+            return
+        }
+        showReadyCountdown(current, left)
+    }
+
+    internal fun cancelReadyCountdown(current: MinecraftServer) {
+        if (Match.readyCountdownEndsAt < 0 && Match.readyCountdownSecond < 0) return
+        Match.readyCountdownEndsAt = -1
+        Match.readyCountdownSecond = -1
+        for (player in current.playerList.players) player.clearTitle()
+    }
+
+    private fun showReadyCountdown(current: MinecraftServer, left: Int) {
+        val seconds = (left + MatchRules.TICKS_PER_SECOND - 1) / MatchRules.TICKS_PER_SECOND
+        if (seconds == Match.readyCountdownSecond) return
+        Match.readyCountdownSecond = seconds
+        val text = Component.literal("游戏将在 $seconds 秒后开始")
+        for (player in current.playerList.players) {
+            player.showTitle(text, fadeIn = 0, stay = 25, fadeOut = 5)
+        }
     }
 
     internal fun buildWatch(current: MinecraftServer) {
         if (Match.phase != Match.Phase.LOBBY || Match.generating) return
-        if (!MatchRoster.teamDone(current, WallwarTeams.RED) { it.ready && it.classLocked }) {
-            clearTerrainTitle(current)
-            return
-        }
-        if (!MatchRoster.teamDone(current, WallwarTeams.BLUE) { it.ready && it.classLocked }) {
+        if (!allPlayersReady(current)) {
             clearTerrainTitle(current)
             return
         }
@@ -131,6 +173,8 @@ object MatchFlow {
         MatchWorld.release(current)
         Match.watchEndsAt = 0
         Match.watchSecond = -1
+        Match.readyCountdownEndsAt = -1
+        Match.readyCountdownSecond = -1
         for (member in Match.members.values) member.ready = false
         clearTerrainTitle(current)
         MatchRoster.broadcast(current, message)

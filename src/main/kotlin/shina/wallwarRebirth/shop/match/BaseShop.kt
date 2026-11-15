@@ -136,7 +136,7 @@ object BaseShop {
         Page.BUILDING -> listOf(
             listing(
                 0,
-                1,
+                0,
                 ItemStack(ModItems.CORE_RELAY),
                 mapOf(
                     WallwarMod.idOf("iron") to MatchRules.RELAY_PRICE_IRON,
@@ -145,21 +145,21 @@ object BaseShop {
             ),
             listing(
                 0,
-                2,
+                1,
                 ItemStack(ModItems.CORE_FARMLAND),
                 mapOf(
                     WallwarMod.idOf("iron") to MatchRules.FARMLAND_PRICE_IRON,
                     WallwarMod.idOf("copper") to MatchRules.FARMLAND_PRICE_COPPER,
                 ),
             ),
-            listing(1, 1, ItemStack(ModItems.CORE_BARRACKS), iron(MatchRules.BARRACKS_PRICE_IRON)),
-            listing(1, 2, ItemStack(ModItems.CORE_PILLAGER), iron(MatchRules.PILLAGER_TOWER_PRICE_IRON)),
-            listing(2, 1, ItemStack(ModItems.CORE_WALL), copper(MatchRules.WALL_PRICE_COPPER)),
-            listing(2, 2, ItemStack(ModItems.CORE_TOWER), copper(MatchRules.TOWER_PRICE_COPPER)),
-            listing(2, 3, ItemStack(ModItems.CORE_TESLA), copper(MatchRules.TESLA_PRICE_COPPER)),
+            listing(1, 0, ItemStack(ModItems.CORE_BARRACKS), iron(MatchRules.BARRACKS_PRICE_IRON)),
+            listing(1, 1, ItemStack(ModItems.CORE_PILLAGER), iron(MatchRules.PILLAGER_TOWER_PRICE_IRON)),
+            listing(2, 0, ItemStack(ModItems.CORE_WALL), copper(MatchRules.WALL_PRICE_COPPER)),
+            listing(2, 1, ItemStack(ModItems.CORE_TOWER), copper(MatchRules.TOWER_PRICE_COPPER)),
+            listing(2, 2, ItemStack(ModItems.CORE_TESLA), copper(MatchRules.TESLA_PRICE_COPPER)),
             listing(
                 2,
-                4,
+                3,
                 ItemStack(ModItems.CORE_CANNON),
                 mapOf(
                     WallwarMod.idOf("iron") to MatchRules.CANNON_PRICE_IRON,
@@ -223,7 +223,6 @@ private class PageGui(
         }
         if (page == BaseShop.Page.WAREHOUSE) fillWarehouse(sheet)
         if (page == BaseShop.Page.BASE) BuildingMenus.paintBaseShop(this, site)
-        if (page == BaseShop.Page.BUILDING && sheet == 0) paintBuildingLabels()
     }
 
     override fun canSpectatorsClick(): Boolean = true
@@ -244,19 +243,6 @@ private class PageGui(
             setSlotRedirect(9 + offset, Slot(box, index, 0, 0))
         }
     }
-
-    private fun paintBuildingLabels() {
-        setSlot(18, GuiElement(sectionLabel("资源类"), GuiElementInterface.EMPTY_CALLBACK))
-        setSlot(27, GuiElement(sectionLabel("生产类"), GuiElementInterface.EMPTY_CALLBACK))
-        setSlot(36, GuiElement(sectionLabel("防御类"), GuiElementInterface.EMPTY_CALLBACK))
-    }
-
-    private fun sectionLabel(title: String): ItemStack =
-        ItemStackBuilder.of(Items.NAME_TAG)
-            .setName(Component.literal(title).withStyle { style ->
-                style.withColor(ChatFormatting.YELLOW).withItalic(false)
-            })
-            .build()
 
     fun stillOpen(): Boolean {
         val world = site.level

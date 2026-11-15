@@ -1,6 +1,8 @@
 package shina.wallwarRebirth.building
 
 import net.minecraft.core.BlockPos
+import net.minecraft.core.particles.ParticleTypes
+import net.minecraft.core.particles.SculkChargeParticleOptions
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.tags.BlockTags
@@ -18,6 +20,7 @@ import shina.wallwarRebirth.targeting.TeslaTargeting
 import shina.wallwarRebirth.targeting.TowerTargeting
 import kotlin.math.atan2
 import kotlin.math.cos
+import kotlin.math.min
 import kotlin.math.sin
 import kotlin.math.sqrt
 
@@ -79,24 +82,97 @@ object BuildingCombat {
     }
 
     private fun tickTesla(site: SiteCoreBlockEntity, level: ServerLevel) {
-        val index = (site.buildingLevel - 1).coerceIn(0, MatchRules.TESLA_RANGE.lastIndex)
-        val target = teslaTarget(site, level, MatchRules.TESLA_RANGE[index])
-        val interval = MatchRules.TESLA_INTERVAL
+        val index = (site.buildingLevel - 1).coerceIn(0, MatchRules.TESLA_DAMAGE.lastIndex)
+        val range = teslaRange(site)
+        val origin = Vec3.atCenterOf(site.blockPos)
+        val target = teslaTarget(site, level, origin, range)
+        val interval = MatchRules.TESLA_INTERVAL[index]
         val (nextAge, fire) = IntervalGate.step(site.actionAge, interval, target != null)
         site.actionAge = nextAge
         if (!fire || target == null) return
         site.setChanged()
-        target.hurtServer(level, level.damageSources().lightningBolt(), MatchRules.TESLA_DAMAGE.toFloat())
-        target.addEffect(MobEffectInstance(MobEffects.WEAKNESS, MatchRules.TESLA_WEAKNESS_TICKS, 0, false, true))
-        target.addEffect(MobEffectInstance(MobEffects.SLOWNESS, MatchRules.TESLA_SLOWNESS_TICKS, 0, false, true))
-        target.addEffect(MobEffectInstance(MobEffects.BLINDNESS, MatchRules.TESLA_BLINDNESS_TICKS, 0, false, true))
+        val charged = if (site.diffuse.isEmpty) emptyList() else chargedSummons(site, level, origin, range)
+        val damage = MatchRules.TESLA_DAMAGE[index].toFloat()
+        val source = level.damageSources().lightningBolt()
+        target.hurtServer(level, source, damage)
+        val wind = MatchRules.TESLA_WIND_TICKS
+        val player = target as? ServerPlayer
+        target.addEffect(MobEffectInstance(MobEffects.WIND_CHARGED, if (player != null) wind / 2 else wind, 0, false, true))
+        if (player != null) {
+            val fatigue = if (site.reinforceTwo.isEmpty) {
+                MatchRules.TESLA_HIT_FATIGUE_AMPLIFIER
+            } else {
+                MatchRules.TESLA_HIT_FATIGUE_AMPLIFIER_II
+            }
+            applyTeslaDebuffs(target, fatigue)
+        }
+        if (player != null) applyTeslaSpark(player)
+        for (extra in charged) {
+            if (extra.id == target.id) continue
+            extra.hurtServer(level, source, damage)
+        }
+        discharge(site, level)
     }
 
-    private fun teslaTarget(site: SiteCoreBlockEntity, level: ServerLevel, range: Double): ServerPlayer? =
+    private fun teslaRange(site: SiteCoreBlockEntity): Double {
+        val base = MatchRules.TESLA_RANGE
+        return if (site.reinforce.isEmpty) base else base * MatchRules.TESLA_RANGE_SCALE
+    }
+
+    private fun chargedSummons(
+        site: SiteCoreBlockEntity,
+        level: ServerLevel,
+        origin: Vec3,
+        range: Double,
+    ): List<LivingEntity> =
+        TargetWorlds.world.summons(level).mapNotNull { actor ->
+            val mob = actor.entity
+            if (!mob.isAlive || !mob.hasEffect(MobEffects.WIND_CHARGED)) return@mapNotNull null
+            if (!hostile(site.team, actor.team)) return@mapNotNull null
+            if (distanceToBox(origin, mob.boundingBox) > range + MatchRules.TESLA_TIE_DISTANCE) return@mapNotNull null
+            mob
+        }
+
+    private fun applyTeslaDebuffs(target: LivingEntity, fatigueAmplifier: Int) {
+        fun hidden(effect: net.minecraft.core.Holder<net.minecraft.world.effect.MobEffect>, ticks: Int, amplifier: Int) {
+            target.addEffect(MobEffectInstance(effect, ticks, amplifier, false, false, true))
+        }
+        hidden(MobEffects.BLINDNESS, MatchRules.TESLA_HIT_BLINDNESS_TICKS, 0)
+        hidden(MobEffects.SLOWNESS, MatchRules.TESLA_HIT_SLOWNESS_TICKS, MatchRules.TESLA_HIT_SLOWNESS_AMPLIFIER)
+        hidden(MobEffects.MINING_FATIGUE, MatchRules.TESLA_HIT_FATIGUE_TICKS, fatigueAmplifier)
+        hidden(MobEffects.WEAKNESS, MatchRules.TESLA_HIT_WEAKNESS_TICKS, 0)
+    }
+
+    private fun applyTeslaSpark(target: LivingEntity) {
+        val world = target.level() as? ServerLevel ?: return
+        world.sendParticles(
+            ParticleTypes.SOUL_FIRE_FLAME,
+            target.x,
+            target.y + 1.0,
+            target.z,
+            100,
+            0.0,
+            0.0,
+            0.0,
+            0.05,
+        )
+    }
+
+    private fun discharge(site: SiteCoreBlockEntity, level: ServerLevel) {
+        val origin = Vec3.atCenterOf(site.blockPos)
+        val y = origin.y + MatchRules.TESLA_RING_ABOVE
+        val charge = SculkChargeParticleOptions(0f)
+        for (step in 0 until 360) {
+            val angle = Math.toRadians(step.toDouble())
+            level.sendParticles(charge, origin.x, y, origin.z, 0, cos(angle), 0.0, sin(angle), 0.5)
+        }
+    }
+
+    private fun teslaTarget(site: SiteCoreBlockEntity, level: ServerLevel, origin: Vec3, range: Double): LivingEntity? =
         TeslaTargeting.select(
             TargetWorlds.world,
             level,
-            Vec3.atCenterOf(site.blockPos),
+            origin,
             site.team,
             range,
             MatchRules.TESLA_TIE_DISTANCE,
@@ -157,7 +233,7 @@ object BuildingCombat {
             site.team,
             range,
             MatchRules.TOWER_TIE_DISTANCE,
-        )
+        ) { canSee(site, level, it) }
 
     private fun <T : LivingEntity> pick(origin: Vec3, entities: List<T>, tie: Double = MatchRules.TOWER_TIE_DISTANCE): T? =
         entities.minWithOrNull(
@@ -167,7 +243,11 @@ object BuildingCombat {
         )
 
     private fun shoot(site: SiteCoreBlockEntity, level: ServerLevel, target: LivingEntity, speed: Float) {
-        val origin = Vec3.atCenterOf(site.blockPos)
+        val origin = Vec3(
+            site.blockPos.x + 0.5,
+            site.blockPos.y + 1.0 + MatchRules.TOWER_MUZZLE_ABOVE,
+            site.blockPos.z + 0.5,
+        )
         val aim = target.eyePosition.subtract(origin)
         if (aim.lengthSqr() < 1.0e-6) return
         val direction = aim.normalize()
@@ -229,6 +309,31 @@ object BuildingCombat {
             return null
         }
         return cursor
+    }
+
+    private fun canSee(site: SiteCoreBlockEntity, level: ServerLevel, target: LivingEntity): Boolean {
+        val origin = Vec3(
+            site.blockPos.x + 0.5,
+            site.blockPos.y + 1.0 + MatchRules.TOWER_MUZZLE_ABOVE,
+            site.blockPos.z + 0.5,
+        )
+        val end = target.eyePosition
+        val reach = target.boundingBox.clip(origin, end).orElse(end)
+        val span = reach.subtract(origin)
+        val distance = span.length()
+        if (distance < 1.0e-4) return true
+        var cursor = origin
+        var traveled = 0.0
+        while (traveled + 1.0e-4 < distance) {
+            val advance = min(0.25, distance - traveled)
+            cursor = cursor.add(span.scale(advance / distance))
+            traveled += advance
+            if (target.boundingBox.contains(cursor.x, cursor.y, cursor.z)) return true
+            val pos = BlockPos.containing(cursor)
+            if (owns(site, level, pos)) continue
+            if (!collisionEmpty(level, pos, level.getBlockState(pos))) return false
+        }
+        return true
     }
 
     private fun owns(site: SiteCoreBlockEntity, level: ServerLevel, pos: BlockPos): Boolean {

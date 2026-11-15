@@ -142,6 +142,8 @@ internal fun SiteCoreBlockEntity.absorb(from: SiteCoreBlockEntity) {
     producedMonster = from.producedMonster
     marching = from.marching
     holding = from.holding
+    holdEpoch = from.holdEpoch
+    holdAnchor = from.holdAnchor?.immutable()
     eggReleaseAge = from.eggReleaseAge
     healthDisplayId = from.healthDisplayId
     crossbowId = from.crossbowId
@@ -191,7 +193,6 @@ internal fun SiteCoreBlockEntity.repositionDisplays(level: ServerLevel) {
 
 internal fun SiteCoreBlockEntity.storedDamage(amount: Int, struck: BlockPos = blockPos, attackerName: String? = null, attacker: LivingEntity? = null) {
     if (amount <= 0 || isRemoved || buildingId.isEmpty() || health <= 0) return
-    if (FarmlandWork.isPart(this, struck) || BuildingStyles.isProtectedPart(this, struck)) return
     val world = level as? ServerLevel
     if (world != null) {
         val state = world.getBlockState(struck)

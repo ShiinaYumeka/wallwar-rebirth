@@ -19,6 +19,14 @@ object SiteCores {
         return ArrayList(cores)
     }
 
+    fun find(level: Level, pos: BlockPos): SiteCoreBlockEntity? {
+        for (core in cores) {
+            if (core.isRemoved || core.level !== level || core.blockPos != pos) continue
+            return core
+        }
+        return null
+    }
+
     fun insideBuilding(level: Level, pos: BlockPos): Boolean {
         for (core in all()) {
             if (core.level !== level || core.isRemoved || core.buildingId.isEmpty()) continue

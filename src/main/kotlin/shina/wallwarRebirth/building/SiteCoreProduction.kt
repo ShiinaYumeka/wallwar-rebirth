@@ -4,9 +4,8 @@ import net.minecraft.server.level.ServerLevel
 import net.minecraft.world.item.ItemStack
 import shina.wallwarRebirth.rules.MatchRules
 import shina.wallwarRebirth.shop.match.TeamWarehouses
-import kotlin.math.min
 
-internal fun SiteCoreBlockEntity.rolled(world: ServerLevel, mineral: MineralOutput): Boolean = when {
+internal fun rolled(world: ServerLevel, mineral: MineralOutput): Boolean = when {
     mineral.chancePercent > 0 -> world.random.nextInt(100) < mineral.chancePercent
     mineral.chance <= 1 -> true
     else -> world.random.nextInt(mineral.chance) == 0
@@ -33,9 +32,12 @@ internal fun SiteCoreBlockEntity.insert(stack: ItemStack): ItemStack {
 
 internal fun SiteCoreBlockEntity.intervalOf(definition: BuildingDefinition, mineral: MineralOutput): Int? {
     if (buildingLevel < mineral.minLevel) return null
-    val key = SiteCoreBlockEntity.itemKey(mineral.item)
-    val multiplier = if (reinforce.isEmpty.not() && reinforceMineral == key) 2 else 1
-    return maxOf(MatchRules.MIN_PRODUCTION_TICKS, mineral.baseTicks / multiplier)
+    val ticks = if (buildingId == Buildings.BASE.id && !reinforce.isEmpty) {
+        MatchRules.BASE_BOOSTED_TICKS
+    } else {
+        mineral.baseTicks
+    }
+    return maxOf(MatchRules.MIN_PRODUCTION_TICKS, ticks)
 }
 
 internal fun SiteCoreBlockEntity.storedProduceCycle() {

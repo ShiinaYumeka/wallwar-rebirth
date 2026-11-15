@@ -65,17 +65,17 @@ class JoinGameBoard(private val viewer: ServerPlayer) : SimpleGui(MenuType.GENER
         placeBack(this, viewer)
     }
 
-    private fun status() = named(
-        Items.BOOK,
-        phaseName(),
-        ChatFormatting.YELLOW,
-        listOf(
+    private fun status(): net.minecraft.world.item.ItemStack {
+        val lines = mutableListOf(
             "队伍：${Match.member(viewer.uuid)?.team?.ifEmpty { "无" } ?: "无"}",
             "职业：${Classes.name(Match.member(viewer.uuid)?.classId ?: Classes.MINER)}",
-            "红队准备（${readyText(WallwarTeams.RED)}）",
-            "蓝队准备（${readyText(WallwarTeams.BLUE)}）",
-        ),
-    )
+            "准备（${readyText()}）",
+        )
+        if (Match.testMode) lines.add("测试对局：购买和升级不消耗资源，可换队伍")
+        val seconds = Match.readyCountdownSeconds(viewer.level().server)
+        if (seconds != null) lines.add("全员已准备，$seconds 秒后开始")
+        return named(Items.BOOK, phaseName(), ChatFormatting.YELLOW, lines)
+    }
 
     private fun classInfo(): net.minecraft.world.item.ItemStack {
         val spec = Classes.spec(Match.member(viewer.uuid)?.classId ?: Classes.MINER)
@@ -92,23 +92,31 @@ class JoinGameBoard(private val viewer: ServerPlayer) : SimpleGui(MenuType.GENER
             item,
             label,
             color,
-            listOf(if (Match.member(viewer.uuid)?.team == team) "当前队伍，再次点击退出" else "点击加入"),
+            listOf(
+                when {
+                    Match.member(viewer.uuid)?.team == team -> "当前队伍，再次点击退出"
+                    Match.phase != Match.Phase.LOBBY -> "对局已经开始，不能中途加入"
+                    else -> "点击加入"
+                },
+            ),
         )
 
     private fun readyButton(): net.minecraft.world.item.ItemStack {
         val member = Match.member(viewer.uuid)
         val ready = member?.ready == true
-        val team = member?.team.orEmpty()
-        val title = (if (ready) "已准备" else "未准备") + if (team.isEmpty()) "" else "（${readyText(team)}）"
+        val title = (if (ready) "已准备" else "未准备") + "（${readyText()}）"
+        val counting = Match.readyCountdownSeconds(viewer.level().server) != null
         return named(
             if (ready) Items.LIME_DYE else Items.GRAY_DYE,
             title,
             if (ready) ChatFormatting.GREEN else ChatFormatting.GRAY,
             listOf(
                 if (Match.phase != Match.Phase.LOBBY) phaseName()
+                else if (counting && ready) "再次点击取消准备，会打断倒计时"
+                else if (counting) "点击准备；全员再次准备后会从五秒重新倒数"
                 else if (ready) "再次点击取消准备"
                 else if (member == null || member.team.isEmpty()) "先加入队伍再准备"
-                else "点击准备；该队在线成员全部确认后，这一队才算完成",
+                else "点击准备；两队在线成员全部确认后会倒数五秒，倒数结束才开始准备地图",
             ),
         )
     }
@@ -130,8 +138,8 @@ class JoinGameBoard(private val viewer: ServerPlayer) : SimpleGui(MenuType.GENER
         listOf(if (Match.phase == Match.Phase.LOBBY) "左键减小 20 格，右键增大 20 格" else "地图已经生成"),
     )
 
-    private fun readyText(team: String): String {
-        val counts = Match.counts(viewer.level().server, team, readyFlag = true)
+    private fun readyText(): String {
+        val counts = Match.readyCounts(viewer.level().server)
         return "${counts.first}/${counts.second}"
     }
 

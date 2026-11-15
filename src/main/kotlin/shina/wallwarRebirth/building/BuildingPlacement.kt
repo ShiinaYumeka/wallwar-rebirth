@@ -4,7 +4,6 @@ import net.minecraft.core.BlockPos
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.world.level.block.CropBlock
 import net.minecraft.world.level.block.FarmBlock
-import shina.wallwarRebirth.match.MatchPlacement
 import shina.wallwarRebirth.monster.MonsterDefinition
 import shina.wallwarRebirth.monster.Monsters
 import shina.wallwarRebirth.monster.SummonedVillager
@@ -64,8 +63,7 @@ object BuildingPlacement {
     }
 
     private fun usable(level: ServerLevel, site: SiteCoreBlockEntity, pos: BlockPos): Boolean {
-        if (pos == site.blockPos || pos.above() == site.blockPos) return false
-        if (site.team.isNotEmpty() && !MatchPlacement.ownHalf(level, pos, site.team)) return false
+        if (insideBuilding(site, pos)) return false
         if (!Summoning.canOccupy(level, pos, null) || !Summoning.canOccupy(level, pos.above(), null)) return false
         val state = level.getBlockState(pos)
         if (!state.fluidState.isEmpty) return false
@@ -75,6 +73,14 @@ object BuildingPlacement {
         if (!below.fluidState.isEmpty) return false
         if (below.getCollisionShape(level, belowPos).isEmpty) return false
         return true
+    }
+
+    private fun insideBuilding(site: SiteCoreBlockEntity, pos: BlockPos): Boolean {
+        if (pos == site.blockPos || pos.above() == site.blockPos) return true
+        if (site.encloses(pos) || site.encloses(pos.above())) return true
+        val definition = Buildings.byId(site.buildingId) ?: return false
+        val cells = BuildingFootprints.cells(definition, site.blockPos, site.facingDirection())
+        return pos in cells
     }
 
     private fun dist2(origin: BlockPos, pos: BlockPos): Long {

@@ -14,6 +14,7 @@ import shina.wallwarRebirth.item.MatchMenuItem
 import shina.wallwarRebirth.item.ModItems
 import shina.wallwarRebirth.item.PortableTerminalItem
 import shina.wallwarRebirth.item.ReturnLobbyItem
+import shina.wallwarRebirth.item.SwitchTeamItem
 import shina.wallwarRebirth.rules.MatchRules
 
 object MatchMenu {
@@ -31,17 +32,28 @@ object MatchMenu {
         reconcile(player, { PortableTerminalItem.isTerminal(it) }, !lobby) {
             named(ModItems.TERMINAL, "局内终端", "右键打开局内终端")
         }
-        reconcile(player, { ReturnLobbyItem.isReturn(it) }, !lobby && !teamed) {
-            named(ModItems.RETURN_LOBBY, "返回大厅", "点击返回大厅，对局继续进行")
+        val settle = !lobby && Match.phase == Match.Phase.SETTLE && Match.needsSettleConsent(player)
+        reconcile(player, { ReturnLobbyItem.isReturn(it) }, settle || (!lobby && !teamed)) {
+            if (settle) named(ModItems.RETURN_LOBBY, "返回大厅", Match.settleHint(player))
+            else named(ModItems.RETURN_LOBBY, "返回大厅", "点击返回大厅，对局继续进行")
+        }
+        if (settle || (!lobby && !teamed)) {
+            retitle(player, { ReturnLobbyItem.isReturn(it) }, if (settle) {
+                named(ModItems.RETURN_LOBBY, "返回大厅", Match.settleHint(player))
+            } else {
+                named(ModItems.RETURN_LOBBY, "返回大厅", "点击返回大厅，对局继续进行")
+            })
+        }
+        reconcile(player, { SwitchTeamItem.isSwitch(it) }, Match.testMode && teamed) {
+            named(ModItems.SWITCH_TEAM, "换队伍", "右键切换到另一队")
         }
     }
 
     @JvmStatic
-    fun isBound(stack: ItemStack): Boolean =
-        MatchMenuItem.isMenu(stack) || PortableTerminalItem.isTerminal(stack)
+    fun isBound(stack: ItemStack): Boolean = BoundItems.isBound(stack)
 
     fun stripOnDeath(player: Player) {
-        takeMatching(player) { isBound(it) || ReturnLobbyItem.isReturn(it) }
+        takeMatching(player) { ReturnLobbyItem.isReturn(it) }
     }
 
     private fun reconcile(
@@ -56,12 +68,22 @@ object MatchMenu {
         }
         val found = locate(player, matches)
         if (found.isEmpty()) {
-            val stack = factory()
-            if (!player.inventory.add(stack)) player.drop(stack, false)
+            BoundItems.offerToMain(player, factory())
             return
         }
+        BoundItems.recoverMisplaced(player)
         for (index in 1 until found.size) {
             clearAt(player, found[index])
+        }
+    }
+
+    private fun retitle(player: ServerPlayer, matches: (ItemStack) -> Boolean, sample: ItemStack) {
+        val name = sample.get(DataComponents.CUSTOM_NAME)
+        val lore = sample.get(DataComponents.LORE)
+        for (ref in locate(player, matches)) {
+            val stack = stackAt(player, ref) ?: continue
+            if (name != null) stack.set(DataComponents.CUSTOM_NAME, name)
+            if (lore != null) stack.set(DataComponents.LORE, lore)
         }
     }
 
@@ -110,7 +132,14 @@ object MatchMenu {
         return stack
     }
 
+    private fun stackAt(player: ServerPlayer, ref: SlotRef): ItemStack? = when (ref) {
+        is SlotRef.Inventory -> player.inventory.getItem(ref.slot)
+        SlotRef.Offhand -> player.getItemBySlot(EquipmentSlot.OFFHAND)
+        SlotRef.Carried -> player.containerMenu.carried
+    }
+
     private sealed class SlotRef {
+
         data class Inventory(val slot: Int) : SlotRef()
         data object Offhand : SlotRef()
         data object Carried : SlotRef()

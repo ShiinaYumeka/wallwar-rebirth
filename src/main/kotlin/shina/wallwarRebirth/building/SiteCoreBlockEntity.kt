@@ -46,6 +46,8 @@ class SiteCoreBlockEntity(pos: BlockPos, state: BlockState) : BlockEntity(ModSit
     var producedMonster: String = "zombie"
     var marching: Boolean = true
     var holding: Boolean = false
+    var holdEpoch: Int = 0
+    var holdAnchor: BlockPos? = null
     var eggReleaseAge: Int = 0
     var healthDisplayId: UUID? = null
     override var crossbowId: UUID? = null
@@ -145,6 +147,8 @@ class SiteCoreBlockEntity(pos: BlockPos, state: BlockState) : BlockEntity(ModSit
         producedMonster = defaultMonster(definition)
         marching = true
         holding = false
+        holdEpoch = 0
+        holdAnchor = null
         eggReleaseAge = 0
         Containers.dropContents(world, blockPos, barracksMaterials as Container)
         Containers.dropContents(world, blockPos, barracksEggs as Container)
@@ -383,6 +387,8 @@ class SiteCoreBlockEntity(pos: BlockPos, state: BlockState) : BlockEntity(ModSit
     fun moduleActive(slot: ModuleSlot): Boolean = storedModuleActive(slot)
 
     fun moduleStack(slot: ModuleSlot): ItemStack = storedModuleStack(slot)
+
+    fun holdOrigin(): BlockPos = holdAnchor ?: blockPos
 
 
 

@@ -1,6 +1,7 @@
 package shina.wallwarRebirth.targeting
 
 import net.minecraft.core.BlockPos
+import shina.wallwarRebirth.building.Buildings
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.world.entity.LivingEntity
 import net.minecraft.world.phys.Vec3
@@ -17,16 +18,20 @@ object SummonDefaultTargeting {
         team: String,
         radius: Double?,
         skipDefensive: Boolean,
+        ignore: Collection<BlockPos> = emptyList(),
+        preferCombatDefense: Boolean = false,
     ): CoreTarget? {
         val choices = world.cores(level).filter { core ->
             core.health > 0 &&
                 core.buildingId.isNotEmpty() &&
+                core.pos !in ignore &&
                 !(skipDefensive && core.defensive) &&
                 Targeting.hostile(team, core.team) &&
                 (radius == null || origin.distanceTo(Vec3.atCenterOf(core.pos)) <= radius)
         }
         return choices.minWithOrNull(
-            compareBy<CoreTarget> { (origin.distanceTo(Vec3.atCenterOf(it.pos)) * 1000.0).toLong() }
+            compareBy<CoreTarget> { if (preferCombatDefense && Buildings.isCombatDefense(it.buildingId)) 0 else 1 }
+                .thenBy { (origin.distanceTo(Vec3.atCenterOf(it.pos)) * 1000.0).toLong() }
                 .thenBy { it.health }
                 .thenBy { if (it.base) 0 else 1 }
                 .thenBy { it.pos.x }

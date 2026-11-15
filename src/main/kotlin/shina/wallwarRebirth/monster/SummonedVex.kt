@@ -25,6 +25,7 @@ class SummonedVex(type: EntityType<out SummonedVex>, level: Level) :
 
     init {
         setPersistenceRequired()
+        SummonedGear.applyStats(this, Monsters.VEX, fill = true)
         refreshName()
     }
 
@@ -33,14 +34,16 @@ class SummonedVex(type: EntityType<out SummonedVex>, level: Level) :
     override fun registerGoals() {
         super.registerGoals()
         targetSelector.removeAllGoals { true }
+        goalSelector.removeAllGoals { it.javaClass.simpleName == "VexRandomMoveGoal" }
     }
 
     fun inheritFrom(owner: SummonedUnit, bound: net.minecraft.core.BlockPos?) {
         summonedTeam = owner.summonedTeam
         kindId = VEX_ID
+        SummonedGear.applyStats(this, Monsters.VEX, fill = true)
         mind.bindHome(owner.mind.homePos() ?: bound)
         setOwner(owner as Mob)
-        if (bound != null) setBoundOrigin(bound)
+        setBoundOrigin(owner.living().blockPosition())
         addTag(MatchRules.SUMMONER_TAG)
         refreshName()
     }
@@ -94,12 +97,12 @@ class SummonedVex(type: EntityType<out SummonedVex>, level: Level) :
 
     override fun customServerAiStep(level: ServerLevel) {
         if (Match.frozen(level)) return
+        val leader = owner
+        if (leader != null && leader.isAlive && !leader.isRemoved) {
+            setBoundOrigin(leader.blockPosition())
+        }
         super.customServerAiStep(level)
         shina.wallwarRebirth.monster.ai.VexAi.tick(this, level)
-        val home = mind.homeSite(level)
-        if (home != null && home.holding) {
-            setBoundOrigin(home.blockPos)
-        }
     }
 
     override fun addAdditionalSaveData(output: net.minecraft.world.level.storage.ValueOutput) {

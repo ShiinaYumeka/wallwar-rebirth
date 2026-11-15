@@ -144,6 +144,24 @@ object Monsters {
         baseProductionTicks = MatchRules.ZOMBIE_PRODUCTION_TICKS,
         egg = ModItems.EGG_CREEPER,
         explodes = true,
+        calmAboveHalf = true,
+    )
+
+    val CHARGED_CREEPER = MonsterDefinition(
+        id = "charged_creeper",
+        displayName = "唤灵·高压苦力怕",
+        rank = 3,
+        health = MatchRules.CHARGED_CREEPER_HEALTH,
+        armor = MatchRules.CREEPER_ARMOR,
+        playerAttack = MatchRules.CHARGED_CREEPER_ATTACK,
+        buildingDamage = MatchRules.CHARGED_CREEPER_BUILDING_DAMAGE,
+        buildingIntervalTicks = MatchRules.BUILDING_HIT_TICKS,
+        attackRange = MatchRules.CREEPER_ATTACK_RANGE,
+        cost = listOf(MonsterCost(Items.REDSTONE, MatchRules.CHARGED_CREEPER_COST_REDSTONE, "红石")),
+        baseProductionTicks = MatchRules.ZOMBIE_PRODUCTION_TICKS,
+        egg = ModItems.EGG_CHARGED_CREEPER,
+        explodes = true,
+        buildingsOnly = true,
     )
 
     val WARRIOR = MonsterDefinition(
@@ -190,7 +208,7 @@ object Monsters {
     val VINDICATOR = MonsterDefinition(
         id = "vindicator",
         displayName = "唤灵·卫道士",
-        rank = 1,
+        rank = 2,
         health = MatchRules.VINDICATOR_HEALTH,
         armor = MatchRules.PILLAGER_ARMOR,
         playerAttack = MatchRules.VINDICATOR_ATTACK,
@@ -209,14 +227,14 @@ object Monsters {
 
     val EVOKER = MonsterDefinition(
         id = "evoker",
-        displayName = "唤灵·幻魔者",
+        displayName = "唤灵·唤魔者",
         rank = 2,
         health = MatchRules.EVOKER_HEALTH,
         armor = MatchRules.PILLAGER_ARMOR,
         playerAttack = MatchRules.EVOKER_ATTACK,
         buildingDamage = MatchRules.SMALL_BUILDING_DAMAGE,
         buildingIntervalTicks = MatchRules.BUILDING_HIT_TICKS,
-        attackRange = MatchRules.BUILDING_ATTACK_RANGE,
+        attackRange = MatchRules.EVOKER_BUILDING_RANGE,
         cost = listOf(
             MonsterCost(Items.REDSTONE, MatchRules.EVOKER_COST_REDSTONE, "红石"),
             MonsterCost(Items.WHEAT, MatchRules.EVOKER_COST_WHEAT, "小麦"),
@@ -225,12 +243,32 @@ object Monsters {
         egg = ModItems.EGG_EVOKER,
         source = MonsterSource.TOWER,
         fangs = true,
+        chaseRadiusStart = MatchRules.EVOKER_CHASE_RADIUS,
+        chaseRadiusMax = MatchRules.EVOKER_CHASE_RADIUS,
+    )
+
+    val VEX = MonsterDefinition(
+        id = "vex",
+        displayName = "恼鬼",
+        rank = 2,
+        health = MatchRules.VEX_HEALTH,
+        armor = 0.0,
+        playerAttack = MatchRules.VEX_ATTACK,
+        buildingDamage = MatchRules.SMALL_BUILDING_DAMAGE,
+        buildingIntervalTicks = MatchRules.BUILDING_HIT_TICKS,
+        attackRange = MatchRules.BUILDING_ATTACK_RANGE,
+        cost = emptyList(),
+        baseProductionTicks = 0,
+        egg = Items.AIR,
+        source = MonsterSource.SUMMONED,
+        chaseRadiusStart = MatchRules.EVOKER_CHASE_RADIUS,
+        chaseRadiusMax = MatchRules.EVOKER_CHASE_RADIUS,
     )
 
     val ILLUSIONER = MonsterDefinition(
         id = "illusioner",
         displayName = "唤灵·幻术师",
-        rank = 2,
+        rank = 1,
         health = MatchRules.ILLUSIONER_HEALTH,
         armor = MatchRules.PILLAGER_ARMOR,
         playerAttack = MatchRules.ILLUSIONER_ATTACK,
@@ -260,7 +298,6 @@ object Monsters {
         cost = listOf(
             MonsterCost(Items.REDSTONE, MatchRules.RAVAGER_COST_REDSTONE, "红石"),
             MonsterCost(Items.WHEAT, MatchRules.RAVAGER_COST_WHEAT, "小麦"),
-            MonsterCost(Items.DIAMOND, MatchRules.RAVAGER_COST_DIAMOND, "钻石"),
         ),
         baseProductionTicks = MatchRules.RAVAGER_PRODUCTION_TICKS,
         egg = ModItems.EGG_RAVAGER,
@@ -285,8 +322,8 @@ object Monsters {
     )
 
     private val all = listOf(
-        ZOMBIE, SKELETON, GOLEM, SPIDER, MINER, HUSK, DEATH_KNIGHT, CREEPER, WARRIOR,
-        PILLAGER, VINDICATOR, EVOKER, ILLUSIONER, RAVAGER, VILLAGER,
+        ZOMBIE, SKELETON, GOLEM, SPIDER, MINER, HUSK, DEATH_KNIGHT, CREEPER, CHARGED_CREEPER, WARRIOR,
+        PILLAGER, VINDICATOR, EVOKER, VEX, ILLUSIONER, RAVAGER, VILLAGER,
     )
 
     fun byId(id: String): MonsterDefinition? = all.firstOrNull { it.id == id }

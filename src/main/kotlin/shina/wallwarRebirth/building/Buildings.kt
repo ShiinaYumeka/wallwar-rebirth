@@ -94,7 +94,7 @@ object Buildings {
         production = emptyList(),
         healthByLevel = MatchRules.TOWER_HEALTH,
         icon = Items.CROSSBOW,
-        summary = "核心方块上平放一把弩，水平转向当前目标。射出不会被捡起的箭。优先最近的敌方唤灵怪物，没有怪物时打最近的敌方玩家。不打我方，不拆建筑，不消耗箭。",
+        summary = "核心方块上平放一把弩，水平转向当前目标。射出不会被捡起的箭。优先最近的、没有被实心方块挡住的敌方唤灵，没有再打没有被挡住的敌方玩家。不打我方，不拆建筑，不消耗箭。",
         footprint = Footprint.SQUARE_1,
         details = listOf(
             LevelNote(1, towerNote(0)),
@@ -118,13 +118,15 @@ object Buildings {
         production = emptyList(),
         healthByLevel = MatchRules.TESLA_HEALTH,
         icon = Items.LIGHTNING_ROD,
-        summary = "每 5 秒对射程内最近的敌方玩家造成闪电伤害，并施加虚弱、减速和失明。不打唤灵，不拆建筑。",
+        summary = "按等级间隔电击 16 格内没有蓄风的敌人，优先玩家。命中造成闪电伤害并给予 20 秒蓄风；玩家的蓄风时间减半。蓄风只显示计时，死亡不爆炸。",
         footprint = Footprint.SQUARE_3,
         details = listOf(
             LevelNote(1, teslaNote(0)),
             LevelNote(2, teslaNote(1)),
             LevelNote(3, teslaNote(2)),
         ),
+        acceptsModules = true,
+        acceptsDiffusion = true,
     )
 
     val BARRACKS = BuildingDefinition(
@@ -150,7 +152,7 @@ object Buildings {
         details = listOf(
             LevelNote(
                 1,
-                "僵尸、骷髅和蜘蛛 ${MatchRules.ZOMBIE_PRODUCTION_TICKS / MatchRules.TICKS_PER_SECOND} 秒，尸壳、骷髅死士、苦力怕和僵尸战士同样是 ${MatchRules.ZOMBIE_PRODUCTION_TICKS / MatchRules.TICKS_PER_SECOND} 秒但要 2 级兵营，矿工僵尸 ${MatchRules.MINER_ZOMBIE_PRODUCTION_TICKS / MatchRules.TICKS_PER_SECOND} 秒但要 2 级兵营，铁傀儡 ${MatchRules.GOLEM_PRODUCTION_TICKS / MatchRules.TICKS_PER_SECOND} 秒，村民 ${MatchRules.VILLAGER_PRODUCTION_TICKS / MatchRules.TICKS_PER_SECOND} 秒但要 2 级兵营",
+                "僵尸、骷髅和蜘蛛 ${MatchRules.ZOMBIE_PRODUCTION_TICKS / MatchRules.TICKS_PER_SECOND} 秒，尸壳、骷髅死士、苦力怕和僵尸战士同样是 ${MatchRules.ZOMBIE_PRODUCTION_TICKS / MatchRules.TICKS_PER_SECOND} 秒但要 2 级兵营，高压苦力怕同样是 ${MatchRules.ZOMBIE_PRODUCTION_TICKS / MatchRules.TICKS_PER_SECOND} 秒但要 3 级兵营，矿工僵尸 ${MatchRules.MINER_ZOMBIE_PRODUCTION_TICKS / MatchRules.TICKS_PER_SECOND} 秒但要 2 级兵营，铁傀儡 ${MatchRules.GOLEM_PRODUCTION_TICKS / MatchRules.TICKS_PER_SECOND} 秒，村民 ${MatchRules.VILLAGER_PRODUCTION_TICKS / MatchRules.TICKS_PER_SECOND} 秒但要 2 级兵营",
             ),
             LevelNote(2, "产出速度加快 50%，间隔变为原来的 2/3"),
             LevelNote(3, "产出速度加快 100%，间隔变为原来的一半"),
@@ -219,7 +221,7 @@ object Buildings {
         production = emptyList(),
         healthByLevel = listOf(MatchRules.FARMLAND_HEALTH),
         icon = Items.COMPOSTER,
-        summary = "召集无职业唤灵·村民成为农民。放置后在旁边生成一名已经是农民的本队村民。农民采集并补种本队麦田，小麦按间隔生长。",
+        summary = "召集无职业唤灵·村民成为农民。农田没人干活时，村民也会自己走过去转职。农民最多带 20 个小麦，满了先去交。",
         realWorldParts = true,
     )
 
@@ -246,7 +248,7 @@ object Buildings {
         details = listOf(
             LevelNote(
                 1,
-                "掠夺者、卫道士和幻术师 ${MatchRules.PILLAGER_PRODUCTION_TICKS / MatchRules.TICKS_PER_SECOND} 秒，幻魔者 ${MatchRules.EVOKER_PRODUCTION_TICKS / MatchRules.TICKS_PER_SECOND} 秒且要 2 级，劫掠兽 ${MatchRules.RAVAGER_PRODUCTION_TICKS / MatchRules.TICKS_PER_SECOND} 秒且要 3 级",
+                "掠夺者、卫道士和幻术师 ${MatchRules.PILLAGER_PRODUCTION_TICKS / MatchRules.TICKS_PER_SECOND} 秒，唤魔者 ${MatchRules.EVOKER_PRODUCTION_TICKS / MatchRules.TICKS_PER_SECOND} 秒且要 2 级，劫掠兽 ${MatchRules.RAVAGER_PRODUCTION_TICKS / MatchRules.TICKS_PER_SECOND} 秒且要 3 级",
             ),
             LevelNote(2, "产出速度加快 50%，间隔变为原来的 2/3"),
             LevelNote(3, "产出速度加快 100%，间隔变为原来的一半"),
@@ -258,6 +260,9 @@ object Buildings {
     private val all = listOf(BASE, WALL, TOWER, TESLA, BARRACKS, CANNON, RELAY, PILLAGER, FARMLAND)
 
     fun byId(id: String): BuildingDefinition? = all.firstOrNull { it.id == id }
+
+    fun isCombatDefense(id: String): Boolean =
+        id == TOWER.id || id == TESLA.id || id == CANNON.id
 
     fun ofCategory(category: BuildingCategory): List<BuildingDefinition> = all.filter { it.category == category }
 
@@ -271,12 +276,10 @@ object Buildings {
     }
 
     private fun teslaNote(index: Int): String {
-        val range = MatchRules.TESLA_RANGE[index].toInt()
-        val weakness = MatchRules.TESLA_WEAKNESS_TICKS / MatchRules.TICKS_PER_SECOND
-        val slowness = MatchRules.TESLA_SLOWNESS_TICKS / MatchRules.TICKS_PER_SECOND
-        val blindness = MatchRules.TESLA_BLINDNESS_TICKS / MatchRules.TICKS_PER_SECOND
-        val seconds = MatchRules.TESLA_INTERVAL / MatchRules.TICKS_PER_SECOND
-        return "射程 $range，闪电伤害 ${MatchRules.TESLA_DAMAGE.toInt()}，间隔 $seconds 秒，虚弱 $weakness 秒，减速 I $slowness 秒，失明 $blindness 秒"
+        val wind = MatchRules.secondsText(MatchRules.TESLA_WIND_TICKS)
+        val playerWind = MatchRules.secondsText(MatchRules.TESLA_WIND_TICKS / 2)
+        val seconds = MatchRules.TESLA_INTERVAL[index] / MatchRules.TICKS_PER_SECOND
+        return "射程 ${MatchRules.TESLA_RANGE.toInt()}，闪电伤害 ${MatchRules.TESLA_DAMAGE[index].toInt()}，间隔 $seconds 秒，蓄风 $wind 秒，玩家 $playerWind 秒"
     }
 
     private fun cannonNote(index: Int): String {

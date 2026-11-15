@@ -1,6 +1,7 @@
 package shina.wallwarRebirth.command
 
 import com.mojang.brigadier.Command
+import com.mojang.brigadier.arguments.IntegerArgumentType
 import net.minecraft.commands.Commands
 import net.minecraft.network.chat.Component
 import net.minecraft.world.InteractionHand
@@ -36,6 +37,9 @@ object WallwarCommands {
         }
         literal("test") {
             requires { Commands.LEVEL_GAMEMASTERS.check(permissions()) }
+            literal("game") {
+                executes { startTestGame() }
+            }
             literal("shop") {
                 executes { openShop() }
                 literal("teamrepo") {
@@ -67,6 +71,12 @@ object WallwarCommands {
                 executes { giveModules() }
             }
         }
+    }
+
+    private fun CommandContext.startTestGame(): Int {
+        val player = context.source.playerOrException
+        Match.startTestGame(player)
+        return Command.SINGLE_SUCCESS
     }
 
     private fun CommandContext.openShop(): Int {
@@ -102,7 +112,7 @@ object WallwarCommands {
         val player = context.source.playerOrException
         val level = player.level()
         val building: String by this
-        val rank = context.getArgument("level", Integer::class.java).toInt()
+        val rank = IntegerArgumentType.getInteger(context, "level")
         val eye = player.eyePosition
         val end = eye.add(player.lookAngle.scale(6.0))
         val hit = level.clip(ClipContext(eye, end, ClipContext.Block.OUTLINE, ClipContext.Fluid.NONE, player))
@@ -168,6 +178,10 @@ object WallwarCommands {
         val team = board.getPlayerTeam(name)
         if (team == null) {
             context.source.sendFailure(Component.literal("队伍不存在"))
+            return 0
+        }
+        if (Match.phase != Match.Phase.LOBBY) {
+            context.source.sendFailure(Component.literal("对局已经开始，不能中途加入"))
             return 0
         }
         Match.assign(player, name)

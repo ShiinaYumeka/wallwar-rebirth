@@ -66,6 +66,13 @@ internal fun SiteCoreBlockEntity.writeState(output: ValueOutput) {
     output.putString("ProducedMonster", producedMonster)
     output.putBoolean("Marching", marching)
     output.putBoolean("Holding", holding)
+    output.putInt("HoldEpoch", holdEpoch)
+    output.putBoolean("HasHoldAnchor", holdAnchor != null)
+    holdAnchor?.let { anchor ->
+        output.putInt("HoldAnchorX", anchor.x)
+        output.putInt("HoldAnchorY", anchor.y)
+        output.putInt("HoldAnchorZ", anchor.z)
+    }
     output.putInt("EggReleaseAge", eggReleaseAge)
     output.putString("HealthDisplay", healthDisplayId?.toString() ?: "")
     output.putString("Crossbow", crossbowId?.toString() ?: "")
@@ -114,6 +121,16 @@ internal fun SiteCoreBlockEntity.readState(input: ValueInput) {
     producedMonster = input.getStringOr("ProducedMonster", "zombie")
     marching = input.getBooleanOr("Marching", true)
     holding = input.getBooleanOr("Holding", false)
+    holdEpoch = input.getIntOr("HoldEpoch", 0)
+    holdAnchor = if (input.getBooleanOr("HasHoldAnchor", false)) {
+        BlockPos(
+            input.getIntOr("HoldAnchorX", 0),
+            input.getIntOr("HoldAnchorY", 0),
+            input.getIntOr("HoldAnchorZ", 0),
+        )
+    } else {
+        null
+    }
     eggReleaseAge = input.getIntOr("EggReleaseAge", 0)
     healthDisplayId = input.getStringOr("HealthDisplay", "").takeIf { it.isNotEmpty() }?.let { runCatching { UUID.fromString(it) }.getOrNull() }
     crossbowId = input.getStringOr("Crossbow", "").takeIf { it.isNotEmpty() }?.let { runCatching { UUID.fromString(it) }.getOrNull() }

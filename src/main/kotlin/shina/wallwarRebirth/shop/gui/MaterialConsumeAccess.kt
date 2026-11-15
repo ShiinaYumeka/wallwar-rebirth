@@ -1,5 +1,6 @@
 package shina.wallwarRebirth.shop.gui
 
+import shina.wallwarRebirth.match.Match
 import shina.wallwarRebirth.shop.PlayerShopSettings
 import shina.wallwarRebirth.shop.ShopMaterialRegistry
 import shina.wallwarRebirth.shop.TeamStores
@@ -45,13 +46,13 @@ interface MaterialConsumeAccess {
 
     fun tryDeduct(costs: Map<Identifier, Int>): DeductResult {
         val player = this.getPlayer()
-        if (!player.isCreative) {
+        if (!(player.isCreative || Match.testMode)) {
             if (!hasEnoughMaterials(costs)) {
                 notifyNotEnoughMaterial(costs)
                 return DeductResult.InsufficientMaterials
             }
         }
-        val deductResult = if (player.isCreative) {
+        val deductResult = if (player.isCreative || Match.testMode) {
             DeductResult.Success(null, null)
         } else {
             deductMaterials(costs)
@@ -180,7 +181,7 @@ interface MaterialConsumeAccess {
             requirement: Int,
             shouldConsiderTeamRepo: Boolean
         ): Int {
-            if (player.isCreative) return 0
+            if (freePurchase(player)) return 0
 
             val playerHas = player.inventory.clearOrCountMatchingItems(
                 material.itemFilter,
@@ -206,7 +207,7 @@ interface MaterialConsumeAccess {
             player: ServerPlayer,
             costs: Map<Identifier, Int>,
             shouldConsiderTeamRepo: Boolean
-        ): Boolean = if (player.isCreative || costs.isEmpty()) {
+        ): Boolean = if (freePurchase(player) || costs.isEmpty()) {
             true
         } else {
             costs.all { (materialId, amount) ->
@@ -214,6 +215,8 @@ interface MaterialConsumeAccess {
                 countDeltaForMaterial(player, material, amount, shouldConsiderTeamRepo) == 0
             }
         }
+
+        fun freePurchase(player: ServerPlayer): Boolean = player.isCreative || Match.testMode
 
         private fun shopMaterialSuffix(entries: List<Pair<ItemStack, Int>>): Component {
             val root = Component.empty()

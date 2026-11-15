@@ -14,21 +14,42 @@ import shina.wallwarRebirth.targeting.TargetWorld
 import shina.wallwarRebirth.targeting.Targeting
 
 object LiveTargetWorld : TargetWorld {
-    override fun players(level: ServerLevel): List<ActorTarget> =
-        level.players().mapNotNull { player ->
+    private var stamp = Long.MIN_VALUE
+    private var stamped: ServerLevel? = null
+    private var playerCache: List<ActorTarget> = emptyList()
+    private var summonCache: List<ActorTarget> = emptyList()
+    private var coreCache: List<CoreTarget> = emptyList()
+
+    override fun players(level: ServerLevel): List<ActorTarget> {
+        snapshot(level)
+        return playerCache
+    }
+
+    override fun summons(level: ServerLevel): List<ActorTarget> {
+        snapshot(level)
+        return summonCache
+    }
+
+    override fun cores(level: ServerLevel): List<CoreTarget> {
+        snapshot(level)
+        return coreCache
+    }
+
+    private fun snapshot(level: ServerLevel) {
+        val time = level.gameTime
+        if (stamp == time && stamped === level) return
+        stamp = time
+        stamped = level
+        playerCache = level.players().mapNotNull { player ->
             if (!Targeting.canTargetPlayer(player)) return@mapNotNull null
             ActorTarget(player, player.team?.name ?: "")
         }
-
-    override fun summons(level: ServerLevel): List<ActorTarget> =
-        SummonedUnits.all().mapNotNull { unit ->
+        summonCache = SummonedUnits.all().mapNotNull { unit ->
             val living = unit.living()
             if (living.level() !== level) return@mapNotNull null
             ActorTarget(living, unit.summonedTeam)
         }
-
-    override fun cores(level: ServerLevel): List<CoreTarget> =
-        SiteCores.all().mapNotNull { core ->
+        coreCache = SiteCores.all().mapNotNull { core ->
             if (core.level !== level || core.isRemoved) return@mapNotNull null
             val definition = Buildings.byId(core.buildingId)
             CoreTarget(
@@ -42,6 +63,7 @@ object LiveTargetWorld : TargetWorld {
                 box = box(level, core.blockPos),
             )
         }
+    }
 
     private fun box(level: ServerLevel, pos: BlockPos): AABB {
         val shape = level.getBlockState(pos).getCollisionShape(level, pos)

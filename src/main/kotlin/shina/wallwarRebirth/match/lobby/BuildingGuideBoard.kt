@@ -154,8 +154,19 @@ private fun upgradeLines(definition: BuildingDefinition): List<String> =
 private fun moduleLines(definition: BuildingDefinition): List<String> {
     if (!definition.acceptsModules) return listOf("无模块槽")
     val lines = arrayListOf("有强化槽、强化槽 II 和扩散槽，效果见强化模块。")
-    if (definition.id == Buildings.TESLA.id || definition.id == Buildings.PILLAGER.id) {
-        lines.add("该建筑的模块效果仍待定或暂定。")
+    if (definition.id == Buildings.BARRACKS.id) {
+        lines.add("扩散：装上后给同队玩家发放指挥物品。")
+    }
+    if (definition.id == Buildings.PILLAGER.id) {
+        lines.add("强化：之后生成的唤灵拥有 5 点基础护甲。")
+        lines.add("强化 II：附近 32 格内的我方唤灵获得抗性提升 I，离开后消失。")
+        lines.add("扩散：发放掠夺之旗，右键方块更改这座哨塔的固守地点。")
+        lines.add("固守默认在固守地点附近 32 格内巡逻，没改过时地点是哨塔。")
+    }
+    if (definition.id == Buildings.TESLA.id) {
+        lines.add("强化：射程扩大 50%，变为 24 格。")
+        lines.add("强化 II：挖掘疲劳从 I 提升到 II，仍持续 10 秒。")
+        lines.add("扩散：每次攻击时，对射程内已有蓄风的敌方唤灵再造成一次闪电伤害。")
     }
     return lines
 }
@@ -174,8 +185,8 @@ private fun levelStats(definition: BuildingDefinition, level: Int): String {
             "射程 $range，箭速 ${speed.toInt()}，伤害 $damage，间隔 $interval 秒"
         }
         Buildings.TESLA.id -> {
-            val range = MatchRules.TESLA_RANGE[index].toInt()
-            "射程 $range，闪电伤害 ${MatchRules.TESLA_DAMAGE.toInt()}，间隔 ${MatchRules.TESLA_INTERVAL / MatchRules.TICKS_PER_SECOND} 秒"
+            val wind = MatchRules.secondsText(MatchRules.TESLA_WIND_TICKS)
+            "射程 ${MatchRules.TESLA_RANGE.toInt()}，闪电伤害 ${MatchRules.TESLA_DAMAGE[index].toInt()}，蓄风 $wind 秒，间隔 ${MatchRules.TESLA_INTERVAL[index] / MatchRules.TICKS_PER_SECOND} 秒"
         }
         Buildings.CANNON.id -> {
             val center = MatchRules.CANNON_CENTER_DAMAGE[index]
@@ -188,8 +199,8 @@ private fun levelStats(definition: BuildingDefinition, level: Int): String {
 }
 
 private fun seekLines(definition: BuildingDefinition): List<String> = when (definition.id) {
-    Buildings.TOWER.id -> listOf("优先最近的敌方唤灵，没有再打最近的敌方玩家，不打我方，不拆建筑。")
-    Buildings.TESLA.id -> listOf("只选射程内最近的敌方玩家，不打唤灵，不拆建筑，旁观与创造不选。")
+    Buildings.TOWER.id -> listOf("优先最近的、没有被实心方块挡住的敌方唤灵，没有再打没有被挡住的敌方玩家。不打我方，不拆建筑。")
+    Buildings.TESLA.id -> listOf("16 格内优先最近的、没有蓄风的敌方玩家，没有再打没有蓄风的敌方唤灵。已有蓄风的不选。不拆建筑。旁观与创造不选。")
     Buildings.CANNON.id -> listOf("射程内先锁最近的敌方唤灵，没有再锁最近的敌方玩家，两类都没有时锁敌方建筑（基地也算）。")
     else -> emptyList()
 }

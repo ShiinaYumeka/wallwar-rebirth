@@ -1,5 +1,6 @@
 package shina.wallwarRebirth.targeting
 
+import net.minecraft.core.BlockPos
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.world.entity.LivingEntity
 import net.minecraft.world.phys.Vec3
@@ -12,7 +13,8 @@ object SpiderTargeting {
         origin: Vec3,
         team: String,
         radius: Double?,
-    ): CoreTarget? = SummonDefaultTargeting.chooseCore(world, level, origin, team, radius, skipDefensive = true)
+        ignore: Collection<BlockPos> = emptyList(),
+    ): CoreTarget? = SummonDefaultTargeting.chooseCore(world, level, origin, team, radius, skipDefensive = true, ignore = ignore)
 
     fun nearestSummon(
         world: TargetWorld,

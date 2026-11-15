@@ -7,6 +7,7 @@ import net.minecraft.world.item.Item
 import net.minecraft.world.item.ItemStack
 import shina.wallwarRebirth.item.ModItems
 import shina.wallwarRebirth.item.SkillItem
+import shina.wallwarRebirth.match.BoundItems
 import shina.wallwarRebirth.match.Match
 
 object SkillInventory {
@@ -21,9 +22,11 @@ object SkillInventory {
         val member = Match.member(player.uuid) ?: return
         if (member.team.isEmpty()) return
         val item = itemOf(member.classId) ?: return
-        if (holds(player, item)) return
-        val stack = ItemStack(item)
-        if (!player.inventory.add(stack)) player.drop(stack, false)
+        if (holds(player, item)) {
+            BoundItems.recoverMisplaced(player)
+            return
+        }
+        BoundItems.offerToMain(player, ItemStack(item))
     }
 
     fun strip(player: Player) {
@@ -44,11 +47,6 @@ object SkillInventory {
         else -> null
     }
 
-    private fun holds(player: ServerPlayer, item: Item): Boolean {
-        val inventory = player.inventory
-        for (slot in 0 until inventory.containerSize) {
-            if (inventory.getItem(slot).`is`(item)) return true
-        }
-        return player.containerMenu.carried.`is`(item)
-    }
+    private fun holds(player: ServerPlayer, item: Item): Boolean =
+        BoundItems.holds(player) { it.`is`(item) }
 }

@@ -100,6 +100,22 @@ object FarmlandWork {
         return true
     }
 
+    fun nearestIdle(level: ServerLevel, team: String, origin: Vec3, seeker: SummonedVillager): SiteCoreBlockEntity? {
+        if (team.isEmpty()) return null
+        return SiteCores.all()
+            .filter { core ->
+                liveFarmland(core, level, team) &&
+                    !worked(core, level) &&
+                    !claimed(level, core.blockPos, seeker) &&
+                    nearestSeeker(level, team, core) === seeker
+            }
+            .minWithOrNull(
+                compareBy<SiteCoreBlockEntity> { Relay.bucket(origin.distanceTo(Vec3.atCenterOf(it.blockPos))) }
+                    .thenBy { it.health }
+                    .thenBy { it.blockPos.asLong() },
+            )
+    }
+
     fun nearestFriendly(level: ServerLevel, team: String, origin: Vec3): SiteCoreBlockEntity? {
         if (team.isEmpty()) return null
         return SiteCores.all()
@@ -167,6 +183,50 @@ object FarmlandWork {
         if (site.buildingId != Buildings.FARMLAND.id) return
         Containers.dropContents(level, site.blockPos, site.storage)
         site.storage.clearContent()
+    }
+
+    private fun claimed(level: ServerLevel, pos: BlockPos, seeker: SummonedVillager): Boolean =
+        SummonedUnits.all().any { unit ->
+            val villager = unit as? SummonedVillager ?: return@any false
+            villager !== seeker &&
+                villager.isAlive &&
+                villager.level() === level &&
+                villager.unemployed() &&
+                villager.mind.callDestination() == pos
+        }
+
+    private fun nearestSeeker(level: ServerLevel, team: String, site: SiteCoreBlockEntity): SummonedVillager? {
+        val origin = Vec3.atCenterOf(site.blockPos)
+        return SummonedUnits.all().mapNotNull { unit ->
+            val villager = unit as? SummonedVillager ?: return@mapNotNull null
+            if (!villager.isAlive || villager.level() !== level) return@mapNotNull null
+            if (!villager.unemployed() || villager.summonedTeam != team || villager.mind.called()) return@mapNotNull null
+            villager
+        }.minWithOrNull(
+            compareBy<SummonedVillager> { Relay.bucket(origin.distanceTo(it.position())) }
+                .thenBy { it.health }
+                .thenBy { it.id },
+        )
+    }
+
+    private fun worked(site: SiteCoreBlockEntity, level: ServerLevel): Boolean =
+        SummonedUnits.all().any { unit ->
+            val villager = unit as? SummonedVillager ?: return@any false
+            villager.isAlive &&
+                villager.isFarmer() &&
+                villager.level() === level &&
+                villager.summonedTeam == site.team &&
+                !villager.mind.following() &&
+                workSite(villager, level) == site.blockPos
+        }
+
+    private fun workSite(villager: SummonedVillager, level: ServerLevel): BlockPos? {
+        val origin = villager.position()
+        val team = villager.summonedTeam
+        if (villager.wheatFull()) return nearestFriendly(level, team, origin)?.blockPos
+        val wheat = nearestWheat(level, team, origin)
+        if (wheat != null) return wheat.core.blockPos
+        return nearestFriendly(level, team, origin)?.blockPos
     }
 
     private fun liveFarmland(core: SiteCoreBlockEntity, level: ServerLevel, team: String): Boolean =

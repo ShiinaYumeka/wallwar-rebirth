@@ -10,6 +10,7 @@ import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.GameType
 import net.minecraft.world.level.Level
 import net.minecraft.world.level.gamerules.GameRules
+import shina.wallwarRebirth.building.PillagerAura
 import shina.wallwarRebirth.contract.MatchPort
 import shina.wallwarRebirth.contract.WallwarTeams
 import shina.wallwarRebirth.profession.Classes
@@ -52,6 +53,7 @@ object Match : MatchPort {
 
     var phase: Phase = Phase.LOBBY
     var worldReady: Boolean = false
+    var testMode: Boolean = false
     var mapSize: Int = MatchRules.MAP_SIZE
 
     @JvmField
@@ -64,9 +66,12 @@ object Match : MatchPort {
     internal var generating = false
     internal var loadDeadline: Int = -1
     internal var watchBuildTick: Int = -1
+    internal var readyCountdownEndsAt: Int = -1
+    internal var readyCountdownSecond: Int = -1
     internal var watchEndsAt: Int = 0
     internal var watchSecond: Int = -1
     internal var settleResetAt: Int = -1
+    private val settleAgreed = HashSet<UUID>()
     private val pendingLobby = LinkedHashSet<UUID>()
     internal var server: MinecraftServer? = null
 
@@ -95,6 +100,10 @@ object Match : MatchPort {
             if (arena.dayTime != MatchRules.DAY_TIME) arena.dayTime = MatchRules.DAY_TIME
             arena.setWeatherParameters(6000, 0, false, false)
         }
+        if (phase == Phase.LOBBY) {
+            MatchFlow.tryBeginWatch(current)
+            MatchFlow.tickReadyCountdown(current)
+        }
         if (watchBuildTick == current.tickCount) {
             watchBuildTick = -1
             MatchFlow.buildWatch(current)
@@ -111,6 +120,9 @@ object Match : MatchPort {
         }
         MatchRoster.tickRespawns(current)
         MatchMenu.tick(current)
+        CommandInventory.tick(current)
+        PlunderBannerInventory.tick(current)
+        PillagerAura.tick()
         if (phase == Phase.SETTLE) tickSettleReset(current)
         if (phase == Phase.FIGHT) {
             SkillInventory.tick(current)
@@ -166,10 +178,13 @@ object Match : MatchPort {
                 if (!member.ironGiven) MatchRoster.resetVitals(player)
                 MatchRoster.enterFight(player, member)
             }
-            Phase.SETTLE -> player.setGameMode(GameType.SPECTATOR)
+            Phase.SETTLE -> applySettleView(player)
         }
         MatchPersistence.save(current)
-        if (phase == Phase.LOBBY) MatchGui.open(player)
+        if (phase == Phase.LOBBY) {
+            MatchFlow.tryBeginWatch(current)
+            MatchGui.open(player)
+        }
     }
 
     fun useSkill(player: ServerPlayer, stack: ItemStack, context: net.minecraft.world.item.context.UseOnContext?): net.minecraft.world.InteractionResult {
@@ -208,17 +223,59 @@ object Match : MatchPort {
             return
         }
         if (member.ready) {
-            player.sendSystemMessage(Component.literal(readyText(player, member.team, "已准备")))
+            player.sendSystemMessage(Component.literal(readyText(player, "已准备")))
             return
         }
         member.ready = true
-        MatchRoster.notifyTeam(player.level().server, member.team, readyText(player, member.team, "已准备"))
-        MatchPersistence.save(player.level().server)
-        MatchFlow.tryBeginWatch(player.level().server)
+        val current = player.level().server
+        MatchRoster.broadcast(current, readyText(player, "已准备"))
+        MatchPersistence.save(current)
+        MatchFlow.tryBeginWatch(current)
+    }
+
+    fun startTestGame(player: ServerPlayer) {
+        if (phase != Phase.LOBBY || generating || watchBuildTick >= 0) {
+            player.sendSystemMessage(Component.literal("请先重置对局再开启测试"))
+            return
+        }
+        testMode = true
+        val team = members[player.uuid]?.team?.takeIf { it == WallwarTeams.RED || it == WallwarTeams.BLUE } ?: WallwarTeams.RED
+        assign(player, team)
+        val member = members[player.uuid] ?: return
+        member.classLocked = true
+        if (!member.ready) confirmReady(player) else MatchFlow.tryBeginWatch(player.level().server)
+        player.sendSystemMessage(Component.literal("已开启测试对局：购买和升级不消耗资源，可用换队伍按钮切换阵营"))
+    }
+
+    fun switchTestTeam(player: ServerPlayer) {
+        if (!testMode) {
+            player.sendSystemMessage(Component.literal("现在不是测试对局"))
+            return
+        }
+        if (player.isSpectator && phase != Phase.WATCH) {
+            player.sendSystemMessage(Component.literal("现在不能换队"))
+            return
+        }
+        val member = members[player.uuid]
+        if (member == null || (member.team != WallwarTeams.RED && member.team != WallwarTeams.BLUE)) {
+            player.sendSystemMessage(Component.literal("先加入队伍"))
+            return
+        }
+        val next = if (member.team == WallwarTeams.RED) WallwarTeams.BLUE else WallwarTeams.RED
+        assign(player, next)
+        player.sendSystemMessage(Component.literal("已切换到$next"))
     }
 
     fun toggleTeam(player: ServerPlayer, team: String) {
-        if (member(player.uuid)?.team == team) leaveTeam(player) else assign(player, team)
+        if (member(player.uuid)?.team == team) {
+            leaveTeam(player)
+            return
+        }
+        if (phase != Phase.LOBBY) {
+            player.sendSystemMessage(Component.literal("对局已经开始，不能中途加入"))
+            return
+        }
+        assign(player, team)
     }
 
     fun leaveTeam(player: ServerPlayer) {
@@ -234,6 +291,7 @@ object Match : MatchPort {
         member.started = false
         current.scoreboard.removePlayerFromTeam(player.scoreboardName)
         MatchPersistence.save(current)
+        if (phase == Phase.LOBBY) MatchFlow.tryBeginWatch(current)
         player.sendSystemMessage(Component.literal("已退出队伍"))
     }
 
@@ -249,17 +307,21 @@ object Match : MatchPort {
         val member = members[player.uuid] ?: return
         if (!member.ready) return
         member.ready = false
-        MatchPersistence.save(player.level().server)
-        MatchRoster.notifyTeam(player.level().server, member.team, readyText(player, member.team, "已取消准备"))
+        val current = player.level().server
+        MatchPersistence.save(current)
+        MatchRoster.broadcast(current, readyText(player, "已取消准备"))
+        MatchFlow.tryBeginWatch(current)
     }
 
-    private fun readyText(player: ServerPlayer, team: String, action: String): String {
-        val (done, total) = counts(player.level().server, team, readyFlag = true)
-        return "$action（$done/$total）"
+    private fun readyText(player: ServerPlayer, action: String): String {
+        val (done, total) = readyCounts(player.level().server)
+        return "${player.scoreboardName} $action（$done/$total）"
     }
 
     fun leaveSpectate(player: ServerPlayer) {
         members[player.uuid]?.spectating = false
+        settleAgreed.remove(player.uuid)
+        MatchPersistence.save(player.level().server)
         MatchRoster.sendToLobby(player)
         MatchMenu.give(player)
         player.sendSystemMessage(Component.literal("已离开旁观"))
@@ -306,10 +368,13 @@ object Match : MatchPort {
             return
         }
         settleResetAt = -1
+        settleAgreed.clear()
+        testMode = false
         MatchSurrender.clear()
         shina.wallwarRebirth.building.CannonCrew.settle(current, false)
         val arena = current.getLevel(MatchRules.DIMENSION)
         pendingLobby.clear()
+        BoundItems.forgetAll()
         for (player in current.playerList.players.toList()) {
             if (player.level().dimension() == MatchRules.DIMENSION || members.containsKey(player.uuid)) {
                 MatchRoster.sendToLobby(player)
@@ -326,6 +391,8 @@ object Match : MatchPort {
         generating = false
         loadDeadline = -1
         watchBuildTick = -1
+        readyCountdownEndsAt = -1
+        readyCountdownSecond = -1
         watchEndsAt = 0
         watchSecond = -1
         MatchFlow.clearTerrainTitle(current)
@@ -359,6 +426,7 @@ object Match : MatchPort {
 
     fun onJoin(player: ServerPlayer) {
         shina.wallwarRebirth.building.CannonCrew.rejoin(player)
+        BoundItems.restore(player)
         val member = members[player.uuid]
         val inThisMatch = inThisMatch(member)
         if (!inThisMatch) {
@@ -407,6 +475,7 @@ object Match : MatchPort {
     fun onLeave(current: MinecraftServer) {
         server = current
         if (phase == Phase.LOBBY) MatchFlow.tryBeginWatch(current)
+        if (phase == Phase.SETTLE) tickSettleReset(current)
     }
 
     fun leaveAndSpectate(player: ServerPlayer) {
@@ -418,6 +487,7 @@ object Match : MatchPort {
         member.started = false
         member.spectating = true
         MatchPersistence.save(current)
+        if (phase == Phase.LOBBY) MatchFlow.tryBeginWatch(current)
         if (worldReady) {
             spectate(player)
         } else {
@@ -438,6 +508,7 @@ object Match : MatchPort {
     }
 
     fun afterRespawn(player: ServerPlayer) {
+        BoundItems.restore(player)
         val member = members[player.uuid] ?: return
         member.heldItems = emptyList()
         member.heldLevel = 0
@@ -472,7 +543,8 @@ object Match : MatchPort {
         val current = level.server
         phase = Phase.SETTLE
         MatchSurrender.clear()
-        settleResetAt = current.tickCount + MatchRules.SETTLE_RESET_TICKS
+        settleResetAt = -1
+        settleAgreed.clear()
         shina.wallwarRebirth.building.CannonCrew.settle(current, true)
         val winner = if (team == WallwarTeams.RED) WallwarTeams.BLUE else WallwarTeams.RED
         val text = "$winner 获胜"
@@ -486,24 +558,73 @@ object Match : MatchPort {
             if (member != null) MatchRoster.applyBodyReset(player, member)
             player.showTitle(Component.literal(text))
             if (isArena(player.level()) || member != null) {
-                player.setGameMode(GameType.SPECTATOR)
+                applySettleView(player)
             }
         }
         MatchPersistence.save(current)
     }
 
-    private fun tickSettleReset(current: MinecraftServer) {
-        if (settleResetAt < 0) return
-        val left = settleResetAt - current.tickCount
-        val seconds = if (left <= 0) 0 else (left + MatchRules.TICKS_PER_SECOND - 1) / MatchRules.TICKS_PER_SECOND
-        val text = Component.literal("重置倒计时 $seconds")
-        for (player in current.playerList.players) {
-            if (isArena(player.level())) player.showActionBar(text)
+    fun agreeSettleReset(player: ServerPlayer) {
+        if (phase != Phase.SETTLE) return
+        if (!needsSettleConsent(player)) return
+        val current = player.level().server
+        val agreed = if (player.uuid in settleAgreed) {
+            settleAgreed.remove(player.uuid)
+            false
+        } else {
+            settleAgreed.add(player.uuid)
+            true
         }
-        if (left <= 0) {
+        MatchRoster.broadcast(current, settleText(player, agreed))
+        tickSettleReset(current)
+    }
+
+    fun settleHint(player: ServerPlayer): String =
+        if (player.uuid in settleAgreed) "已同意重置，再点一次取消"
+        else "点击同意重置，达到半数后回到大厅；再点一次取消"
+
+    fun needsSettleConsent(player: ServerPlayer): Boolean {
+        if (phase != Phase.SETTLE) return false
+        return inThisMatch(player) || isArena(player.level())
+    }
+
+    private fun tickSettleReset(current: MinecraftServer) {
+        if (phase != Phase.SETTLE) return
+        val voters = settleVoters(current)
+        settleAgreed.retainAll(voters.map { it.uuid }.toSet())
+        val done = settleAgreed.size
+        val total = voters.size
+        val text = Component.literal("重置同意（$done/$total）")
+        for (player in current.playerList.players) {
+            if (needsSettleConsent(player)) player.showActionBar(text)
+        }
+        if (voters.isEmpty() || done * 2 >= total) {
             settleResetAt = -1
             reset(null)
         }
+    }
+
+    private fun settleVoters(current: MinecraftServer): List<ServerPlayer> =
+        current.playerList.players.filter { needsSettleConsent(it) }
+
+    private fun settleCounts(current: MinecraftServer): Pair<Int, Int> {
+        val total = settleVoters(current).size
+        return settleAgreed.size to total
+    }
+
+    private fun settleText(player: ServerPlayer, agreed: Boolean): String {
+        val (done, total) = settleCounts(player.level().server)
+        val action = if (agreed) "已同意重置" else "已取消重置"
+        return "${player.scoreboardName} $action（$done/$total）"
+    }
+
+    private fun applySettleView(player: ServerPlayer) {
+        player.setGameMode(GameType.ADVENTURE)
+        val abilities = player.abilities
+        abilities.mayfly = true
+        abilities.flying = true
+        abilities.invulnerable = true
+        player.onUpdateAbilities()
     }
 
     private fun isTeamed(member: Member): Boolean =
@@ -523,14 +644,15 @@ object Match : MatchPort {
 
     private fun sendIntoSettle(player: ServerPlayer, member: Member) {
         if (!worldReady) {
-            player.setGameMode(GameType.SPECTATOR)
+            applySettleView(player)
             return
         }
         if (isTeamed(member)) {
             MatchRoster.teleportSpawn(player, member.team)
-            player.setGameMode(GameType.SPECTATOR)
+            applySettleView(player)
         } else if (member.spectating) {
             MatchRoster.teleportSpectator(player)
+            applySettleView(player)
         }
     }
 
@@ -556,6 +678,19 @@ object Match : MatchPort {
         val online = MatchRoster.onlineTeam(current, team)
         val done = online.count { if (readyFlag) it.second.ready else it.second.started }
         return done to online.size
+    }
+
+    fun readyCounts(current: MinecraftServer): Pair<Int, Int> {
+        val online = MatchRoster.onlineTeam(current, WallwarTeams.RED) + MatchRoster.onlineTeam(current, WallwarTeams.BLUE)
+        val done = online.count { it.second.ready }
+        return done to online.size
+    }
+
+    fun readyCountdownSeconds(current: MinecraftServer): Int? {
+        if (phase != Phase.LOBBY || readyCountdownEndsAt < 0) return null
+        val left = readyCountdownEndsAt - current.tickCount
+        if (left <= 0) return 0
+        return (left + MatchRules.TICKS_PER_SECOND - 1) / MatchRules.TICKS_PER_SECOND
     }
 
 

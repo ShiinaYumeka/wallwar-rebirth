@@ -22,10 +22,11 @@ object MonsterGuide {
         Monsters.CREEPER,
         Monsters.WARRIOR,
         Monsters.GOLEM,
+        Monsters.CHARGED_CREEPER,
         Monsters.PILLAGER,
+        Monsters.ILLUSIONER,
         Monsters.VINDICATOR,
         Monsters.EVOKER,
-        Monsters.ILLUSIONER,
         Monsters.RAVAGER,
     )
 }
@@ -128,7 +129,7 @@ private fun seekLines(definition: MonsterDefinition): List<String> {
         )
         definition.buildingsOnly && definition.source == MonsterSource.TOWER -> listOf(
             "掠夺模式下只索敌敌方建筑，不追玩家和唤灵，也不因受伤反击。",
-            "由所属掠夺者哨塔放出且该塔处于固守时，改为固守索敌：以所属哨塔核心为锚点，范围 16 格。",
+            "由所属掠夺者哨塔放出且该塔处于固守时，改为固守索敌：以这座哨塔的固守地点为锚点，没改过时是核心，范围 32 格。",
             "无目标时在范围内巡逻，不主动拆敌方建筑，也不去全图锁敌方核心。有目标时只比较范围内，优先正在破坏己方建筑的敌人，否则最近的敌方唤灵，再否则最近的敌方玩家；不追出范围。",
             "手持刷怪蛋放下的劫掠兽不吃固守，仍为掠夺下的只拆建筑。",
         )
@@ -137,7 +138,7 @@ private fun seekLines(definition: MonsterDefinition): List<String> {
         )
         definition.ignoresDefensive -> default + "不把城墙当作攻击目标。"
         definition.source == MonsterSource.TOWER -> default + listOf(
-            "掠夺模式下为默认索敌。由所属掠夺者哨塔放出且该塔处于固守时，改为固守索敌：以所属哨塔核心为锚点，范围 16 格。",
+            "掠夺模式下为默认索敌。由所属掠夺者哨塔放出且该塔处于固守时，改为固守索敌：以这座哨塔的固守地点为锚点，没改过时是核心，范围 32 格。",
             "无目标时在范围内巡逻，不主动拆敌方建筑，也不去全图锁敌方核心。有目标时只比较范围内，优先正在破坏己方建筑的敌人，否则最近的敌方唤灵，再否则最近的敌方玩家；不追出范围。",
             "手持刷怪蛋放下的掠夺者系不吃固守，仍为默认索敌。",
         )
@@ -149,14 +150,20 @@ private fun supplement(definition: MonsterDefinition): List<String> {
     val lines = ArrayList<String>()
     if (definition.explodes) {
         lines.add("爆炸中心伤害 ${definition.playerAttack.toInt()}，威力 ${MatchRules.CREEPER_POWER.toInt()}，进入 ${definition.attackRange.toInt()} 格后引信 1.5 秒。")
+        lines.add("生命归零后会原地蓄力，引信结束后爆炸。")
+    }
+    if (definition.calmAboveHalf) {
+        lines.add("生命高于一半时不索敌玩家和唤灵，只拆建筑。降到一半及以下才索敌玩家和唤灵。")
     }
     if (definition.miner) {
-        lines.add("挖满 ${MatchRules.MINER_CARGO} 块矿后回本队基地。铁镐加成为对玩家攻击的一部分。")
+        lines.add("挖满 ${MatchRules.MINER_CARGO} 块矿后回本队基地。铁镐加成为对玩家攻击的一部分。交矿卡住时会走近一点，还卡住就换个位置。")
     }
     if (definition.sword) lines.add("手持铁剑近战，挥击间隔与僵尸相同，伤害不含铁剑的原版攻击。")
     if (definition.copperGear) lines.add("铜甲和铜剑不掉，对玩家伤害不含铜剑的原版攻击。")
     if (definition.batch > 1) lines.add("一轮生产放出 ${definition.batch} 只。")
-    if (definition.fangs) lines.add("对玩家以法术尖牙结算伤害，并按原版唤魔者召唤恼鬼。固守下召唤的恼鬼跟随召唤者的固守索敌。")
+    if (definition.fangs) {
+        lines.add("对玩家以法术尖牙结算伤害，并召唤恼鬼。尖牙距离 ${MatchRules.EVOKER_FANG_RANGE.toInt()} 格内有敌人时逃跑并施法：${MatchRules.EVOKER_FANG_MELEE.toInt()} 格内在身边放一圈，${MatchRules.EVOKER_FANG_LINE.toInt()} 格内向目标放一条直线，再远则在目标脚下放一个。没有敌人时走向最近的敌方建筑，走到 ${definition.attackRange.toInt()} 格后召唤恼鬼。恼鬼单独注册，按敌方建筑、敌方唤灵、敌方玩家的顺序自己索敌。活动原点跟着唤魔者，空闲时在唤魔者附近活动。")
+    }
     if (definition.id == Monsters.ILLUSIONER.id) lines.add("失明法术与幻象分身按原版幻术师。")
     if (definition.axe) lines.add("手持铁斧近战。")
     return lines

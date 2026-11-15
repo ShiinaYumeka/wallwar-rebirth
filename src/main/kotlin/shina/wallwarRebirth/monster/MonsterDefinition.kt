@@ -26,6 +26,7 @@ data class MonsterDefinition(
     val batch: Int = 1,
     val sword: Boolean = false,
     val explodes: Boolean = false,
+    val calmAboveHalf: Boolean = false,
     val copperGear: Boolean = false,
     val source: MonsterSource = MonsterSource.BARRACKS,
     val usesCrossbow: Boolean = false,
@@ -33,6 +34,8 @@ data class MonsterDefinition(
     val axe: Boolean = false,
     val civilian: Boolean = false,
     val buildingsOnly: Boolean = false,
+    val chaseRadiusStart: Double = MatchRules.CHASE_RADIUS_START,
+    val chaseRadiusMax: Double = MatchRules.CHASE_RADIUS_MAX,
 ) {
     val productionReady: Boolean get() = cost.isNotEmpty() && baseProductionTicks > 0
 
@@ -56,6 +59,10 @@ data class MonsterDefinition(
             } else {
                 lines.add("兵营生产消耗与间隔尚未确定")
             }
+            if (id == "villager") {
+                lines.add("我方农田没有农民在干活时，会自己走过去成为农民")
+                lines.add("农民最多带 ${MatchRules.FARMER_WHEAT_CAP} 个小麦，满了先去交，再继续收割")
+            }
             return lines
         }
         lines.add("盔甲 ${armor.toInt()}")
@@ -69,12 +76,27 @@ data class MonsterDefinition(
         }
         if (explodes) {
             lines.add("进入 ${attackRange.toInt()} 格后引信 1.5 秒，造成建筑破坏力 $buildingDamage 后自毁")
+            lines.add("生命归零后会原地蓄力，引信结束后爆炸")
         } else {
             lines.add("建筑破坏力 $buildingDamage，拆建筑间隔 1 秒，攻击距离 ${attackRange.toInt()}")
         }
+        if (id == "vex") {
+            lines.add("会飞，不垫板也不拆板")
+            lines.add("独立索敌：先敌方建筑，再敌方唤灵，再敌方玩家")
+            lines.add("索敌半径 ${chaseRadiusStart.toInt()} 格，不会因交战过久更换目标")
+            lines.add("活动原点跟着召唤它的唤魔者，空闲时在唤魔者附近活动")
+            lines.add("由唤魔者召唤，不进入兵营或掠夺者哨塔生产")
+            return lines
+        }
+        if (!civilian) {
+            lines.add("坑沿比脚底至少高 2 格且头顶能跳时，会垫橡木木板爬出，最多 4 格；正前方挡住身体的木板每秒拆一块")
+        }
+        if (calmAboveHalf) {
+            lines.add("生命高于一半时不索敌玩家和唤灵，只拆建筑；降到一半及以下才索敌")
+        }
         if (buildingsOnly) {
             if (source == MonsterSource.TOWER) {
-                lines.add("掠夺下只索敌敌方建筑，不追玩家和唤灵，也不因受伤反击；固守下仍留在所属哨塔附近按固守索敌")
+                lines.add("掠夺下只索敌敌方建筑，不追玩家和唤灵，也不因受伤反击；固守下在固守地点附近 32 格内巡逻并按固守索敌")
             } else {
                 lines.add("只索敌敌方建筑，不追玩家和唤灵，也不因受伤反击")
             }
@@ -87,11 +109,19 @@ data class MonsterDefinition(
                 lines.add("弓射程 ${bow.toInt()} 格，走位和拉弓间隔按原版骷髅，命中盔甲前伤害 ${playerAttack.toInt()}")
             }
         }
-        if (fangs) lines.add("对玩家以法术尖牙结算伤害 ${playerAttack.toInt()}，并按原版唤魔者召唤恼鬼")
+        if (fangs) {
+            lines.add("索敌半径 ${chaseRadiusStart.toInt()} 格，对玩家以法术尖牙结算伤害 ${playerAttack.toInt()}")
+            lines.add("尖牙距离 ${MatchRules.EVOKER_FANG_RANGE.toInt()} 格内有敌人时会逃跑并施法：${MatchRules.EVOKER_FANG_MELEE.toInt()} 格内在身边放一圈，${MatchRules.EVOKER_FANG_LINE.toInt()} 格内向目标放一条直线，再远则在目标脚下放一个")
+            lines.add("尖牙距离内没有敌人时，会走向最近的敌方建筑；走到 ${attackRange.toInt()} 格后原地召唤恼鬼，不近战")
+            lines.add("优先攻击弩架、特斯拉塔和炮台")
+            lines.add("召唤出的恼鬼会飞向唤魔者正在进攻的建筑并攻击")
+            lines.add("唤魔者没有建筑目标时，恼鬼再按敌方建筑、敌方唤灵、敌方玩家自己索敌")
+        }
         if (axe) lines.add("手持铁斧近战，对玩家伤害 ${playerAttack.toInt()}")
         if (miner) {
             lines.add("不主动攻击建筑和敌人，挨打后才反击")
             lines.add("挖满 ${MatchRules.MINER_CARGO} 块矿后回本队基地，每 ${MatchRules.MINER_ORES_PER_CYCLE} 块让基地按当前等级和模块生产一次，钻石仍按 ${MatchRules.BASE_DIAMOND_PERCENT}% 概率")
+            lines.add("交矿时卡住约 1 秒，会先走近 1.5 格，还卡住就换到旁边再靠近")
             lines.add("死亡时按身上的矿计数掉落等量铁锭和等量铜锭")
         }
         if (sword) lines.add("手持铁剑近战，挥击间隔与僵尸相同，伤害不含铁剑的原版攻击")
@@ -106,12 +136,15 @@ data class MonsterDefinition(
 enum class MonsterSource {
     BARRACKS,
     TOWER,
+    SUMMONED,
 }
 
 object MonsterRules {
     const val CORE_RETARGET_TICKS = MatchRules.CORE_RETARGET_TICKS
     const val STUCK_TICKS = MatchRules.STUCK_TICKS
     const val STUCK_HORIZONTAL = MatchRules.STUCK_HORIZONTAL
+    const val SIEGE_GIVE_UP_TICKS = MatchRules.SIEGE_GIVE_UP_TICKS
+    const val SIEGE_GIVE_UP_RANGE = MatchRules.SIEGE_GIVE_UP_RANGE
     const val CHASE_RADIUS_MAX = MatchRules.CHASE_RADIUS_MAX
     const val CHASE_RADIUS_START = MatchRules.CHASE_RADIUS_START
     const val RADIUS_RECOVER_PER_SECOND = MatchRules.RADIUS_RECOVER_PER_SECOND
