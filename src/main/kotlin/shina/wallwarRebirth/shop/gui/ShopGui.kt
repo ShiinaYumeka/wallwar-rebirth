@@ -7,6 +7,7 @@ import eu.pb4.sgui.api.gui.layered.Layer
 import eu.pb4.sgui.api.gui.layered.LayeredGui
 import eu.pb4.sgui.virtual.inventory.VirtualScreenHandler
 import shina.wallwarRebirth.gui.ItemStackBuilder
+import shina.wallwarRebirth.match.BoundItems
 import shina.wallwarRebirth.shop.ShopSession
 import shina.wallwarRebirth.shop.ShopHooks
 import shina.wallwarRebirth.shop.TeamStores
@@ -150,7 +151,7 @@ open class ShopGui(
         if (container is VirtualScreenHandler && index < container.slots.size) {
             val slot = container.slots[index]
             val itemStack = slot.item
-            if (itemStack.isEmpty || !slot.mayPlace(itemStack)) {
+            if (itemStack.isEmpty || BoundItems.isBound(itemStack) || !slot.mayPlace(itemStack)) {
                 return
             }
             if (session.canAcceptSnow && session.snowCount < 64 && itemStack.`is`(Items.SNOW_BLOCK)) {

@@ -6,6 +6,7 @@ import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.entity.Entity
 import shina.wallwarRebirth.match.Match
 import shina.wallwarRebirth.rules.MatchRules
+import shina.wallwarRebirth.targeting.Targeting
 
 object SummonedUnits {
     private val units = java.util.Collections.newSetFromMap(java.util.IdentityHashMap<SummonedUnit, Boolean>())
@@ -63,6 +64,20 @@ object SummonedUnits {
             count++
         }
         return count
+    }
+
+    fun hasNearbyHostile(player: ServerPlayer, range: Double): Boolean {
+        val team = Match.member(player.uuid)?.team ?: return false
+        if (team.isEmpty()) return false
+        val origin = player.position()
+        for (unit in all()) {
+            val living = unit.living()
+            if (living.level() !== player.level()) continue
+            if (!Targeting.hostile(team, unit.summonedTeam)) continue
+            if (origin.distanceTo(living.position()) > range) continue
+            return true
+        }
+        return false
     }
 
     fun commandFacing(player: ServerPlayer, follow: Boolean): Int {

@@ -81,11 +81,17 @@ internal fun named(
     lore: List<String> = emptyList(),
     glow: Boolean = false,
     stack: ItemStack = ItemStack(item),
+    count: Int? = null,
 ): ItemStack {
     val builder = ItemStackBuilder.of(stack).setName(line(name, color))
     for (row in lore) builder.appendLore(line(row))
     val built = builder.build()
     if (glow) built[DataComponents.ENCHANTMENT_GLINT_OVERRIDE] = true
+    if (count != null && count > 0) {
+        val capped = count.coerceAtMost(99)
+        built[DataComponents.MAX_STACK_SIZE] = capped
+        built.count = capped
+    }
     return built
 }
 

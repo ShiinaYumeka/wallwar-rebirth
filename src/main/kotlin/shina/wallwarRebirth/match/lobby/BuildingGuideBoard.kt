@@ -9,9 +9,13 @@ import net.minecraft.world.item.Item
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
 import shina.wallwarRebirth.building.BuildingDefinition
+import shina.wallwarRebirth.building.BuildingModuleEffects
 import shina.wallwarRebirth.building.Buildings
 import shina.wallwarRebirth.building.Footprint
+import shina.wallwarRebirth.building.ItemAmount
+import shina.wallwarRebirth.building.ModuleSlot
 import shina.wallwarRebirth.building.OminousBanners
+import shina.wallwarRebirth.building.levelMark
 import shina.wallwarRebirth.rules.MatchRules
 import kotlin.math.ceil
 import kotlin.math.floor
@@ -22,6 +26,14 @@ private data class GuideBuilding(
     val definition: BuildingDefinition?,
     val icon: Item,
     val wonder: Boolean = false,
+)
+
+private data class GuideOption(
+    val item: Item,
+    val name: String,
+    val lore: List<String> = emptyList(),
+    val count: Int? = null,
+    val stack: ItemStack? = null,
 )
 
 class BuildingHomeBoard(private val viewer: ServerPlayer) : SimpleGui(MenuType.GENERIC_9x6, viewer, false) {
@@ -74,29 +86,18 @@ private class BuildingDetailBoard(
             setSlot(9, GuiElement(named(Items.NAME_TAG, "类别 ${definition.categoryText()}", ChatFormatting.WHITE)) { _, _, _, _ -> })
             setSlot(10, GuiElement(named(Items.GRASS_BLOCK, "占地 ${footprintText(definition.footprint)}", ChatFormatting.WHITE)) { _, _, _, _ -> })
             setSlot(11, GuiElement(named(Items.BOOK, "功能", ChatFormatting.WHITE, listOf(definition.summary))) { _, _, _, _ -> })
-            setSlot(12, GuiElement(named(Items.EMERALD, "获得方式", ChatFormatting.WHITE, obtainLines(definition))) { _, _, _, _ -> })
-            setSlot(13, GuiElement(named(Items.PURPLE_GLAZED_TERRACOTTA, "模块", ChatFormatting.WHITE, moduleLines(definition))) { _, _, _, _ -> })
-            val levelCount = if (definition.maxLevel <= 1) 1 else definition.maxLevel
-            for (level in 1..levelCount) {
-                setSlot(
-                    17 + level,
-                    GuiElement(
-                        named(
-                            entry.icon,
-                            "${level} 级",
-                            ChatFormatting.WHITE,
-                            listOf(levelStats(definition, level)) + if (definition.maxLevel <= 1) listOf("不能升级") else emptyList(),
-                            stack = icon.copy(),
-                        ),
-                    ) { _, _, _, _ -> },
-                )
-            }
+            placeOptions(12, costOptions(definition), 6)
+            placeOptions(18, moduleOptions(definition), 3)
             val seek = seekLines(definition)
             if (seek.isNotEmpty()) {
-                setSlot(
-                    18 + levelCount,
-                    GuiElement(named(Items.TARGET, "索敌", ChatFormatting.WHITE, seek)) { _, _, _, _ -> },
-                )
+                setSlot(21, GuiElement(named(Items.TARGET, "索敌", ChatFormatting.WHITE, seek)) { _, _, _, _ -> })
+            }
+            val levelCount = if (definition.maxLevel <= 1) 1 else definition.maxLevel
+            val levelStarts = listOf(27, 36, 46)
+            for (level in 1..levelCount) {
+                val start = levelStarts.getOrElse(level - 1) { 27 + (level - 1) * 9 }
+                val limit = if (start == 46) 7 else 9
+                placeOptions(start, levelOptions(definition, level, icon), limit)
             }
         }
         setSlot(
@@ -107,6 +108,25 @@ private class BuildingDetailBoard(
                 BuildingHomeBoard(viewer).open()
             },
         )
+    }
+
+    private fun placeOptions(start: Int, options: List<GuideOption>, limit: Int) {
+        for ((index, option) in options.withIndex()) {
+            if (index >= limit) break
+            setSlot(
+                start + index,
+                GuiElement(
+                    named(
+                        option.item,
+                        option.name,
+                        ChatFormatting.WHITE,
+                        option.lore,
+                        stack = option.stack ?: ItemStack(option.item),
+                        count = option.count,
+                    ),
+                ) { _, _, _, _ -> },
+            )
+        }
     }
 }
 
@@ -130,73 +150,147 @@ private fun footprintText(footprint: Footprint): String = when (footprint) {
     Footprint.WALL_9 -> "1×9"
 }
 
-private fun obtainLines(definition: BuildingDefinition): List<String> {
+private fun costOptions(definition: BuildingDefinition): List<GuideOption> {
+    val options = ArrayList<GuideOption>()
     if (definition.id == Buildings.BASE.id) {
-        return listOf("开局由地图放好，每队一座。不能购买、放置或拆除。") + upgradeLines(definition)
+        options.add(
+            GuideOption(
+                Items.EMERALD,
+                "获得方式",
+                listOf("开局由地图放好，每队一座。不能购买、放置或拆除。"),
+            ),
+        )
+    } else {
+        for (part in purchaseCosts(definition)) {
+            options.add(GuideOption(part.item, "购买 ${part.name} ×${part.count}", count = part.count))
+        }
     }
-    val buy = when (definition.id) {
-        Buildings.WALL.id -> "购买：铜锭 ×${MatchRules.WALL_PRICE_COPPER}"
-        Buildings.TOWER.id -> "购买：铜锭 ×${MatchRules.TOWER_PRICE_COPPER}"
-        Buildings.TESLA.id -> "购买：铜锭 ×${MatchRules.TESLA_PRICE_COPPER}"
-        Buildings.BARRACKS.id -> "购买：铁锭 ×${MatchRules.BARRACKS_PRICE_IRON}"
-        Buildings.CANNON.id -> "购买：铁锭 ×${MatchRules.CANNON_PRICE_IRON}、铜锭 ×${MatchRules.CANNON_PRICE_COPPER}"
-        Buildings.RELAY.id -> "购买：铁锭 ×${MatchRules.RELAY_PRICE_IRON}、铜锭 ×${MatchRules.RELAY_PRICE_COPPER}"
-        Buildings.FARMLAND.id -> "购买：铁锭 ×${MatchRules.FARMLAND_PRICE_IRON}、铜锭 ×${MatchRules.FARMLAND_PRICE_COPPER}"
-        Buildings.PILLAGER.id -> "购买：铁锭 ×${MatchRules.PILLAGER_TOWER_PRICE_IRON}"
-        else -> "购买方式见商店"
+    for (upgrade in definition.upgrades) {
+        for (part in upgrade.costs) {
+            options.add(
+                GuideOption(
+                    part.item,
+                    "升到${levelMark(upgrade.toLevel)}级 ${part.name} ×${part.count}",
+                    count = part.count,
+                ),
+            )
+        }
     }
-    return listOf(buy) + upgradeLines(definition)
+    return options
 }
 
-private fun upgradeLines(definition: BuildingDefinition): List<String> =
-    definition.upgrades.map { it.describe() }
-
-private fun moduleLines(definition: BuildingDefinition): List<String> {
-    if (!definition.acceptsModules) return listOf("无模块槽")
-    val lines = arrayListOf("有强化槽、强化槽 II 和扩散槽，效果见强化模块。")
-    if (definition.id == Buildings.BARRACKS.id) {
-        lines.add("扩散：装上后给同队玩家发放指挥物品。")
-    }
-    if (definition.id == Buildings.PILLAGER.id) {
-        lines.add("强化：之后生成的唤灵拥有 5 点基础护甲。")
-        lines.add("强化 II：附近 32 格内的我方唤灵获得抗性提升 I，离开后消失。")
-        lines.add("扩散：发放掠夺之旗，右键方块更改这座哨塔的固守地点。")
-        lines.add("固守默认在固守地点附近 32 格内巡逻，没改过时地点是哨塔。")
-    }
-    if (definition.id == Buildings.TESLA.id) {
-        lines.add("强化：射程扩大 50%，变为 24 格。")
-        lines.add("强化 II：挖掘疲劳从 I 提升到 II，仍持续 10 秒。")
-        lines.add("扩散：每次攻击时，对射程内已有蓄风的敌方唤灵再造成一次闪电伤害。")
-    }
-    return lines
+private fun purchaseCosts(definition: BuildingDefinition): List<ItemAmount> = when (definition.id) {
+    Buildings.WALL.id -> listOf(ItemAmount(Items.COPPER_INGOT, MatchRules.WALL_PRICE_COPPER, "铜锭"))
+    Buildings.TOWER.id -> listOf(ItemAmount(Items.COPPER_INGOT, MatchRules.TOWER_PRICE_COPPER, "铜锭"))
+    Buildings.TESLA.id -> listOf(ItemAmount(Items.COPPER_INGOT, MatchRules.TESLA_PRICE_COPPER, "铜锭"))
+    Buildings.BARRACKS.id -> listOf(ItemAmount(Items.IRON_INGOT, MatchRules.BARRACKS_PRICE_IRON, "铁锭"))
+    Buildings.CANNON.id -> listOf(
+        ItemAmount(Items.IRON_INGOT, MatchRules.CANNON_PRICE_IRON, "铁锭"),
+        ItemAmount(Items.COPPER_INGOT, MatchRules.CANNON_PRICE_COPPER, "铜锭"),
+    )
+    Buildings.RELAY.id -> listOf(
+        ItemAmount(Items.IRON_INGOT, MatchRules.RELAY_PRICE_IRON, "铁锭"),
+        ItemAmount(Items.COPPER_INGOT, MatchRules.RELAY_PRICE_COPPER, "铜锭"),
+    )
+    Buildings.FARMLAND.id -> listOf(
+        ItemAmount(Items.IRON_INGOT, MatchRules.FARMLAND_PRICE_IRON, "铁锭"),
+        ItemAmount(Items.COPPER_INGOT, MatchRules.FARMLAND_PRICE_COPPER, "铜锭"),
+    )
+    Buildings.PILLAGER.id -> listOf(ItemAmount(Items.IRON_INGOT, MatchRules.PILLAGER_TOWER_PRICE_IRON, "铁锭"))
+    else -> emptyList()
 }
 
-private fun levelStats(definition: BuildingDefinition, level: Int): String {
+private fun moduleOptions(definition: BuildingDefinition): List<GuideOption> {
+    if (!definition.acceptsModules) return listOf(GuideOption(Items.BARRIER, "模块", listOf("无模块槽")))
+    return listOf(
+        GuideOption(
+            Items.LIGHT_BLUE_GLAZED_TERRACOTTA,
+            "强化模块",
+            BuildingModuleEffects.lines(definition, ModuleSlot.PRIMARY),
+        ),
+        GuideOption(
+            Items.LIGHT_GRAY_GLAZED_TERRACOTTA,
+            "强化模块 2",
+            BuildingModuleEffects.lines(definition, ModuleSlot.SECONDARY),
+        ),
+        GuideOption(
+            Items.PURPLE_GLAZED_TERRACOTTA,
+            "扩散模块",
+            BuildingModuleEffects.lines(definition, ModuleSlot.DIFFUSION),
+        ),
+    )
+}
+
+private fun levelOptions(definition: BuildingDefinition, level: Int, icon: ItemStack): List<GuideOption> {
     val health = definition.maxHealth(level)
     val index = (level - 1).coerceAtLeast(0)
-    val extra = when (definition.id) {
-        Buildings.BASE.id -> definition.activeProduction(level).joinToString("；") { it.describe() }
-        Buildings.TOWER.id -> {
-            val range = MatchRules.TOWER_RANGE[index].toInt()
-            val speed = MatchRules.TOWER_SPEED[index]
-            val damage = ceil(speed * MatchRules.TOWER_ARROW_BASE_DAMAGE).toInt()
-            val seconds = MatchRules.TOWER_INTERVAL[index].toDouble() / MatchRules.TICKS_PER_SECOND
-            val interval = if (seconds == seconds.toInt().toDouble()) seconds.toInt().toString() else seconds.toString()
-            "射程 $range，箭速 ${speed.toInt()}，伤害 $damage，间隔 $interval 秒"
-        }
-        Buildings.TESLA.id -> {
-            val wind = MatchRules.secondsText(MatchRules.TESLA_WIND_TICKS)
-            "射程 ${MatchRules.TESLA_RANGE.toInt()}，闪电伤害 ${MatchRules.TESLA_DAMAGE[index].toInt()}，蓄风 $wind 秒，间隔 ${MatchRules.TESLA_INTERVAL[index] / MatchRules.TICKS_PER_SECOND} 秒"
-        }
-        Buildings.CANNON.id -> {
-            val center = MatchRules.CANNON_CENTER_DAMAGE[index]
-            val building = floor(center * MatchRules.CANNON_BUILDING_FRACTION + 0.5).toInt()
-            "射程 ${MatchRules.CANNON_RANGE.toInt()}，间隔 ${MatchRules.CANNON_INTERVAL / MatchRules.TICKS_PER_SECOND} 秒，中心伤害 ${center.toInt()}，建筑伤害 $building"
-        }
-        else -> ""
+    val combat = combatOptions(definition, index)
+    val notes = ArrayList<String>()
+    if (combat.isEmpty()) {
+        notes.addAll(definition.details.filter { it.minLevel == level }.map { it.text })
+        notes.addAll(definition.activeProduction(level).filter { it.minLevel == level }.map { it.describe() })
     }
-    return if (extra.isEmpty()) "生命 $health" else "生命 $health，$extra"
+    if (definition.maxLevel <= 1) notes.add("不能升级")
+    val options = ArrayList<GuideOption>()
+    options.add(
+        GuideOption(
+            definition.icon,
+            "${level} 级",
+            notes,
+            count = level,
+            stack = icon.copy(),
+        ),
+    )
+    options.add(GuideOption(Items.APPLE, "生命 $health"))
+    options.addAll(combat)
+    return options
 }
+
+private fun combatOptions(definition: BuildingDefinition, index: Int): List<GuideOption> = when (definition.id) {
+    Buildings.TOWER.id -> {
+        val range = MatchRules.TOWER_RANGE[index].toInt()
+        val speed = MatchRules.TOWER_SPEED[index].toInt()
+        val damage = ceil(MatchRules.TOWER_SPEED[index] * MatchRules.TOWER_ARROW_BASE_DAMAGE).toInt()
+        val intervalTicks = MatchRules.TOWER_INTERVAL[index]
+        listOf(
+            GuideOption(Items.ENDER_EYE, "射程 $range", count = range),
+            GuideOption(Items.ARROW, "箭速 $speed", count = speed),
+            GuideOption(Items.SPECTRAL_ARROW, "盔甲前伤害 $damage", count = damage),
+            intervalOption(intervalTicks),
+        )
+    }
+    Buildings.TESLA.id -> {
+        val range = MatchRules.TESLA_RANGE.toInt()
+        val damage = MatchRules.TESLA_DAMAGE[index].toInt()
+        val wind = MatchRules.TESLA_WIND_TICKS
+        val playerWind = MatchRules.TESLA_WIND_TICKS / 2
+        listOf(
+            GuideOption(Items.ENDER_EYE, "射程 $range", count = range),
+            GuideOption(Items.LIGHTNING_ROD, "闪电伤害 $damage", count = damage),
+            GuideOption(Items.WIND_CHARGE, "蓄风 ${MatchRules.secondsText(wind)} 秒", count = wholeSeconds(wind)),
+            GuideOption(Items.SUGAR, "玩家蓄风 ${MatchRules.secondsText(playerWind)} 秒", count = wholeSeconds(playerWind)),
+            intervalOption(MatchRules.TESLA_INTERVAL[index]),
+        )
+    }
+    Buildings.CANNON.id -> {
+        val range = MatchRules.CANNON_RANGE.toInt()
+        val center = MatchRules.CANNON_CENTER_DAMAGE[index].toInt()
+        val building = floor(MatchRules.CANNON_CENTER_DAMAGE[index] * MatchRules.CANNON_BUILDING_FRACTION + 0.5).toInt()
+        listOf(
+            GuideOption(Items.ENDER_EYE, "射程 $range", count = range),
+            intervalOption(MatchRules.CANNON_INTERVAL),
+            GuideOption(Items.TNT, "中心伤害 $center", count = center),
+            GuideOption(Items.STONE_BRICKS, "建筑伤害 $building", count = building),
+        )
+    }
+    else -> emptyList()
+}
+
+private fun intervalOption(ticks: Int): GuideOption =
+    GuideOption(Items.CLOCK, "间隔 ${MatchRules.secondsText(ticks)} 秒", count = wholeSeconds(ticks))
+
+private fun wholeSeconds(ticks: Int): Int? =
+    if (ticks > 0 && ticks % MatchRules.TICKS_PER_SECOND == 0) ticks / MatchRules.TICKS_PER_SECOND else null
 
 private fun seekLines(definition: BuildingDefinition): List<String> = when (definition.id) {
     Buildings.TOWER.id -> listOf("优先最近的、没有被实心方块挡住的敌方唤灵，没有再打没有被挡住的敌方玩家。不打我方，不拆建筑。")

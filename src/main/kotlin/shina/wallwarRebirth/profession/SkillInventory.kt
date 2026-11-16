@@ -13,6 +13,7 @@ import shina.wallwarRebirth.match.Match
 object SkillInventory {
     fun tick(server: MinecraftServer) {
         if (!Match.isFight()) return
+        ProfessionEffects.tickSwordsmanPassive(server)
         for (player in server.playerList.players) offer(player)
     }
 

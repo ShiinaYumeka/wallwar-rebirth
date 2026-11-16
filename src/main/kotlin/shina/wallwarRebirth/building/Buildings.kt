@@ -152,7 +152,7 @@ object Buildings {
         details = listOf(
             LevelNote(
                 1,
-                "僵尸、骷髅和蜘蛛 ${MatchRules.ZOMBIE_PRODUCTION_TICKS / MatchRules.TICKS_PER_SECOND} 秒，尸壳、骷髅死士、苦力怕和僵尸战士同样是 ${MatchRules.ZOMBIE_PRODUCTION_TICKS / MatchRules.TICKS_PER_SECOND} 秒但要 2 级兵营，高压苦力怕同样是 ${MatchRules.ZOMBIE_PRODUCTION_TICKS / MatchRules.TICKS_PER_SECOND} 秒但要 3 级兵营，矿工僵尸 ${MatchRules.MINER_ZOMBIE_PRODUCTION_TICKS / MatchRules.TICKS_PER_SECOND} 秒但要 2 级兵营，铁傀儡 ${MatchRules.GOLEM_PRODUCTION_TICKS / MatchRules.TICKS_PER_SECOND} 秒，村民 ${MatchRules.VILLAGER_PRODUCTION_TICKS / MatchRules.TICKS_PER_SECOND} 秒但要 2 级兵营",
+                "僵尸和蜘蛛 ${MatchRules.ZOMBIE_PRODUCTION_TICKS / MatchRules.TICKS_PER_SECOND} 秒，骷髅 ${MatchRules.SKELETON_PRODUCTION_TICKS / MatchRules.TICKS_PER_SECOND} 秒，尸壳、骷髅死士、苦力怕和僵尸战士同样是 ${MatchRules.ZOMBIE_PRODUCTION_TICKS / MatchRules.TICKS_PER_SECOND} 秒但要 2 级兵营，高压苦力怕同样是 ${MatchRules.ZOMBIE_PRODUCTION_TICKS / MatchRules.TICKS_PER_SECOND} 秒但要 3 级兵营，矿工僵尸 ${MatchRules.MINER_ZOMBIE_PRODUCTION_TICKS / MatchRules.TICKS_PER_SECOND} 秒但要 2 级兵营，铁傀儡 ${MatchRules.GOLEM_PRODUCTION_TICKS / MatchRules.TICKS_PER_SECOND} 秒，村民 ${MatchRules.VILLAGER_PRODUCTION_TICKS / MatchRules.TICKS_PER_SECOND} 秒但要 2 级兵营",
             ),
             LevelNote(2, "产出速度加快 50%，间隔变为原来的 2/3"),
             LevelNote(3, "产出速度加快 100%，间隔变为原来的一半"),
@@ -248,7 +248,7 @@ object Buildings {
         details = listOf(
             LevelNote(
                 1,
-                "掠夺者、卫道士和幻术师 ${MatchRules.PILLAGER_PRODUCTION_TICKS / MatchRules.TICKS_PER_SECOND} 秒，唤魔者 ${MatchRules.EVOKER_PRODUCTION_TICKS / MatchRules.TICKS_PER_SECOND} 秒且要 2 级，劫掠兽 ${MatchRules.RAVAGER_PRODUCTION_TICKS / MatchRules.TICKS_PER_SECOND} 秒且要 3 级",
+                "掠夺者 ${MatchRules.PILLAGER_PRODUCTION_TICKS / MatchRules.TICKS_PER_SECOND} 秒，卫道士和幻术师 ${MatchRules.ILLUSIONER_PRODUCTION_TICKS / MatchRules.TICKS_PER_SECOND} 秒且要 2 级，唤魔者和劫掠兽 ${MatchRules.EVOKER_PRODUCTION_TICKS / MatchRules.TICKS_PER_SECOND} 秒且要 3 级",
             ),
             LevelNote(2, "产出速度加快 50%，间隔变为原来的 2/3"),
             LevelNote(3, "产出速度加快 100%，间隔变为原来的一半"),

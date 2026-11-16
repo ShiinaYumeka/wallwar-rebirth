@@ -12,6 +12,7 @@ import net.minecraft.world.inventory.Slot
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.scores.PlayerTeam
 import shina.wallwarRebirth.contract.WallwarTeams
+import shina.wallwarRebirth.match.BoundItems
 import shina.wallwarRebirth.shop.TeamMaterialStore
 import shina.wallwarRebirth.shop.TeamStoreLookup
 import shina.wallwarRebirth.shop.TeamStores
@@ -28,12 +29,14 @@ object TeamWarehouses {
 
     fun deposit(team: String, stack: ItemStack): ItemStack {
         if (stack.isEmpty) return ItemStack.EMPTY
+        if (BoundItems.isBound(stack)) return stack
         val box = of(team) ?: return stack
         return ChestStore(box).quickPut(stack)
     }
 
     fun acceptAll(team: String, stack: ItemStack): Boolean {
         if (stack.isEmpty) return true
+        if (BoundItems.isBound(stack)) return false
         val box = of(team) ?: return false
         if (!fits(box, stack)) return false
         return ChestStore(box).quickPut(stack.copy()).isEmpty
@@ -57,6 +60,8 @@ object TeamWarehouses {
         if (team != WallwarTeams.RED && team != WallwarTeams.BLUE) return null
         return boxes.getOrPut(team) { SimpleContainer(SIZE) }
     }
+
+    fun slot(box: SimpleContainer, index: Int): Slot = WarehouseSlot(box, index)
 
     fun clear() {
         for (box in boxes.values) box.clearContent()
@@ -135,7 +140,7 @@ private class ChestStore(private val box: SimpleContainer) : TeamMaterialStore {
     }
 
     override fun quickPut(stack: ItemStack): ItemStack {
-        if (stack.isEmpty) return stack
+        if (stack.isEmpty || BoundItems.isBound(stack)) return stack
         var left = stack.count
         for (slot in 0 until box.containerSize) {
             if (left <= 0) break
@@ -166,7 +171,11 @@ private class ChestStore(private val box: SimpleContainer) : TeamMaterialStore {
     override fun open(player: ServerPlayer) {
         val gui = SimpleGui(MenuType.GENERIC_9x6, player, false)
         gui.title = net.minecraft.network.chat.Component.literal("团队仓库")
-        for (slot in 0 until box.containerSize) gui.setSlotRedirect(slot, Slot(box, slot, 0, 0))
+        for (slot in 0 until box.containerSize) gui.setSlotRedirect(slot, TeamWarehouses.slot(box, slot))
         gui.open()
     }
+}
+
+private class WarehouseSlot(box: SimpleContainer, index: Int) : Slot(box, index, 0, 0) {
+    override fun mayPlace(stack: ItemStack): Boolean = !BoundItems.isBound(stack)
 }

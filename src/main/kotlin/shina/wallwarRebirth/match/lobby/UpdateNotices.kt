@@ -445,6 +445,107 @@ object UpdateNotices {
                 ),
             ),
         ),
+        UpdateNotice(
+            version = "1.0.2",
+            entries = listOf(
+                UpdateEntry(
+                    Items.SKELETON_SPAWN_EGG,
+                    "骷髅",
+                    listOf(
+                        "红石消耗改回 1",
+                        "生命提升至 40",
+                        "基础生产时间改为 30 秒，二级 20 秒、三级 15 秒",
+                    ),
+                ),
+                UpdateEntry(
+                    Items.IRON_PICKAXE,
+                    "矿工僵尸",
+                    listOf(
+                        "红石消耗降低为 1",
+                        "基础生产时间降低为 60 秒，二级 40 秒、三级 30 秒",
+                    ),
+                ),
+                UpdateEntry(
+                    Items.WITHER_SKELETON_SPAWN_EGG,
+                    "骷髅死士",
+                    listOf("红石消耗降低为 2"),
+                ),
+                UpdateEntry(
+                    Items.IRON_GOLEM_SPAWN_EGG,
+                    "铁傀儡",
+                    listOf(
+                        "红石消耗降低为 4",
+                        "盔甲增加到 15",
+                    ),
+                ),
+                UpdateEntry(
+                    Items.CROSSBOW,
+                    "弩架",
+                    listOf(
+                        "三级射程都改为 16 格",
+                        "箭矢速度 2 / 3 / 4，基础伤害 2",
+                        "射击间隔改为 2 秒",
+                        "购买和升 2、3 级都改为铜锭 ×16",
+                        "强化模块 2 的间隔缩短提升至 25%，装上后变为 1.5 秒",
+                    ),
+                ),
+                UpdateEntry(
+                    Items.BOW,
+                    "幻术师",
+                    listOf(
+                        "提升为 2 级怪",
+                        "小麦消耗提升至 8",
+                    ),
+                ),
+                UpdateEntry(
+                    Items.EVOKER_SPAWN_EGG,
+                    "唤魔者",
+                    listOf(
+                        "提升为 3 级怪",
+                        "小麦消耗提升至 16",
+                    ),
+                ),
+                UpdateEntry(
+                    Items.COMPOSTER,
+                    "农田",
+                    listOf(
+                        "放置后不再送一个农民",
+                        "价格降低为铁锭 ×24、铜锭 ×24",
+                    ),
+                ),
+                UpdateEntry(
+                    Items.FEATHER,
+                    "驱魔人",
+                    listOf(
+                        "商店购买的剑改为亡灵杀手 II，并加上节肢杀手 II，不另收费",
+                        "每次买剑生效后冷却 180 秒，冷却中再买不加附魔",
+                        "释放急速冲刺时会显示被动剩余冷却，冷却转好会提示「被动技能已就绪」",
+                    ),
+                ),
+                UpdateEntry(
+                    Items.HUSK_SPAWN_EGG,
+                    "尸壳",
+                    listOf("对建筑伤害削弱回 1"),
+                ),
+                UpdateEntry(
+                    Items.EXPERIENCE_BOTTLE,
+                    "破坏手",
+                    listOf(
+                        "释放娴熟技巧时会清除自身的挖掘疲劳和蓄风",
+                        "附近 8 格内有敌方唤灵时才会隐身 10 秒",
+                    ),
+                ),
+                UpdateEntry(
+                    Items.BOOK,
+                    "图鉴",
+                    listOf(
+                        "建筑的强化、强化 2、扩散描述改为和局内真实效果一致",
+                        "表示数值的选项会同时用物品数量显示，血量除外",
+                        "怪物图鉴的数值格子也按同样规则处理",
+                    ),
+                ),
+            ),
+        ),
     )
 
     fun latestIndex(): Int = all.lastIndex

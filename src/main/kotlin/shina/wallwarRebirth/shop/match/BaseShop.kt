@@ -1,7 +1,4 @@
 package shina.wallwarRebirth.shop.match
-import shina.wallwarRebirth.profession.ProfessionEffects
-import shina.wallwarRebirth.match.Match
-import shina.wallwarRebirth.rules.MatchRules
 
 import eu.pb4.sgui.api.ClickType
 import eu.pb4.sgui.api.elements.GuiElement
@@ -12,7 +9,6 @@ import net.minecraft.core.registries.BuiltInRegistries
 import net.minecraft.network.chat.Component
 import net.minecraft.resources.Identifier
 import net.minecraft.server.level.ServerPlayer
-import net.minecraft.world.inventory.Slot
 import net.minecraft.world.item.Item
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
@@ -22,6 +18,9 @@ import shina.wallwarRebirth.building.ModuleSlot
 import shina.wallwarRebirth.building.SiteCoreBlockEntity
 import shina.wallwarRebirth.gui.ItemStackBuilder
 import shina.wallwarRebirth.item.ModItems
+import shina.wallwarRebirth.match.Match
+import shina.wallwarRebirth.profession.ProfessionEffects
+import shina.wallwarRebirth.rules.MatchRules
 import shina.wallwarRebirth.shop.ShopSession
 import shina.wallwarRebirth.shop.element.BaseShopItem
 import shina.wallwarRebirth.shop.element.ShopItemWithIndex
@@ -240,7 +239,7 @@ private class PageGui(
         for (offset in 0 until width) {
             val index = start + offset
             if (index >= box.containerSize) break
-            setSlotRedirect(9 + offset, Slot(box, index, 0, 0))
+            setSlotRedirect(9 + offset, TeamWarehouses.slot(box, index))
         }
     }
 

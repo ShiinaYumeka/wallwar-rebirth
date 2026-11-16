@@ -16,6 +16,7 @@ import shina.wallwarRebirth.building.ItemAmount
 import shina.wallwarRebirth.building.SiteCoreBlockEntity
 import shina.wallwarRebirth.item.ModItems
 import shina.wallwarRebirth.match.Match
+import shina.wallwarRebirth.match.MatchPersistence
 import shina.wallwarRebirth.rules.MatchRules
 import shina.wallwarRebirth.shop.ShopMaterialRegistry
 import shina.wallwarRebirth.shop.element.BaseShopItem
@@ -27,10 +28,38 @@ object ProfessionEffects {
         val stack = item.icon.copy()
         val member = Match.member(player.uuid)
         if (member != null && Classes.isSwordsman(member.classLocked, member.classId)) {
-            Classes.applySmite(player, stack)
+            val now = player.level().server.overworld().gameTime
+            if (member.swordPassiveReadyAt <= now) {
+                Classes.applySwordEnchants(player, stack)
+                member.swordPassiveReadyAt = now + MatchRules.SWORDSMAN_PASSIVE_COOLDOWN_TICKS
+                val seconds = MatchRules.SWORDSMAN_PASSIVE_COOLDOWN_TICKS / MatchRules.TICKS_PER_SECOND
+                player.sendSystemMessage(
+                    Component.literal("这把剑带有亡灵杀手 II 和节肢杀手 II，被动冷却 $seconds 秒"),
+                )
+                MatchPersistence.save(player.level().server)
+            } else {
+                player.sendSystemMessage(
+                    Component.literal("${Classes.swordPassiveStatus(member.swordPassiveReadyAt, now)}，这把剑没有附魔"),
+                )
+            }
         }
         if (!player.inventory.add(stack)) player.drop(stack, false)
         return true
+    }
+
+    fun tickSwordsmanPassive(server: net.minecraft.server.MinecraftServer) {
+        if (!Match.isFight()) return
+        val now = server.overworld().gameTime
+        var dirty = false
+        for (player in server.playerList.players) {
+            val member = Match.member(player.uuid) ?: continue
+            if (!Classes.isSwordsman(member.classLocked, member.classId)) continue
+            if (member.swordPassiveReadyAt <= 0L || now < member.swordPassiveReadyAt) continue
+            member.swordPassiveReadyAt = 0
+            dirty = true
+            player.sendSystemMessage(Component.literal("被动技能已就绪"))
+        }
+        if (dirty) MatchPersistence.save(server)
     }
 
     fun refundIfBastionWall(player: ServerPlayer, item: BaseShopItem) {

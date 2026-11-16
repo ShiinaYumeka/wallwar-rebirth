@@ -39,6 +39,7 @@ object Match : MatchPort {
         var classId: String = Classes.MINER
         var classLocked: Boolean = true
         var skillReadyAt: Long = 0
+        var swordPassiveReadyAt: Long = 0
         var wreckerDigUntil: Long = 0
         var ready: Boolean = false
         var spectating: Boolean = false
@@ -196,17 +197,23 @@ object Match : MatchPort {
             member.skillReadyAt,
             isFight(),
             now,
+            player,
             stack,
             context,
         ) ?: return net.minecraft.world.InteractionResult.PASS
-        if (cast.message != null) player.sendSystemMessage(Component.literal(cast.message))
+        val message = when {
+            cast.message == null -> null
+            Classes.isSwordsman(member.classLocked, member.classId) ->
+                "${cast.message}；${Classes.swordPassiveStatus(member.swordPassiveReadyAt, now)}"
+            else -> cast.message
+        }
+        if (message != null) player.sendSystemMessage(Component.literal(message))
         if (cast.readyAt != null) {
             member.skillReadyAt = cast.readyAt
             if (member.classId == Classes.WRECKER) {
                 member.wreckerDigUntil = now + MatchRules.WRECKER_ACTIVE_TICKS
-            } else {
-                Classes.applyEffect(player, member.classId)
             }
+            Classes.applyEffect(player, member.classId)
             MatchPersistence.save(player.level().server)
         }
         return net.minecraft.world.InteractionResult.SUCCESS
@@ -342,6 +349,7 @@ object Match : MatchPort {
         member.classId = chosen
         member.classLocked = true
         member.skillReadyAt = 0
+        member.swordPassiveReadyAt = 0
         member.wreckerDigUntil = 0
         MatchPersistence.save(player.level().server)
         player.sendSystemMessage(Component.literal("职业：${Classes.name(chosen)}"))
@@ -401,6 +409,7 @@ object Match : MatchPort {
             member.classId = Classes.MINER
             member.classLocked = true
             member.skillReadyAt = 0
+            member.swordPassiveReadyAt = 0
             member.wreckerDigUntil = 0
             member.ready = false
             member.spectating = false

@@ -14,6 +14,7 @@ import net.minecraft.world.item.context.UseOnContext
 import shina.wallwarRebirth.building.Buildings
 import shina.wallwarRebirth.building.SiteCoreBlockEntity
 import shina.wallwarRebirth.item.ModItems
+import shina.wallwarRebirth.monster.SummonedUnits
 import shina.wallwarRebirth.rules.MatchRules
 import kotlin.math.min
 
@@ -49,7 +50,7 @@ object Classes {
             { ModItems.SKILL_WRECKER },
             Items.EXPERIENCE_BOTTLE,
             "自己把敌方建筑生命扣到 0 并摧毁时，在核心位置掉落该建筑购买与升级费用合计的 10%，每种资源向上取整",
-            "手持娴熟技巧右键，之后 30 秒内挖掘建筑伤害翻倍，冷却 60 秒",
+            "手持娴熟技巧右键，之后 30 秒内挖掘建筑伤害翻倍，并清除自身的挖掘疲劳和蓄风；附近 8 格内有敌方唤灵时隐身 10 秒，冷却 60 秒",
         ),
         Spec(
             BASTION,
@@ -64,7 +65,7 @@ object Classes {
             "驱魔人",
             { ModItems.SKILL_SWORDSMAN },
             Items.FEATHER,
-            "在商店购买的剑带有亡灵杀手 III，不另收费",
+            "在商店购买的剑带有亡灵杀手 II 和节肢杀手 II，不另收费；每次生效后冷却 180 秒",
             "手持急速冲刺右键，获得速度 II，持续 5 秒，冷却 30 秒",
         ),
     )
@@ -96,6 +97,7 @@ object Classes {
         readyAt: Long,
         fighting: Boolean,
         now: Long,
+        player: ServerPlayer,
         stack: ItemStack,
         context: UseOnContext?,
     ): Cast? {
@@ -109,7 +111,7 @@ object Classes {
         }
         return when (classId) {
             MINER -> haste(now)
-            WRECKER -> wreckerDig(now)
+            WRECKER -> wreckerDig(now, player)
             SWORDSMAN -> sprint(now)
             BASTION -> repair(now, context)
             else -> null
@@ -123,9 +125,14 @@ object Classes {
         )
     }
 
-    private fun wreckerDig(now: Long): Cast {
+    private fun wreckerDig(now: Long, player: ServerPlayer): Cast {
+        val invis = if (SummonedUnits.hasNearbyHostile(player, MatchRules.WRECKER_INVISIBILITY_RANGE)) {
+            "，隐身 ${MatchRules.WRECKER_INVISIBILITY_TICKS / MatchRules.TICKS_PER_SECOND} 秒"
+        } else {
+            "，附近没有敌方唤灵，未隐身"
+        }
         return Cast(
-            "挖掘建筑伤害翻倍持续 ${MatchRules.WRECKER_ACTIVE_TICKS / MatchRules.TICKS_PER_SECOND} 秒",
+            "挖掘建筑伤害翻倍持续 ${MatchRules.WRECKER_ACTIVE_TICKS / MatchRules.TICKS_PER_SECOND} 秒，已清除挖掘疲劳和蓄风$invis",
             now + MatchRules.WRECKER_SKILL_COOLDOWN_TICKS,
         )
     }
@@ -160,16 +167,42 @@ object Classes {
             SWORDSMAN -> player.addEffect(
                 MobEffectInstance(MobEffects.SPEED, MatchRules.SWORDSMAN_ACTIVE_TICKS, 1, false, true),
             )
+            WRECKER -> {
+                player.removeEffect(MobEffects.MINING_FATIGUE)
+                player.removeEffect(MobEffects.WIND_CHARGED)
+                if (SummonedUnits.hasNearbyHostile(player, MatchRules.WRECKER_INVISIBILITY_RANGE)) {
+                    player.addEffect(
+                        MobEffectInstance(
+                            MobEffects.INVISIBILITY,
+                            MatchRules.WRECKER_INVISIBILITY_TICKS,
+                            0,
+                            false,
+                            true,
+                        ),
+                    )
+                }
+            }
         }
     }
 
-    fun applySmite(player: ServerPlayer, stack: ItemStack) {
+    fun applySwordEnchants(player: ServerPlayer, stack: ItemStack) {
+        enchant(player, stack, MatchRules.SMITE_PATH, MatchRules.SMITE_LEVEL)
+        enchant(player, stack, MatchRules.BANE_OF_ARTHROPODS_PATH, MatchRules.BANE_OF_ARTHROPODS_LEVEL)
+    }
+
+    fun swordPassiveStatus(readyAt: Long, now: Long): String {
+        if (readyAt <= now) return "被动已就绪"
+        val seconds = ((readyAt - now + MatchRules.TICKS_PER_SECOND - 1) / MatchRules.TICKS_PER_SECOND).toInt()
+        return "被动冷却还剩 $seconds 秒"
+    }
+
+    private fun enchant(player: ServerPlayer, stack: ItemStack, path: String, level: Int) {
         val registry = player.registryAccess().lookupOrThrow(Registries.ENCHANTMENT)
         val key = ResourceKey.create(
             Registries.ENCHANTMENT,
-            Identifier.fromNamespaceAndPath("minecraft", MatchRules.SMITE_PATH),
+            Identifier.fromNamespaceAndPath("minecraft", path),
         )
         val holder = registry.get(key).orElse(null) ?: return
-        stack.enchant(holder, MatchRules.SMITE_LEVEL)
+        stack.enchant(holder, level)
     }
 }

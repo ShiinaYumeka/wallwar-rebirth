@@ -6,16 +6,14 @@ import net.minecraft.world.level.block.CropBlock
 import net.minecraft.world.level.block.FarmBlock
 import shina.wallwarRebirth.monster.MonsterDefinition
 import shina.wallwarRebirth.monster.Monsters
-import shina.wallwarRebirth.monster.SummonedVillager
 import shina.wallwarRebirth.monster.Summoning
 import kotlin.math.abs
 import kotlin.math.max
 
 object BuildingPlacement {
     fun spawnAfterPlace(level: ServerLevel, site: SiteCoreBlockEntity) {
-        when (site.buildingId) {
-            Buildings.RELAY.id -> spawn(level, site, Monsters.MINER, farmer = false)
-            Buildings.FARMLAND.id -> spawn(level, site, Monsters.VILLAGER, farmer = true)
+        if (site.buildingId == Buildings.RELAY.id) {
+            spawn(level, site, Monsters.MINER)
         }
     }
 
@@ -23,11 +21,10 @@ object BuildingPlacement {
         level: ServerLevel,
         site: SiteCoreBlockEntity,
         definition: MonsterDefinition,
-        farmer: Boolean,
     ) {
         val feet = findStandable(level, site) ?: return
         val yaw = site.facingDirection().toYRot()
-        val mob = Summoning.place(
+        Summoning.place(
             level,
             definition,
             site.team,
@@ -35,10 +32,7 @@ object BuildingPlacement {
             feet.y.toDouble(),
             feet.z + 0.5,
             yaw,
-        ) ?: return
-        if (farmer) {
-            (mob as? SummonedVillager)?.becomeFarmer()
-        }
+        )
     }
 
     private fun findStandable(level: ServerLevel, site: SiteCoreBlockEntity): BlockPos? {

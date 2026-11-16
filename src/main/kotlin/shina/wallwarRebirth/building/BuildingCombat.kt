@@ -73,7 +73,7 @@ object BuildingCombat {
         val target = nearestTarget(site, level, range)
         TowerCrossbows.aim(site, level, target)
         val baseInterval = MatchRules.TOWER_INTERVAL[index]
-        val interval = if (site.reinforceTwo.isEmpty) baseInterval else baseInterval * 4 / 5
+        val interval = if (site.reinforceTwo.isEmpty) baseInterval else baseInterval * 3 / 4
         val (nextAge, fire) = IntervalGate.step(site.actionAge, interval, target != null)
         site.actionAge = nextAge
         if (!fire || target == null) return

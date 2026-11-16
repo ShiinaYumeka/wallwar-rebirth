@@ -61,28 +61,37 @@ private class MonsterDetailBoard(
         fillGlass(this)
         setSlot(0, GuiElement(named(definition.egg, definition.displayName, ChatFormatting.WHITE)) { _, _, _, _ -> })
         val stats = listOf(
-            Triple(Items.EXPERIENCE_BOTTLE, "等级", definition.rank.toString()),
-            Triple(Items.APPLE, "生命", definition.health.toInt().toString()),
-            Triple(Items.IRON_CHESTPLATE, "盔甲", definition.armor.toInt().toString()),
-            Triple(Items.IRON_SWORD, "对玩家攻击", definition.playerAttack.toInt().toString()),
-            Triple(Items.STONE_BRICKS, "建筑破坏力", definition.buildingDamage.toString()),
-            Triple(Items.CLOCK, "拆建筑间隔", MatchRules.secondsText(definition.buildingIntervalTicks) + " 秒"),
-            Triple(Items.ENDER_EYE, "攻击距离", definition.attackRange.toInt().toString()),
-            Triple(Items.BOW, "弓射程", definition.bowRange?.toInt()?.toString() ?: "—"),
-            Triple(Items.REDSTONE, "基础产出间隔", MatchRules.secondsText(definition.baseProductionTicks) + " 秒"),
+            Triple(Items.EXPERIENCE_BOTTLE, "等级 ${definition.rank}", definition.rank),
+            Triple(Items.APPLE, "生命 ${definition.health.toInt()}", null),
+            Triple(Items.IRON_CHESTPLATE, "盔甲 ${definition.armor.toInt()}", definition.armor.toInt().takeIf { it > 0 }),
+            Triple(Items.IRON_SWORD, "对玩家攻击 ${definition.playerAttack.toInt()}", definition.playerAttack.toInt().takeIf { it > 0 }),
+            Triple(Items.STONE_BRICKS, "建筑破坏力 ${definition.buildingDamage}", definition.buildingDamage.takeIf { it > 0 }),
+            Triple(Items.CLOCK, "拆建筑间隔 ${MatchRules.secondsText(definition.buildingIntervalTicks)} 秒", wholeSeconds(definition.buildingIntervalTicks)),
+            Triple(Items.ENDER_EYE, "攻击距离 ${definition.attackRange.toInt()}", definition.attackRange.toInt().takeIf { it > 0 }),
+            Triple(Items.BOW, "弓射程 ${definition.bowRange?.toInt()?.toString() ?: "—"}", definition.bowRange?.toInt()?.takeIf { it > 0 }),
+            Triple(Items.REDSTONE, "基础产出间隔 ${MatchRules.secondsText(definition.baseProductionTicks)} 秒", wholeSeconds(definition.baseProductionTicks)),
         )
         for ((index, stat) in stats.withIndex()) {
-            val (item, label, value) = stat
-            setSlot(9 + index, GuiElement(named(item, "$label $value", ChatFormatting.WHITE)) { _, _, _, _ -> })
+            val (item, name, count) = stat
+            setSlot(9 + index, GuiElement(named(item, name, ChatFormatting.WHITE, count = count)) { _, _, _, _ -> })
+        }
+        var next = 18
+        if (definition.cost.isEmpty()) {
+            setSlot(next, GuiElement(named(Items.EMERALD, "购买消耗", ChatFormatting.WHITE, listOf("无"))) { _, _, _, _ -> })
+            next++
+        } else {
+            for (part in definition.cost) {
+                setSlot(
+                    next,
+                    GuiElement(
+                        named(part.item, "购买消耗 ${part.name} ×${part.count}", ChatFormatting.WHITE, count = part.count),
+                    ) { _, _, _, _ -> },
+                )
+                next++
+            }
         }
         setSlot(
-            18,
-            GuiElement(
-                named(Items.EMERALD, "购买消耗", ChatFormatting.WHITE, listOf(definition.costText())),
-            ) { _, _, _, _ -> },
-        )
-        setSlot(
-            19,
+            next++,
             GuiElement(
                 named(
                     if (definition.source == MonsterSource.TOWER) Items.WHITE_BANNER else Items.CRAFTER,
@@ -93,7 +102,7 @@ private class MonsterDetailBoard(
             ) { _, _, _, _ -> },
         )
         setSlot(
-            20,
+            next++,
             GuiElement(
                 named(Items.TARGET, "索敌", ChatFormatting.WHITE, seekLines(definition)),
             ) { _, _, _, _ -> },
@@ -101,7 +110,7 @@ private class MonsterDetailBoard(
         val notes = supplement(definition)
         if (notes.isNotEmpty()) {
             setSlot(
-                21,
+                next,
                 GuiElement(named(Items.BOOK, "补充说明", ChatFormatting.WHITE, notes)) { _, _, _, _ -> },
             )
         }
@@ -168,3 +177,6 @@ private fun supplement(definition: MonsterDefinition): List<String> {
     if (definition.axe) lines.add("手持铁斧近战。")
     return lines
 }
+
+private fun wholeSeconds(ticks: Int): Int? =
+    if (ticks > 0 && ticks % MatchRules.TICKS_PER_SECOND == 0) ticks / MatchRules.TICKS_PER_SECOND else null

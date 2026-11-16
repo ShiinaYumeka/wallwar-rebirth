@@ -228,7 +228,7 @@ object Monsters {
     val EVOKER = MonsterDefinition(
         id = "evoker",
         displayName = "唤灵·唤魔者",
-        rank = 2,
+        rank = 3,
         health = MatchRules.EVOKER_HEALTH,
         armor = MatchRules.PILLAGER_ARMOR,
         playerAttack = MatchRules.EVOKER_ATTACK,
@@ -268,7 +268,7 @@ object Monsters {
     val ILLUSIONER = MonsterDefinition(
         id = "illusioner",
         displayName = "唤灵·幻术师",
-        rank = 1,
+        rank = 2,
         health = MatchRules.ILLUSIONER_HEALTH,
         armor = MatchRules.PILLAGER_ARMOR,
         playerAttack = MatchRules.ILLUSIONER_ATTACK,
