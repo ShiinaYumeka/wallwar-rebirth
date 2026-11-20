@@ -63,8 +63,11 @@ internal fun SiteCoreBlockEntity.writeState(output: ValueOutput) {
     output.putInt("Age", age)
     output.putInt("FallAge", fallAge)
     output.putInt("ActionAge", actionAge)
+    output.putInt("WeaponCooldown", weaponCooldown)
     output.putString("ProducedMonster", producedMonster)
     output.putBoolean("Marching", marching)
+    output.putBoolean("CommandPost", commandPost)
+    output.putString("CommandOwner", commandOwner?.toString() ?: "")
     output.putBoolean("Holding", holding)
     output.putInt("HoldEpoch", holdEpoch)
     output.putBoolean("HasHoldAnchor", holdAnchor != null)
@@ -92,6 +95,10 @@ internal fun SiteCoreBlockEntity.writeState(output: ValueOutput) {
     output.store("Parts", Codec.LONG.listOf(), partPositions.map { it.asLong() })
     output.store("CoveredBelow", CoveredBlock.CODEC.listOf(), coveredBelow.toList())
     output.store("MineralAges", Codec.unboundedMap(Codec.STRING, Codec.INT), mineralAges)
+    output.putBoolean("CrystalFurnaceOn", crystalFurnaceOn)
+    output.putInt("CrystalFurnaceTicks", crystalFurnaceTicks)
+    output.putInt("CrystalFurnaceIron", crystalFurnaceIron)
+    output.putInt("CrystalFurnaceCopper", crystalFurnaceCopper)
     val items = (0 until storage.containerSize).map { storage.getItem(it) }
     output.store("Storage", ItemStack.OPTIONAL_CODEC.listOf(), items)
     output.store(
@@ -118,8 +125,11 @@ internal fun SiteCoreBlockEntity.readState(input: ValueInput) {
     age = input.getIntOr("Age", 0)
     fallAge = input.getIntOr("FallAge", 0)
     actionAge = input.getIntOr("ActionAge", 0)
+    weaponCooldown = input.getIntOr("WeaponCooldown", 0)
     producedMonster = input.getStringOr("ProducedMonster", "zombie")
     marching = input.getBooleanOr("Marching", true)
+    commandPost = input.getBooleanOr("CommandPost", false)
+    commandOwner = input.getStringOr("CommandOwner", "").takeIf { it.isNotEmpty() }?.let { runCatching { UUID.fromString(it) }.getOrNull() }
     holding = input.getBooleanOr("Holding", false)
     holdEpoch = input.getIntOr("HoldEpoch", 0)
     holdAnchor = if (input.getBooleanOr("HasHoldAnchor", false)) {
@@ -164,6 +174,10 @@ internal fun SiteCoreBlockEntity.readState(input: ValueInput) {
     for ((name, ticks) in ages) {
         if (name != null && ticks != null) mineralAges[name] = ticks
     }
+    crystalFurnaceOn = input.getBooleanOr("CrystalFurnaceOn", false)
+    crystalFurnaceTicks = input.getIntOr("CrystalFurnaceTicks", 0)
+    crystalFurnaceIron = input.getIntOr("CrystalFurnaceIron", 0)
+    crystalFurnaceCopper = input.getIntOr("CrystalFurnaceCopper", 0)
     val items = input.read("Storage", ItemStack.OPTIONAL_CODEC.listOf()).orElse(emptyList())
     if (items != null) {
         items.forEachIndexed { slot, stack ->

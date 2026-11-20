@@ -12,6 +12,7 @@ import shina.wallwarRebirth.match.Match
 
 object SkillInventory {
     fun tick(server: MinecraftServer) {
+        for (player in server.playerList.players) ProfessionEffects.syncChampion(player)
         if (!Match.isFight()) return
         ProfessionEffects.tickSwordsmanPassive(server)
         for (player in server.playerList.players) offer(player)
@@ -45,6 +46,9 @@ object SkillInventory {
         Classes.WRECKER -> ModItems.SKILL_WRECKER
         Classes.BASTION -> ModItems.SKILL_BASTION
         Classes.SWORDSMAN -> ModItems.SKILL_SWORDSMAN
+        Classes.CONQUEROR -> ModItems.SKILL_CONQUEROR
+        Classes.CHAMPION -> ModItems.SKILL_CHAMPION
+        Classes.COMMANDER -> ModItems.SKILL_COMMANDER
         else -> null
     }
 

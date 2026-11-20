@@ -4,6 +4,11 @@ import com.mojang.serialization.MapCodec
 import eu.pb4.polymer.core.api.block.PolymerBlock
 import net.minecraft.core.BlockPos
 import net.minecraft.network.protocol.game.ClientboundBlockUpdatePacket
+import net.minecraft.world.InteractionHand
+import net.minecraft.world.InteractionResult
+import net.minecraft.world.entity.player.Player
+import net.minecraft.world.item.ItemStack
+import net.minecraft.world.level.Level
 import net.minecraft.world.level.block.BaseEntityBlock
 import net.minecraft.world.level.block.Blocks
 import net.minecraft.world.level.block.RenderShape
@@ -11,6 +16,7 @@ import net.minecraft.world.level.block.entity.BlockEntity
 import net.minecraft.world.level.block.state.BlockState
 import net.minecraft.world.level.storage.ValueInput
 import net.minecraft.world.level.storage.ValueOutput
+import net.minecraft.world.phys.BlockHitResult
 import xyz.nucleoid.packettweaker.PacketContext
 
 class SiteStructureBlock(properties: Properties) : BaseEntityBlock(properties), PolymerBlock {
@@ -37,10 +43,31 @@ class SiteStructureBlock(properties: Properties) : BaseEntityBlock(properties), 
 
     override fun getDestroyProgress(
         state: BlockState,
-        player: net.minecraft.world.entity.player.Player,
+        player: Player,
         level: net.minecraft.world.level.BlockGetter,
         pos: BlockPos,
     ): Float = BuildingMining.progress(state, player, level, pos) { super.getDestroyProgress(state, player, level, pos) }
+
+    override fun useWithoutItem(
+        state: BlockState,
+        level: Level,
+        pos: BlockPos,
+        player: Player,
+        hit: BlockHitResult,
+    ): InteractionResult = SiteCoreBlock.openAt(level, pos, player)
+
+    override fun useItemOn(
+        stack: ItemStack,
+        state: BlockState,
+        level: Level,
+        pos: BlockPos,
+        player: Player,
+        hand: InteractionHand,
+        hit: BlockHitResult,
+    ): InteractionResult {
+        if (hand != InteractionHand.MAIN_HAND) return InteractionResult.PASS
+        return SiteCoreBlock.openAt(level, pos, player)
+    }
 }
 
 class SiteStructureBlockEntity(pos: BlockPos, state: BlockState) : BlockEntity(ModSites.STRUCTURE_TYPE, pos, state) {

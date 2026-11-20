@@ -21,7 +21,7 @@ class ProfessionBoard(private val viewer: ServerPlayer) : SimpleGui(MenuType.GEN
 
     private fun paint() {
         fillGlass(this)
-        val slots = listOf(20, 21, 23, 24)
+        val slots = (19..25).toList()
         for ((slot, spec) in slots.zip(Classes.specs)) {
             val current = Match.member(viewer.uuid)?.classId == spec.id
             val stack = named(

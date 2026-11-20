@@ -18,6 +18,9 @@ import net.minecraft.world.level.block.Block
 import net.minecraft.world.level.block.Blocks
 import net.minecraft.world.level.block.state.BlockState
 import net.minecraft.world.level.levelgen.Heightmap
+import kotlin.math.ceil
+import kotlin.math.hypot
+import kotlin.math.sqrt
 
 object SurfaceOres {
     private val kinds = listOf(
@@ -31,29 +34,26 @@ object SurfaceOres {
         val max = min + size - 1
         val innerMin = min + 1
         val innerMax = max - 1
-        val inset = MatchRules.BASE_INSET
         val used = HashSet<Long>()
         val random = level.random
-        landmark(
-            level,
-            innerMin + inset,
-            innerMax - inset,
-            columns(MatchRules.CORNER_ORE_IRON, MatchRules.CORNER_ORE_COPPER),
-            innerMin,
-            innerMax,
-            used,
-            random,
-        )
-        landmark(
-            level,
-            innerMax - inset,
-            innerMin + inset,
-            columns(MatchRules.CORNER_ORE_IRON, MatchRules.CORNER_ORE_COPPER),
-            innerMin,
-            innerMax,
-            used,
-            random,
-        )
+        val margin = MatchRules.MINERAL_REACTOR_RADIUS
+        for (plan in cornerPlans(innerMin, innerMax)) {
+            for (dx in -margin..margin) {
+                for (dz in -margin..margin) {
+                    used.add(BlockPos.asLong(plan.reactorX + dx, 0, plan.reactorZ + dz))
+                }
+            }
+            landmark(
+                level,
+                plan.oreX,
+                plan.oreZ,
+                columns(MatchRules.CORNER_ORE_IRON, MatchRules.CORNER_ORE_COPPER),
+                innerMin,
+                innerMax,
+                used,
+                random,
+            )
+        }
         landmark(
             level,
             Math.round((red.x + blue.x) / 2.0).toInt(),
@@ -64,6 +64,7 @@ object SurfaceOres {
             used,
             random,
         )
+        placeRearVeins(level, red, blue, innerMin, innerMax, used, random)
         val columns = HashMap<Long, BlockPos>()
         for (x in innerMin..innerMax) {
             for (z in innerMin..innerMax) {
@@ -101,6 +102,151 @@ object SurfaceOres {
         }
     }
 
+    data class CornerPlan(val oreX: Int, val oreZ: Int, val reactorX: Int, val reactorZ: Int)
+
+    fun cornerPlans(innerMin: Int, innerMax: Int): List<CornerPlan> {
+        val inset = MatchRules.BASE_INSET
+        val margin = MatchRules.MINERAL_REACTOR_RADIUS
+        val minCore = innerMin + margin
+        val maxCore = innerMax - margin
+        val columnCount = MatchRules.CORNER_ORE_IRON / 2 + MatchRules.CORNER_ORE_COPPER / 2
+        val oreRadius = ceil(sqrt(columnCount / Math.PI)).toInt()
+        val gap = oreRadius + margin + 1
+        val origins = listOf(
+            innerMin + inset to innerMax - inset,
+            innerMax - inset to innerMin + inset,
+        )
+        return origins.map { (centerX, centerZ) ->
+            val dirX = if (centerX < 0) -1 else 1
+            val dirZ = if (centerZ < 0) -1 else 1
+            val reactorX = (centerX + dirX * gap).coerceIn(minCore, maxCore)
+            val reactorZ = (centerZ + dirZ * gap).coerceIn(minCore, maxCore)
+            var oreX = centerX
+            var oreZ = centerZ
+            val needed = (oreRadius + margin + 1).toDouble()
+            var guard = 0
+            while (hypot((oreX - reactorX).toDouble(), (oreZ - reactorZ).toDouble()) < needed && guard++ < 64) {
+                var moved = false
+                val nextX = oreX - dirX
+                val nextZ = oreZ - dirZ
+                if (nextX in innerMin..innerMax) {
+                    oreX = nextX
+                    moved = true
+                }
+                if (nextZ in innerMin..innerMax) {
+                    oreZ = nextZ
+                    moved = true
+                }
+                if (!moved) break
+            }
+            CornerPlan(oreX, oreZ, reactorX, reactorZ)
+        }
+    }
+
+    private fun placeRearVeins(
+        level: ServerLevel,
+        red: BlockPos,
+        blue: BlockPos,
+        innerMin: Int,
+        innerMax: Int,
+        used: MutableSet<Long>,
+        random: net.minecraft.util.RandomSource,
+    ) {
+        placeRearVein(level, red, blue, innerMin, innerMax, used, random)
+        placeRearVein(level, blue, red, innerMin, innerMax, used, random)
+    }
+
+    private fun placeRearVein(
+        level: ServerLevel,
+        core: BlockPos,
+        other: BlockPos,
+        innerMin: Int,
+        innerMax: Int,
+        used: MutableSet<Long>,
+        random: net.minecraft.util.RandomSource,
+    ) {
+        val stepX = direction(core.x - other.x)
+        val stepZ = direction(core.z - other.z)
+        if (stepX == 0 && stepZ == 0) return
+        val treeDistance = MatchRules.PLATFORM_RADIUS + 1
+        val startDist = treeDistance + 3
+        var startX = core.x + stepX * startDist
+        var startZ = core.z + stepZ * startDist
+        var retract = 0
+        while ((startX !in innerMin..innerMax || startZ !in innerMin..innerMax) && retract++ < startDist - treeDistance) {
+            startX -= stepX
+            startZ -= stepZ
+        }
+        if (startX !in innerMin..innerMax || startZ !in innerMin..innerMax) return
+        val local = HashMap<Long, BlockPos>()
+        val reach = 8
+        for (dx in -reach..reach) {
+            for (dz in -reach..reach) {
+                val x = startX + dx
+                val z = startZ + dz
+                if (x !in innerMin..innerMax || z !in innerMin..innerMax) continue
+                if (besideBase(x, z, core, other)) continue
+                val key = BlockPos.asLong(x, 0, z)
+                if (key in used) continue
+                val ground = ground(level, x, z) ?: continue
+                local[key] = ground
+            }
+        }
+        val start = chooseRearStart(core, stepX, stepZ, treeDistance, startDist, startX, startZ, local) ?: return
+        val ore = kinds[random.nextInt(kinds.size)]
+        val vein = HashSet<Long>()
+        val frontier = ArrayList<Long>()
+        frontier.add(start)
+        var grown = 0
+        while (frontier.isNotEmpty() && grown < MatchRules.SURFACE_ORE_VEIN) {
+            val key = frontier.removeAt(random.nextInt(frontier.size))
+            if (!vein.add(key) || key !in local || key in used) continue
+            val pos = local[key] ?: continue
+            val room = MatchRules.SURFACE_ORE_VEIN - grown
+            val count = pile(level, pos, ore, random, room)
+            if (count == 0) continue
+            used.add(key)
+            grown += count
+            for (near in around(key)) {
+                if (near in local && near !in used && near !in vein) frontier.add(near)
+            }
+        }
+    }
+
+    private fun chooseRearStart(
+        core: BlockPos,
+        stepX: Int,
+        stepZ: Int,
+        treeDistance: Int,
+        startDist: Int,
+        startX: Int,
+        startZ: Int,
+        local: Map<Long, BlockPos>,
+    ): Long? {
+        val preferred = BlockPos.asLong(startX, 0, startZ)
+        if (preferred in local) return preferred
+        for (extra in 0..6) {
+            val key = BlockPos.asLong(core.x + stepX * (startDist + extra), 0, core.z + stepZ * (startDist + extra))
+            if (key in local) return key
+        }
+        for (back in 1..(startDist - treeDistance - 1).coerceAtLeast(0)) {
+            val key = BlockPos.asLong(core.x + stepX * (startDist - back), 0, core.z + stepZ * (startDist - back))
+            if (key in local) return key
+        }
+        return local.keys.minByOrNull { key ->
+            val pos = BlockPos.of(key)
+            val dx = pos.x - startX
+            val dz = pos.z - startZ
+            dx * dx + dz * dz
+        }
+    }
+
+    private fun direction(delta: Int): Int = when {
+        delta > 0 -> 1
+        delta < 0 -> -1
+        else -> 0
+    }
+
     private fun columns(iron: Int, copper: Int): List<Block> {
         val list = ArrayList<Block>(iron / 2 + copper / 2)
         repeat(iron / 2) { list.add(Blocks.DEEPSLATE_IRON_ORE) }
@@ -125,7 +271,7 @@ object SurfaceOres {
             order[index] = order[swap]
             order[swap] = kept
         }
-        val reach = kotlin.math.ceil(kotlin.math.sqrt(order.size / Math.PI)).toInt() + 8
+        val reach = ceil(sqrt(order.size / Math.PI)).toInt() + 8
         val spots = ArrayList<Long>()
         for (dx in -reach..reach) {
             for (dz in -reach..reach) {

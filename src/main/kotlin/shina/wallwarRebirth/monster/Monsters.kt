@@ -158,10 +158,10 @@ object Monsters {
         buildingIntervalTicks = MatchRules.BUILDING_HIT_TICKS,
         attackRange = MatchRules.CREEPER_ATTACK_RANGE,
         cost = listOf(MonsterCost(Items.REDSTONE, MatchRules.CHARGED_CREEPER_COST_REDSTONE, "红石")),
-        baseProductionTicks = MatchRules.ZOMBIE_PRODUCTION_TICKS,
+        baseProductionTicks = MatchRules.CHARGED_CREEPER_PRODUCTION_TICKS,
         egg = ModItems.EGG_CHARGED_CREEPER,
         explodes = true,
-        buildingsOnly = true,
+        calmAboveHalf = true,
     )
 
     val WARRIOR = MonsterDefinition(
@@ -329,8 +329,6 @@ object Monsters {
     fun byId(id: String): MonsterDefinition? = all.firstOrNull { it.id == id }
 
     fun byEgg(item: Item): MonsterDefinition? = all.firstOrNull { it.egg === item }
-
-    fun selectable(): List<MonsterDefinition> = selectable(MonsterSource.BARRACKS)
 
     fun selectable(source: MonsterSource): List<MonsterDefinition> =
         all.filter { it.source == source }.sortedWith(compareBy({ !it.productionReady }, { it.rank }))

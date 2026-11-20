@@ -104,6 +104,7 @@ object MatchWorld {
         placeBase(level, blueCore, WallwarTeams.BLUE, blueFacing)
         placeRearTree(level, redCore, blueCore)
         placeRearTree(level, blueCore, redCore)
+        placeMineralReactors(level)
         SurfaceOres.scatter(level, redCore, blueCore)
         shortenGrass(level, min, max)
         level.dayTime = MatchRules.DAY_TIME
@@ -242,9 +243,8 @@ object MatchWorld {
         }
     }
 
-    private fun platform(level: ServerLevel, x: Int, z: Int): BlockPos {
+    private fun platform(level: ServerLevel, x: Int, z: Int, radius: Int = MatchRules.PLATFORM_RADIUS): BlockPos {
         val ground = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z) - 1
-        val radius = MatchRules.PLATFORM_RADIUS
         for (dx in -radius..radius) {
             for (dz in -radius..radius) {
                 val columnX = x + dx
@@ -345,6 +345,26 @@ object MatchWorld {
         level.setBlock(pos, state, Block.UPDATE_ALL)
         val core = level.getBlockEntity(pos) as? SiteCoreBlockEntity ?: return
         core.installBase(team, facing)
+    }
+
+    private fun placeMineralReactors(level: ServerLevel) {
+        val size = Match.mapSize
+        val min = -size / 2
+        val max = min + size - 1
+        val innerMin = min + 1
+        val innerMax = max - 1
+        for (plan in SurfaceOres.cornerPlans(innerMin, innerMax)) {
+            val core = platform(level, plan.reactorX, plan.reactorZ, MatchRules.MINERAL_REACTOR_RADIUS)
+            val inward = BlockPos(0, core.y, 0)
+            placeMineralReactor(level, core, facing(core, inward))
+        }
+    }
+
+    private fun placeMineralReactor(level: ServerLevel, pos: BlockPos, facing: Direction) {
+        val state = ModSites.CORE.defaultBlockState().setValue(SiteCoreBlock.FORM, CoreForm.FURNACE)
+        level.setBlock(pos, state, Block.UPDATE_ALL)
+        val core = level.getBlockEntity(pos) as? SiteCoreBlockEntity ?: return
+        core.installMineralReactor(facing)
     }
 
     private fun facing(from: BlockPos, to: BlockPos): Direction {

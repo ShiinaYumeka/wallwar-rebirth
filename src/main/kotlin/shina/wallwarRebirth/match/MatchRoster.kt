@@ -1,4 +1,6 @@
 package shina.wallwarRebirth.match
+import shina.wallwarRebirth.profession.Classes
+import shina.wallwarRebirth.profession.CommandPosts
 import shina.wallwarRebirth.profession.SkillInventory
 
 import net.minecraft.core.BlockPos
@@ -125,7 +127,11 @@ object MatchRoster {
     }
 
     internal fun giveStartIngots(current: MinecraftServer, team: String) {
-        for ((player, _) in onlineTeam(current, team)) {
+        for ((player, member) in onlineTeam(current, team)) {
+            if (Classes.isCommander(member.classLocked, member.classId)) {
+                val stack = CommandPosts.item()
+                if (!player.inventory.add(stack)) player.drop(stack, false)
+            }
             for (stack in listOf(
                 ItemStack(Items.IRON_INGOT, MatchRules.START_IRON),
                 ItemStack(Items.COPPER_INGOT, MatchRules.START_COPPER),
@@ -247,12 +253,6 @@ object MatchRoster {
         for ((player, _) in onlineTeam(current, team)) {
             player.sendSystemMessage(Component.literal(text))
         }
-    }
-
-    internal fun teamDone(current: MinecraftServer, team: String, test: (Match.Member) -> Boolean): Boolean {
-        val online = onlineTeam(current, team)
-        if (online.isEmpty()) return false
-        return online.all { test(it.second) }
     }
 
     internal fun onlineMembers(current: MinecraftServer): List<ServerPlayer> =

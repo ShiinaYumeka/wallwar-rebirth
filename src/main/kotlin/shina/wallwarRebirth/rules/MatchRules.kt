@@ -6,35 +6,33 @@ import net.minecraft.world.level.Level
 import shina.wallwarRebirth.WallwarMod
 
 object MatchRules {
-    const val MAP_SIZE = 100
+    const val MAP_SIZE = 160
     const val MAP_SIZE_STEP = 20
     const val BASE_INSET = 16
     const val BASE_FORBID = 4
     const val PLATFORM_RADIUS = 3
+    const val MINERAL_REACTOR_RADIUS = 2
     const val SPAWN_DISTANCE = 8.0
     const val BASE_HEALTH = 100
     const val SURFACE_ORE_EVERY = 32
-    const val SURFACE_ORE_VEIN = 16
+    const val SURFACE_ORE_VEIN = 32
     const val CORNER_ORE_IRON = 128
     const val CORNER_ORE_COPPER = 128
-    const val CENTER_ORE_IRON = 256
-    const val CENTER_ORE_COPPER = 256
+    const val CENTER_ORE_IRON = 128
+    const val CENTER_ORE_COPPER = 128
     const val BARRIER_TOP = 128
     const val DAY_TIME = 1000L
     const val TICKS_PER_SECOND = 20
     const val WATCH_TICKS = 10 * TICKS_PER_SECOND
-    const val SETTLE_RESET_TICKS = 5 * TICKS_PER_SECOND
     const val READY_COUNTDOWN_TICKS = 5 * TICKS_PER_SECOND
     const val BUILDING_FALL_TICKS = 2 * TICKS_PER_SECOND
     const val RESPAWN_TICKS = 8 * TICKS_PER_SECOND
 
-    fun minimumMapSize(): Int {
-        val separation = SPAWN_DISTANCE.toInt() + PLATFORM_RADIUS * 2 + 1
-        val needed = separation + 3 + BASE_INSET * 2
-        var size = MAP_SIZE
-        while (size - MAP_SIZE_STEP >= needed) size -= MAP_SIZE_STEP
-        return size
-    }
+    const val MINERAL_REACTOR_HEALTH = 50
+
+    fun minimumMapSize(): Int = 120
+
+    fun maximumMapSize(): Int = 300
 
     const val DIG_DAMAGE = 1
     const val ARROW_KNOCKBACK_SCALE = 0.25
@@ -52,6 +50,18 @@ object MatchRules {
     const val WRECKER_INVISIBILITY_RANGE = 8.0
     const val SWORDSMAN_ACTIVE_TICKS = 5 * TICKS_PER_SECOND
     const val SWORDSMAN_SKILL_COOLDOWN_TICKS = 30 * TICKS_PER_SECOND
+    const val CONQUEROR_SKILL_COOLDOWN_TICKS = 90 * TICKS_PER_SECOND
+    const val CONQUEROR_DAMAGE = 8
+    const val CONQUEROR_REACH = 4.0
+    const val CONQUEROR_LAPIS_NUM = 75
+    const val CONQUEROR_LAPIS_DEN = 100
+    const val CHAMPION_SKILL_COOLDOWN_TICKS = 60 * TICKS_PER_SECOND
+    const val CHAMPION_BONUS_HEALTH = 10.0
+    const val CHAMPION_BONUS_ATTACK = 1.0
+    const val CHAMPION_BONUS_BUILDING = 1
+    const val CHAMPION_HEAL = 2
+    const val CHAMPION_HEAL_ARMORED = 8
+    const val COMMANDER_SKILL_COOLDOWN_TICKS = 30 * TICKS_PER_SECOND
     const val SWORDSMAN_PASSIVE_COOLDOWN_TICKS = 180 * TICKS_PER_SECOND
     const val SMITE_PATH = "smite"
     const val SMITE_LEVEL = 2
@@ -72,7 +82,6 @@ object MatchRules {
     const val MODULE_TWO_LAPIS = 32
     const val MODULE_DIFFUSION_LAPIS = 64
     const val DIFFUSION_RANGE = 32.0
-    const val BARRACKS_HEAL_TICKS = 5 * TICKS_PER_SECOND
 
     const val BASE_UPGRADE_2_IRON = 32
     const val BASE_UPGRADE_2_COPPER = 32
@@ -136,20 +145,17 @@ object MatchRules {
     const val BARRACKS_RELEASE_MAX = 5
 
     val PILLAGER_TOWER_HEALTH = listOf(30, 30, 30)
-    const val PILLAGER_TOWER_PRICE_IRON = 48
-    const val PILLAGER_TOWER_UPGRADE_2_IRON = 64
-    const val PILLAGER_TOWER_UPGRADE_3_IRON = 64
-    const val PILLAGER_TOWER_UPGRADE_3_DIAMOND = 8
+    const val PILLAGER_TOWER_PRICE_IRON = 32
+    const val PILLAGER_TOWER_UPGRADE_2_IRON = 48
+    const val PILLAGER_TOWER_UPGRADE_3_IRON = 48
+    const val PILLAGER_TOWER_UPGRADE_3_DIAMOND = 2
 
     val CANNON_HEALTH = listOf(10, 10, 10)
     const val CANNON_RANGE = 32.0
     const val CANNON_INTERVAL = 10 * TICKS_PER_SECOND
     val CANNON_CENTER_DAMAGE = listOf(20.0, 30.0, 40.0)
-    const val CANNON_PRICE_IRON = 16
     const val CANNON_PRICE_COPPER = 32
-    const val CANNON_UPGRADE_2_COPPER = 32
-    const val CANNON_UPGRADE_2_IRON = 16
-    const val CANNON_UPGRADE_3_IRON = 32
+    const val CANNON_UPGRADE_2_COPPER = 48
     const val CANNON_UPGRADE_3_COPPER = 64
     const val CANNON_LAUNCH_ANGLE = 60.0
     const val CANNON_GRAVITY = 0.08
@@ -160,8 +166,8 @@ object MatchRules {
     const val CANNON_BUILDING_FRACTION = 0.25
     const val CANNON_TIE_DISTANCE = 0.001
     const val RELAY_HEALTH = 30
-    const val RELAY_PRICE_IRON = 32
-    const val RELAY_PRICE_COPPER = 32
+    const val RELAY_PRICE_IRON = 48
+    const val RELAY_PRICE_COPPER = 24
     const val RELAY_INTERACT_RANGE = 2.5
     const val FARMLAND_HEALTH = 40
     const val FARMLAND_PRICE_IRON = 24
@@ -171,6 +177,56 @@ object MatchRules {
     const val FARMER_WHEAT_CAP = 20
     const val FARMLAND_PRESENCE = 8.0
     const val FARMLAND_CALL_RANGE = RELAY_INTERACT_RANGE
+    const val WORKSHOP_HEALTH = 40
+    const val WORKSHOP_PRICE_DIAMOND = 8
+    const val WORKSHOP_PRICE_LAPIS = 64
+    const val WORKSHOP_DIAMOND_PERCENT = 12
+    const val CRYSTAL_FURNACE_HEALTH = 40
+    const val CRYSTAL_FURNACE_PRICE_IRON = 48
+    const val CRYSTAL_FURNACE_PRICE_COPPER = 48
+    const val CRYSTAL_FURNACE_UPGRADE_IRON = 64
+    const val CRYSTAL_FURNACE_UPGRADE_COPPER = 64
+    const val CRYSTAL_FURNACE_UPGRADE_DIAMOND = 8
+    val CRYSTAL_FURNACE_SUCCESS_RATE = listOf(20, 30, 40)
+    const val CRYSTAL_FURNACE_CONVERT_TICKS = 20 * TICKS_PER_SECOND
+    const val CRYSTAL_FURNACE_BATCH_SIZE = 10
+    const val CRYSTAL_FURNACE_EQUAL_SHARE = 5
+    const val CRYSTAL_FURNACE_SUCCESS_DIAMOND = 1
+    const val CRYSTAL_FURNACE_FAIL_REDSTONE = 4
+    const val CRYSTAL_FURNACE_FAIL_LAPIS = 4
+    const val GUIDED_CANNON_HEALTH = 50
+    const val GUIDED_CANNON_PRICE_COPPER = 64
+    const val GUIDED_CANNON_PRICE_IRON = 64
+    const val GUIDED_CANNON_PRICE_DIAMOND = 4
+    const val GUIDED_CANNON_UPGRADE_COPPER = 64
+    const val GUIDED_CANNON_UPGRADE_IRON = 64
+    const val GUIDED_CANNON_UPGRADE_DIAMOND = 4
+    val GUIDED_CANNON_COOLDOWN = listOf(600, 500, 400).map { it * TICKS_PER_SECOND }
+    const val GUIDED_CANNON_CENTER_DAMAGE = 120.0
+    const val GUIDED_CANNON_POWER = 16.0
+    const val GUIDED_CANNON_FALLOFF = 32.0
+    const val GUIDED_CANNON_SPEED = 20.0
+    const val TELEPORT_SPIRE_HEALTH = 40
+    const val TELEPORT_SPIRE_PRICE_IRON = 48
+    const val TELEPORT_SPIRE_PRICE_COPPER = 48
+    const val TELEPORT_SPIRE_PRICE_DIAMOND = 4
+    const val TELEPORT_SPIRE_UPGRADE_IRON = 48
+    const val TELEPORT_SPIRE_UPGRADE_COPPER = 48
+    const val TELEPORT_SPIRE_UPGRADE_DIAMOND = 4
+    val TELEPORT_SPIRE_COOLDOWN = listOf(480, 400, 320).map { it * TICKS_PER_SECOND }
+    const val QUAKE_HEALTH = 20
+    const val QUAKE_RANGE = 24.0
+    val QUAKE_INTERVAL = listOf(3, 2, 1).map { it * TICKS_PER_SECOND }
+    const val QUAKE_DAMAGE = 5
+    const val QUAKE_SPLASH = 3.0
+    const val QUAKE_SPLASH_REINFORCED = 4.5
+    const val QUAKE_PRICE_DIAMOND = 2
+    const val QUAKE_UPGRADE_DIAMOND = 2
+    const val QUAKE_STACK_MAX = 30
+    const val QUAKE_STACK_INCREMENT = 1
+    const val QUAKE_STACK_CAP = 30
+    const val QUAKE_STACK_INCREMENT_II = 2
+    const val QUAKE_STACK_CAP_II = 60
     const val FARMER_WORK_RANGE = RELAY_INTERACT_RANGE
     const val VILLAGER_HEALTH = 20.0
     const val VILLAGER_COST_DIAMOND = 1
@@ -206,6 +262,7 @@ object MatchRules {
     const val CHARGED_CREEPER_ATTACK = CREEPER_ATTACK * 2
     const val CHARGED_CREEPER_BUILDING_DAMAGE = CREEPER_BUILDING_DAMAGE * 2
     const val CHARGED_CREEPER_COST_REDSTONE = 5
+    const val CHARGED_CREEPER_PRODUCTION_TICKS = 30 * TICKS_PER_SECOND
     const val CREEPER_POWER = 3.0
     const val CREEPER_FALLOFF = CREEPER_POWER * 2.0
     const val WARRIOR_HEALTH = 40.0
@@ -287,6 +344,7 @@ object MatchRules {
     const val PICKAXE_MATERIAL = 3
     const val SHOVEL_MATERIAL = 1
     const val SPEAR_MATERIAL = 1
+    const val IRON_SPEAR_IRON = 4
     const val HELMET_MATERIAL = 5
     const val CHESTPLATE_MATERIAL = 8
     const val LEGGINGS_MATERIAL = 7

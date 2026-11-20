@@ -124,6 +124,8 @@ object Match : MatchPort {
         CommandInventory.tick(current)
         PlunderBannerInventory.tick(current)
         PillagerAura.tick()
+        shina.wallwarRebirth.building.SuperWeaponAim.tick(current)
+        shina.wallwarRebirth.building.SuperWeaponSidebar.tick(current)
         if (phase == Phase.SETTLE) tickSettleReset(current)
         if (phase == Phase.FIGHT) {
             SkillInventory.tick(current)
@@ -365,6 +367,10 @@ object Match : MatchPort {
             player.sendSystemMessage(Component.literal("不能再小"))
             return
         }
+        if (next > MatchRules.maximumMapSize()) {
+            player.sendSystemMessage(Component.literal("不能再大"))
+            return
+        }
         mapSize = next
         MatchPersistence.save(player.level().server)
     }
@@ -380,6 +386,9 @@ object Match : MatchPort {
         testMode = false
         MatchSurrender.clear()
         shina.wallwarRebirth.building.CannonCrew.settle(current, false)
+        shina.wallwarRebirth.building.SuperWeaponAim.settle(current)
+        shina.wallwarRebirth.building.QuakeWeapon.clearAll()
+        shina.wallwarRebirth.building.SuperWeaponSidebar.clear(current)
         val arena = current.getLevel(MatchRules.DIMENSION)
         pendingLobby.clear()
         BoundItems.forgetAll()
@@ -555,6 +564,9 @@ object Match : MatchPort {
         settleResetAt = -1
         settleAgreed.clear()
         shina.wallwarRebirth.building.CannonCrew.settle(current, true)
+        shina.wallwarRebirth.building.SuperWeaponAim.settle(current)
+        shina.wallwarRebirth.building.QuakeWeapon.clearAll()
+        shina.wallwarRebirth.building.SuperWeaponSidebar.clear(current)
         val winner = if (team == WallwarTeams.RED) WallwarTeams.BLUE else WallwarTeams.RED
         val text = "$winner 获胜"
         MatchRoster.broadcast(current, text)

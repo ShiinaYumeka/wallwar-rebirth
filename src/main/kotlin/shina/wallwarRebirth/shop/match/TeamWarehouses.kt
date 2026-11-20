@@ -9,6 +9,7 @@ import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.SimpleContainer
 import net.minecraft.world.inventory.MenuType
 import net.minecraft.world.inventory.Slot
+import net.minecraft.world.item.Item
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.scores.PlayerTeam
 import shina.wallwarRebirth.contract.WallwarTeams
@@ -54,6 +55,38 @@ object TeamWarehouses {
             }
         }
         return left <= 0
+    }
+
+    fun count(team: String, item: Item): Int {
+        val box = of(team) ?: return 0
+        var total = 0
+        for (slot in 0 until box.containerSize) {
+            val stack = box.getItem(slot)
+            if (stack.`is`(item)) total += stack.count
+        }
+        return total
+    }
+
+    fun tryDeduct(team: String, amounts: List<Pair<Item, Int>>): Boolean {
+        for ((item, amount) in amounts) {
+            if (amount > 0 && count(team, item) < amount) return false
+        }
+        val box = of(team) ?: return false
+        for ((item, amount) in amounts) {
+            if (amount <= 0) continue
+            var left = amount
+            for (slot in 0 until box.containerSize) {
+                if (left <= 0) break
+                val stack = box.getItem(slot)
+                if (!stack.`is`(item)) continue
+                val remove = minOf(left, stack.count)
+                stack.shrink(remove)
+                left -= remove
+                if (stack.isEmpty) box.setItem(slot, ItemStack.EMPTY) else box.setChanged()
+            }
+            if (left > 0) return false
+        }
+        return true
     }
 
     fun of(team: String): SimpleContainer? {

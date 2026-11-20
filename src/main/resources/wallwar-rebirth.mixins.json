@@ -26,7 +26,12 @@
     "EvokerFangsMixin",
     "WindChargedMobEffectMixin",
     "CropBlockMixin",
-    "FarmBlockMixin"
+    "FarmBlockMixin",
+    "FireBlockMixin",
+    "FlowingFluidMixin",
+    "LavaFluidMixin",
+    "TntBlockMixin",
+    "SuperWeaponClickMixin"
   ],
   "injectors": {
     "defaultRequire": 1

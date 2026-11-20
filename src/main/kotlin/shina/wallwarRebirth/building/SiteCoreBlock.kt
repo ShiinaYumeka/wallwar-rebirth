@@ -37,6 +37,7 @@ class SiteCoreBlock(properties: Properties) : BaseEntityBlock(properties), Polym
     override fun getPolymerBlockState(state: BlockState, context: PacketContext): BlockState = when (state.getValue(FORM)) {
         CoreForm.BEACON -> Blocks.BEACON.defaultBlockState()
         CoreForm.BLAST_FURNACE -> Blocks.BLAST_FURNACE.defaultBlockState()
+        CoreForm.FURNACE -> Blocks.FURNACE.defaultBlockState()
         CoreForm.FLETCHING_TABLE -> Blocks.FLETCHING_TABLE.defaultBlockState()
         CoreForm.CRAFTER -> Blocks.CRAFTER.defaultBlockState()
         CoreForm.COPPER_BULB -> Blocks.WAXED_COPPER_BULB.defaultBlockState()
@@ -45,6 +46,9 @@ class SiteCoreBlock(properties: Properties) : BaseEntityBlock(properties), Polym
         CoreForm.LIGHTNING_ROD -> Blocks.LIGHTNING_ROD.defaultBlockState()
         CoreForm.PILLAGER_BANNER -> Blocks.WHITE_BANNER.defaultBlockState()
         CoreForm.COMPOSTER -> Blocks.COMPOSTER.defaultBlockState()
+        CoreForm.REDSTONE_LAMP -> Blocks.REDSTONE_LAMP.defaultBlockState()
+        CoreForm.SEA_LANTERN -> Blocks.SEA_LANTERN.defaultBlockState()
+        CoreForm.LODESTONE -> Blocks.LODESTONE.defaultBlockState()
     }
 
     override fun onPolymerBlockSend(
@@ -104,31 +108,53 @@ class SiteCoreBlock(properties: Properties) : BaseEntityBlock(properties), Polym
         return open(level, pos, player)
     }
 
-    private fun open(level: Level, pos: BlockPos, player: Player): InteractionResult {
-        if (level.isClientSide) return InteractionResult.SUCCESS
-        val serverPlayer = player as? ServerPlayer ?: return InteractionResult.PASS
-        val site = level.getBlockEntity(pos) as? SiteCoreBlockEntity ?: return InteractionResult.PASS
-        if (CannonCrew.tryEnter(site, serverPlayer)) return InteractionResult.SUCCESS
-        if (site.team.isNotEmpty() && !site.isAlly(serverPlayer)) {
-            serverPlayer.sendSystemMessage(net.minecraft.network.chat.Component.literal("敌方打不开"))
-            return InteractionResult.SUCCESS
-        }
-        if (site.buildingId == Buildings.BASE.id) {
-            BaseShop.open(serverPlayer, site)
-        } else {
-            BuildingMenus.open(serverPlayer, site)
-        }
-        return InteractionResult.SUCCESS
-    }
+    private fun open(level: Level, pos: BlockPos, player: Player): InteractionResult =
+        openAt(level, pos, player)
 
     companion object {
         val FORM: EnumProperty<CoreForm> = EnumProperty.create("form", CoreForm::class.java)
+
+        fun openAt(level: Level, pos: BlockPos, player: Player): InteractionResult {
+            if (level.isClientSide) return InteractionResult.SUCCESS
+            val serverPlayer = player as? ServerPlayer ?: return InteractionResult.PASS
+            val direct = level.getBlockEntity(pos) as? SiteCoreBlockEntity
+            val site = direct ?: run {
+                val part = level.getBlockEntity(pos) as? SiteStructureBlockEntity ?: return InteractionResult.PASS
+                SiteCores.find(level, part.corePos)
+            } ?: return InteractionResult.PASS
+            return openSite(serverPlayer, site)
+        }
+
+        fun openSite(player: ServerPlayer, site: SiteCoreBlockEntity): InteractionResult {
+            if (CannonCrew.tryEnter(site, player)) return InteractionResult.SUCCESS
+            if (site.buildingId == Buildings.MINERAL_REACTOR.id) {
+                val refusal = MineralReactorCapture.openRefusal(site, player)
+                if (refusal != null) {
+                    player.sendSystemMessage(net.minecraft.network.chat.Component.literal(refusal))
+                    return InteractionResult.SUCCESS
+                }
+                BuildingMenus.open(player, site)
+                return InteractionResult.SUCCESS
+            }
+            if (site.team.isNotEmpty() && !site.isAlly(player)) {
+                player.sendSystemMessage(net.minecraft.network.chat.Component.literal("敌方打不开"))
+                return InteractionResult.SUCCESS
+            }
+            if (site.buildingId == Buildings.BASE.id) {
+                BaseShop.open(player, site)
+            } else {
+                BuildingMenus.open(player, site)
+            }
+            return InteractionResult.SUCCESS
+        }
     }
+
 }
 
 enum class CoreForm : StringRepresentable {
     BEACON,
     BLAST_FURNACE,
+    FURNACE,
     FLETCHING_TABLE,
     CRAFTER,
     COPPER_BULB,
@@ -137,6 +163,9 @@ enum class CoreForm : StringRepresentable {
     LIGHTNING_ROD,
     PILLAGER_BANNER,
     COMPOSTER,
+    REDSTONE_LAMP,
+    SEA_LANTERN,
+    LODESTONE,
     ;
 
     override fun getSerializedName(): String = name.lowercase()

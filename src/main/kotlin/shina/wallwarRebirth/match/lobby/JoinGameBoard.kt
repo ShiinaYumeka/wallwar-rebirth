@@ -135,7 +135,10 @@ class JoinGameBoard(private val viewer: ServerPlayer) : SimpleGui(MenuType.GENER
         Items.MAP,
         "边长 ${Match.mapSize}",
         ChatFormatting.GOLD,
-        listOf(if (Match.phase == Match.Phase.LOBBY) "左键减小 20 格，右键增大 20 格" else "地图已经生成"),
+        listOf(
+            if (Match.phase == Match.Phase.LOBBY) "左键减小 20 格，右键增大 20 格" else "地图已经生成",
+            "范围 ${MatchRules.minimumMapSize()} 到 ${MatchRules.maximumMapSize()}",
+        ),
     )
 
     private fun readyText(): String {

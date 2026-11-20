@@ -17,6 +17,7 @@ import net.minecraft.world.level.BlockGetter
 import net.minecraft.world.level.Level
 import net.minecraft.world.level.block.state.BlockState
 import shina.wallwarRebirth.profession.Classes
+import shina.wallwarRebirth.profession.ProfessionEffects
 import shina.wallwarRebirth.match.Match
 import shina.wallwarRebirth.rules.MatchRules
 import java.util.UUID
@@ -102,10 +103,14 @@ object BuildingMining {
 
     private fun digDamage(player: ServerPlayer): Int {
         val member = Match.member(player.uuid) ?: return MatchRules.DIG_DAMAGE
-        if (!Classes.isWrecker(member.classLocked, member.classId)) return MatchRules.DIG_DAMAGE
-        val now = player.level().server.overworld().gameTime
-        if (now >= member.wreckerDigUntil) return MatchRules.DIG_DAMAGE
-        return MatchRules.DIG_DAMAGE * 2
+        if (Classes.isWrecker(member.classLocked, member.classId)) {
+            val now = player.level().server.overworld().gameTime
+            if (now < member.wreckerDigUntil) return MatchRules.DIG_DAMAGE * 2
+        }
+        if (ProfessionEffects.championArmed(player)) {
+            return MatchRules.DIG_DAMAGE + MatchRules.CHAMPION_BONUS_BUILDING
+        }
+        return MatchRules.DIG_DAMAGE
     }
 
     fun resolve(level: BlockGetter, pos: BlockPos, state: BlockState): SiteCoreBlockEntity? {

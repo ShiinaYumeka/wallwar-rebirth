@@ -19,6 +19,8 @@ import net.minecraft.world.entity.player.Player
 import net.minecraft.world.item.Item
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.Level
+import net.minecraft.world.level.block.Block
+import net.minecraft.world.level.block.Blocks
 import net.minecraft.world.level.block.entity.BlockEntity
 import net.minecraft.world.level.block.state.BlockState
 import net.minecraft.world.level.storage.ValueInput
@@ -43,6 +45,7 @@ class SiteCoreBlockEntity(pos: BlockPos, state: BlockState) : BlockEntity(ModSit
     var age: Int = 0
     var fallAge: Int = 0
     var actionAge: Int = 0
+    var weaponCooldown: Int = 0
     var producedMonster: String = "zombie"
     var marching: Boolean = true
     var holding: Boolean = false
@@ -66,9 +69,17 @@ class SiteCoreBlockEntity(pos: BlockPos, state: BlockState) : BlockEntity(ModSit
     val dripQueue: MutableList<String> = ArrayList()
     internal var reflecting = false
     internal var relocating = false
+    internal var dropModulesOnRemove = false
+    internal var commandPost = false
+    internal var commandOwner: UUID? = null
+    internal var echoing = false
     val partPositions: MutableList<BlockPos> = ArrayList()
     internal val coveredBelow: MutableList<CoveredBlock> = ArrayList()
     internal val mineralAges: MutableMap<String, Int> = HashMap()
+    var crystalFurnaceOn: Boolean = false
+    var crystalFurnaceTicks: Int = 0
+    var crystalFurnaceIron: Int = 0
+    var crystalFurnaceCopper: Int = 0
     val storage: SimpleContainer = SimpleContainer(STORAGE_SIZE).also { container ->
         container.addListener { setChanged() }
     }
@@ -99,6 +110,7 @@ class SiteCoreBlockEntity(pos: BlockPos, state: BlockState) : BlockEntity(ModSit
             if (descend(level, definition)) return
         }
         if (buildingId == Buildings.TOWER.id) TowerCrossbows.ensure(this, level)
+        CrystalFurnaceWork.tick(this, level)
         if (Match.frozen(level)) {
             HealthBars.tick(this, level, definition)
             return
@@ -106,7 +118,8 @@ class SiteCoreBlockEntity(pos: BlockPos, state: BlockState) : BlockEntity(ModSit
         age++
         var produced = false
         for (mineral in definition.minerals()) {
-            val interval = intervalOf(definition, mineral) ?: continue
+            if (buildingId == Buildings.MINERAL_REACTOR.id && team.isEmpty()) continue
+            val interval = intervalOf(mineral) ?: continue
             val key = itemKey(mineral.item)
             val next = (mineralAges[key] ?: 0) + 1
             if (next >= interval) {
@@ -115,7 +128,11 @@ class SiteCoreBlockEntity(pos: BlockPos, state: BlockState) : BlockEntity(ModSit
                 val hit = rolled(level, mineral)
                 if (hit) {
                     val stack = ItemStack(mineral.item, mineral.count)
-                    if (buildingId == Buildings.BASE.id) TeamWarehouses.acceptAll(team, stack) else offer(stack)
+                    if (buildingId == Buildings.BASE.id || buildingId == Buildings.MINERAL_REACTOR.id) {
+                        TeamWarehouses.acceptAll(team, stack)
+                    } else {
+                        offer(stack)
+                    }
                 }
             } else {
                 mineralAges[key] = next
@@ -126,16 +143,39 @@ class SiteCoreBlockEntity(pos: BlockPos, state: BlockState) : BlockEntity(ModSit
         HealthBars.tick(this, level, definition)
     }
 
-    fun assign(definition: BuildingDefinition, replace: Boolean, teamName: String, facing: Direction): String? {
+    fun assign(definition: BuildingDefinition, replace: Boolean, teamName: String, facing: Direction, raised: Boolean = false): String? {
         if (!replace && buildingId.isNotEmpty()) return "已经选定"
         val world = level as? ServerLevel ?: return "这个位置不能放置"
         if (definition.category == BuildingCategory.WONDER && wonderOnMap(world)) return "全图已经有一座奇观"
-        val arena = MatchPlacement.rejection(world, blockPos, definition, facing, teamName)
+        if (definition.teamUnique && SuperWeapons.placed(world, teamName, definition.id, this)) {
+            return "本队已有一座${definition.displayName}"
+        }
+        val lift = if (raised) 0 else BuildingStyles.coreLift(world, definition, 1, facing)
+        val origin = if (lift > 0) blockPos.above(lift) else blockPos
+        if (world.isOutsideBuildHeight(origin)) return "这个位置不能放置"
+        val arena = MatchPlacement.rejection(world, origin, definition, facing, teamName)
         if (arena != null) return arena
-        val footprint = BuildingFootprints.rejection(world, blockPos, definition, facing)
+        val footprint = BuildingFootprints.rejection(world, origin, definition, facing)
         if (footprint != null) return footprint
-        val style = BuildingStyles.rejection(world, blockPos, definition, 1, facing)
+        val style = BuildingStyles.rejection(
+            world,
+            origin,
+            definition,
+            1,
+            facing,
+            except = if (lift > 0) blockPos else null,
+        )
         if (style != null) return style
+        if (lift > 0) {
+            val moved = raiseCore(world, lift) ?: return "这个位置不能放置"
+            val error = moved.assign(definition, replace, teamName, facing, raised = true)
+            if (error != null) {
+                world.setBlock(moved.blockPos, Blocks.AIR.defaultBlockState(), CLEAR_MOVED)
+                return error
+            }
+            BuildingPlacement.settle(world, moved, lift)
+            return null
+        }
         buildingId = definition.id
         buildingLevel = 1
         health = definition.maxHealth(1)
@@ -144,6 +184,7 @@ class SiteCoreBlockEntity(pos: BlockPos, state: BlockState) : BlockEntity(ModSit
         age = 0
         fallAge = 0
         actionAge = 0
+        weaponCooldown = if (definition.teamUnique) SuperWeapons.cooldownTicks(definition, 1) else 0
         producedMonster = defaultMonster(definition)
         marching = true
         holding = false
@@ -155,13 +196,27 @@ class SiteCoreBlockEntity(pos: BlockPos, state: BlockState) : BlockEntity(ModSit
         barracksMaterials.clearContent()
         barracksEggs.clearContent()
         mineralAges.clear()
+        CrystalFurnaceWork.reset(this)
         clearModules()
         partPositions.clear()
         partPositions.addAll(
             BuildingStyles.apply(world, blockPos, definition, buildingLevel, facing, emptyList(), { pos, state -> rememberCovered(pos, state) }),
         )
         setChanged()
+        if (!raised) BuildingPlacement.settle(world, this, 0)
         return null
+    }
+
+    private fun raiseCore(world: ServerLevel, lift: Int): SiteCoreBlockEntity? {
+        val to = blockPos.above(lift)
+        if (world.isOutsideBuildHeight(to)) return null
+        val carried = world.getBlockState(blockPos)
+        if (carried.block !is SiteCoreBlock) return null
+        val occupant = world.getBlockState(to)
+        if (!occupant.isAir && !BuildingStyles.isNonSolid(world, to)) return null
+        world.setBlock(to, carried, Block.UPDATE_ALL)
+        world.setBlock(blockPos, Blocks.AIR.defaultBlockState(), CLEAR_MOVED)
+        return world.getBlockEntity(to) as? SiteCoreBlockEntity
     }
 
     override fun facingDirection(): Direction = Direction.byName(facing) ?: Direction.SOUTH
@@ -196,7 +251,19 @@ class SiteCoreBlockEntity(pos: BlockPos, state: BlockState) : BlockEntity(ModSit
 
 
 
-    fun installBase(teamName: String, facing: Direction) {
+    fun installBase(teamName: String, facing: Direction, raised: Boolean = false) {
+        val world = level as? ServerLevel
+        if (!raised && world != null) {
+            val lift = BuildingStyles.coreLift(world, Buildings.BASE, 1, facing)
+            if (lift > 0) {
+                val moved = raiseCore(world, lift)
+                if (moved != null) {
+                    moved.installBase(teamName, facing, raised = true)
+                    BuildingPlacement.settle(world, moved, lift)
+                    return
+                }
+            }
+        }
         buildingId = Buildings.BASE.id
         buildingLevel = 1
         health = Buildings.BASE.maxHealth(1)
@@ -204,13 +271,52 @@ class SiteCoreBlockEntity(pos: BlockPos, state: BlockState) : BlockEntity(ModSit
         this.facing = facing.serializedName
         partPositions.clear()
         coveredBelow.clear()
-        val world = level as? ServerLevel
         if (world != null) {
             partPositions.addAll(
                 BuildingStyles.apply(world, blockPos, Buildings.BASE, 1, facing, emptyList(), { pos, state -> rememberCovered(pos, state) }),
             )
         }
         setChanged()
+        if (!raised) {
+            val settled = level as? ServerLevel
+            if (settled != null) BuildingPlacement.settle(settled, this, 0)
+        }
+    }
+
+    fun installMineralReactor(facing: Direction, raised: Boolean = false) {
+        val world = level as? ServerLevel
+        if (!raised && world != null) {
+            val lift = BuildingStyles.coreLift(world, Buildings.MINERAL_REACTOR, 3, facing)
+            if (lift > 0) {
+                val moved = raiseCore(world, lift)
+                if (moved != null) {
+                    moved.installMineralReactor(facing, raised = true)
+                    BuildingPlacement.settle(world, moved, lift)
+                    return
+                }
+            }
+        }
+        buildingId = Buildings.MINERAL_REACTOR.id
+        buildingLevel = 3
+        health = Buildings.MINERAL_REACTOR.maxHealth(3)
+        team = ""
+        this.facing = facing.serializedName
+        age = 0
+        fallAge = 0
+        mineralAges.clear()
+        clearModules()
+        partPositions.clear()
+        coveredBelow.clear()
+        if (world != null) {
+            partPositions.addAll(
+                BuildingStyles.apply(world, blockPos, Buildings.MINERAL_REACTOR, 3, facing, emptyList(), { pos, state -> rememberCovered(pos, state) }),
+            )
+        }
+        setChanged()
+        if (!raised) {
+            val settled = level as? ServerLevel
+            if (settled != null) BuildingPlacement.settle(settled, this, 0)
+        }
     }
 
     private fun wonderOnMap(world: ServerLevel): Boolean =
@@ -264,17 +370,21 @@ class SiteCoreBlockEntity(pos: BlockPos, state: BlockState) : BlockEntity(ModSit
             return false
         }
         val world = level as? ServerLevel ?: return false
-        val style = BuildingStyles.rejection(world, blockPos, definition, buildingLevel + 1, facingDirection())
-        if (style != null) {
-            player.reportBuilding(style)
-            return false
-        }
         InventoryCosts.take(player, storage, warehouse, next.costs)
         if (buildingId == Buildings.WALL.id) {
             ProfessionEffects.refundWallUpgrade(player, next.costs)
         }
         val oldMax = definition.maxHealth(buildingLevel)
+        val oldCooldown = if (SuperWeapons.isSuperWeapon(definition.id)) {
+            SuperWeapons.cooldownTicks(definition, buildingLevel)
+        } else {
+            0
+        }
         buildingLevel += 1
+        if (oldCooldown > 0) {
+            val cut = oldCooldown - SuperWeapons.cooldownTicks(definition, buildingLevel)
+            if (cut > 0) weaponCooldown = (weaponCooldown - cut).coerceAtLeast(0)
+        }
         val newMax = definition.maxHealth(buildingLevel)
         val delta = newMax - oldMax
         health = if (delta >= 0) health + delta else minOf(health, newMax)
@@ -298,27 +408,6 @@ class SiteCoreBlockEntity(pos: BlockPos, state: BlockState) : BlockEntity(ModSit
         storedOffer(stack)
     }
 
-    fun snapshot(): Snapshot = Snapshot(
-        buildingId,
-        buildingLevel,
-        health,
-        team,
-        age,
-        (0 until storage.containerSize).map { storage.getItem(it).copy() },
-    )
-
-    fun restore(snapshot: Snapshot) {
-        buildingId = snapshot.buildingId
-        buildingLevel = snapshot.buildingLevel
-        health = snapshot.health
-        team = snapshot.team
-        age = snapshot.age
-        snapshot.items.forEachIndexed { slot, stack ->
-            if (slot < storage.containerSize) storage.setItem(slot, stack.copy())
-        }
-        setChanged()
-    }
-
     override fun preRemoveSideEffects(pos: BlockPos, state: BlockState) {
         if (relocating) {
             super.preRemoveSideEffects(pos, state)
@@ -338,9 +427,11 @@ class SiteCoreBlockEntity(pos: BlockPos, state: BlockState) : BlockEntity(ModSit
             Containers.dropContents(world, pos, barracksEggs as Container)
             barracksMaterials.clearContent()
             barracksEggs.clearContent()
-            dropModule(world, pos, reinforce)
-            dropModule(world, pos, reinforceTwo)
-            dropModule(world, pos, diffuse)
+            if (dropModulesOnRemove) {
+                dropModule(world, pos, reinforce)
+                dropModule(world, pos, reinforceTwo)
+                dropModule(world, pos, diffuse)
+            }
             reinforce = ItemStack.EMPTY
             reinforceTwo = ItemStack.EMPTY
             diffuse = ItemStack.EMPTY
@@ -360,29 +451,15 @@ class SiteCoreBlockEntity(pos: BlockPos, state: BlockState) : BlockEntity(ModSit
 
     fun productionLines(): List<Pair<String, Boolean>> = storedProductionLines()
 
-    fun generatableMinerals(definition: BuildingDefinition): List<MineralOutput> =
-        storedGeneratableMinerals(definition)
-
-    fun choicesFor(slot: ModuleSlot, definition: BuildingDefinition): List<MineralOutput> =
-        storedChoicesFor(slot, definition)
-
     fun chooseReleaseCount(count: Int) {
         if (count !in MatchRules.BARRACKS_RELEASE_MIN..MatchRules.BARRACKS_RELEASE_MAX) return
         releaseCount = count
         setChanged()
     }
 
-    fun setMineral(slot: ModuleSlot, item: Item) {
-        storedSetMineral(slot, item)
-    }
-
     fun moduleRefusal(slot: ModuleSlot, stack: ItemStack): String? = storedModuleRefusal(slot, stack)
 
     fun exchangeModule(slot: ModuleSlot, incoming: ItemStack): ItemStack = storedExchangeModule(slot, incoming)
-
-    fun mineralLabel(slot: ModuleSlot): String = storedMineralLabel(slot)
-
-    fun takeModule(slot: ModuleSlot, player: ServerPlayer): String? = storedTakeModule(slot, player)
 
     fun moduleActive(slot: ModuleSlot): Boolean = storedModuleActive(slot)
 
@@ -391,24 +468,8 @@ class SiteCoreBlockEntity(pos: BlockPos, state: BlockState) : BlockEntity(ModSit
     fun holdOrigin(): BlockPos = holdAnchor ?: blockPos
 
 
-
-
-
-
-
-
-
-
-    data class Snapshot(
-        val buildingId: String,
-        val buildingLevel: Int,
-        val health: Int,
-        val team: String,
-        val age: Int,
-        val items: List<ItemStack>,
-    )
-
     companion object {
+        private const val CLEAR_MOVED = Block.UPDATE_CLIENTS or Block.UPDATE_SUPPRESS_DROPS
         const val STORAGE_SIZE = 36
         const val BARRACKS_MATERIALS = 16
         const val BARRACKS_EGGS = 12
@@ -457,10 +518,10 @@ enum class ModuleSlot(val item: Item) {
 
 internal fun MineralOutput.describeBase(): String = describe(baseTicks)
 
-internal fun MineralOutput.describe(ticks: Int): String {
+internal fun MineralOutput.describe(ticks: Int, percent: Int = chancePercent): String {
     val every = "每 ${SiteCoreBlockEntity.secondsText(ticks)}"
     val odds = when {
-        chancePercent > 0 -> "有 $chancePercent% 概率 "
+        percent > 0 -> "有 $percent% 概率 "
         chance <= 1 -> ""
         else -> "有 1/$chance 概率 "
     }

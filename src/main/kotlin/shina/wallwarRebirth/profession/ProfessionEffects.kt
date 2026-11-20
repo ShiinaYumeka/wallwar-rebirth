@@ -5,11 +5,19 @@ import net.minecraft.network.chat.Component
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.tags.ItemTags
+import net.minecraft.world.effect.MobEffectCategory
+import net.minecraft.world.entity.EquipmentSlot
+import net.minecraft.world.entity.ai.attributes.AttributeModifier
+import net.minecraft.world.entity.ai.attributes.Attributes
 import net.minecraft.world.entity.player.Player
 import net.minecraft.world.item.Item
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
+import net.minecraft.world.item.context.UseOnContext
+import net.minecraft.world.level.ClipContext
 import net.minecraft.world.level.block.Block
+import net.minecraft.world.phys.HitResult
+import shina.wallwarRebirth.WallwarMod
 import shina.wallwarRebirth.building.BuildingDefinition
 import shina.wallwarRebirth.building.Buildings
 import shina.wallwarRebirth.building.ItemAmount
@@ -23,6 +31,17 @@ import shina.wallwarRebirth.shop.element.BaseShopItem
 import shina.wallwarRebirth.shop.match.TeamWarehouses
 
 object ProfessionEffects {
+    private val championHealth = AttributeModifier(
+        WallwarMod.idOf("champion_health"),
+        MatchRules.CHAMPION_BONUS_HEALTH,
+        AttributeModifier.Operation.ADD_VALUE,
+    )
+    private val championAttack = AttributeModifier(
+        WallwarMod.idOf("champion_attack"),
+        MatchRules.CHAMPION_BONUS_ATTACK,
+        AttributeModifier.Operation.ADD_VALUE,
+    )
+
     fun givePurchased(player: ServerPlayer, item: BaseShopItem): Boolean {
         if (!item.icon.`is`(ItemTags.SWORDS)) return false
         val stack = item.icon.copy()
@@ -71,11 +90,6 @@ object ProfessionEffects {
         refund(player, costs)
     }
 
-    fun isBastion(player: ServerPlayer): Boolean {
-        val member = Match.member(player.uuid) ?: return false
-        return Classes.isBastion(member.classLocked, member.classId)
-    }
-
     fun dropIfWrecker(site: SiteCoreBlockEntity, attacker: Player?) {
         val player = attacker as? ServerPlayer ?: return
         val member = Match.member(player.uuid) ?: return
@@ -86,6 +100,75 @@ object ProfessionEffects {
         for (drop in share(spent(definition, site.buildingLevel), MatchRules.WRECKER_SALVAGE_NUM, MatchRules.WRECKER_SALVAGE_DEN)) {
             Block.popResource(world, site.blockPos, ItemStack(drop.item, drop.count))
         }
+    }
+
+    fun rewardConqueror(site: SiteCoreBlockEntity, attacker: Player?) {
+        val player = attacker as? ServerPlayer ?: return
+        val member = Match.member(player.uuid) ?: return
+        if (!Classes.isConqueror(member.classLocked, member.classId)) return
+        if (site.team.isEmpty() || site.isAlly(player)) return
+        var lapis = 0
+        if (!site.reinforce.isEmpty) lapis += moduleLapis(MatchRules.MODULE_LAPIS)
+        if (!site.reinforceTwo.isEmpty) lapis += moduleLapis(MatchRules.MODULE_TWO_LAPIS)
+        if (lapis <= 0) return
+        val stack = ItemStack(Items.LAPIS_LAZULI, lapis)
+        if (!player.inventory.add(stack)) {
+            val leftover = TeamWarehouses.deposit(member.team, stack)
+            leftover.count = 0
+        }
+        player.sendSystemMessage(Component.literal("获得青金石 ×$lapis"))
+    }
+
+    fun facingDefense(player: ServerPlayer, context: UseOnContext?): SiteCoreBlockEntity? {
+        val clicked = (context?.level as? ServerLevel)?.getBlockEntity(context.clickedPos) as? SiteCoreBlockEntity
+        val site = clicked ?: lookedCore(player) ?: return null
+        if (site.isRemoved || site.health <= 0) return null
+        val definition = Buildings.byId(site.buildingId) ?: return null
+        if (!definition.defensive && !Buildings.isCombatDefense(site.buildingId)) return null
+        if (site.team.isEmpty() || site.isAlly(player)) return null
+        return site
+    }
+
+    fun championArmed(player: ServerPlayer): Boolean {
+        if (!Match.isFight() || player.isSpectator) return false
+        val member = Match.member(player.uuid) ?: return false
+        if (!Classes.isChampion(member.classLocked, member.classId)) return false
+        return player.getItemBySlot(EquipmentSlot.HEAD).`is`(Items.DIAMOND_HELMET) &&
+            player.getItemBySlot(EquipmentSlot.CHEST).`is`(Items.DIAMOND_CHESTPLATE) &&
+            player.getItemBySlot(EquipmentSlot.LEGS).`is`(Items.DIAMOND_LEGGINGS) &&
+            player.getItemBySlot(EquipmentSlot.FEET).`is`(Items.DIAMOND_BOOTS)
+    }
+
+    fun syncChampion(player: ServerPlayer) {
+        val health = player.getAttribute(Attributes.MAX_HEALTH)
+        val attack = player.getAttribute(Attributes.ATTACK_DAMAGE)
+        if (championArmed(player)) {
+            health?.addOrUpdateTransientModifier(championHealth)
+            attack?.addOrUpdateTransientModifier(championAttack)
+            return
+        }
+        health?.removeModifier(championHealth.id)
+        attack?.removeModifier(championAttack.id)
+        if (player.health > player.maxHealth) player.health = player.maxHealth
+    }
+
+    fun clearHarmful(player: ServerPlayer) {
+        val effects = player.activeEffects.map { it.effect }.toList()
+        for (effect in effects) {
+            if (effect.value().category == MobEffectCategory.HARMFUL) player.removeEffect(effect)
+        }
+    }
+
+    private fun moduleLapis(price: Int): Int =
+        (price * MatchRules.CONQUEROR_LAPIS_NUM + MatchRules.CONQUEROR_LAPIS_DEN - 1) / MatchRules.CONQUEROR_LAPIS_DEN
+
+    private fun lookedCore(player: ServerPlayer): SiteCoreBlockEntity? {
+        val world = player.level()
+        val from = player.eyePosition
+        val to = from.add(player.lookAngle.scale(MatchRules.CONQUEROR_REACH))
+        val hit = world.clip(ClipContext(from, to, ClipContext.Block.OUTLINE, ClipContext.Fluid.NONE, player))
+        if (hit.type != HitResult.Type.BLOCK) return null
+        return world.getBlockEntity(hit.blockPos) as? SiteCoreBlockEntity
     }
 
     private fun refund(player: ServerPlayer, costs: List<ItemAmount>) {
@@ -135,7 +218,6 @@ object ProfessionEffects {
         Buildings.TESLA.id -> listOf(ingot(Items.COPPER_INGOT, MatchRules.TESLA_PRICE_COPPER, "铜锭"))
         Buildings.BARRACKS.id -> listOf(ingot(Items.IRON_INGOT, MatchRules.BARRACKS_PRICE_IRON, "铁锭"))
         Buildings.CANNON.id -> listOf(
-            ingot(Items.IRON_INGOT, MatchRules.CANNON_PRICE_IRON, "铁锭"),
             ingot(Items.COPPER_INGOT, MatchRules.CANNON_PRICE_COPPER, "铜锭"),
         )
         Buildings.RELAY.id -> listOf(
@@ -147,6 +229,21 @@ object ProfessionEffects {
             ingot(Items.COPPER_INGOT, MatchRules.FARMLAND_PRICE_COPPER, "铜锭"),
         )
         Buildings.PILLAGER.id -> listOf(ingot(Items.IRON_INGOT, MatchRules.PILLAGER_TOWER_PRICE_IRON, "铁锭"))
+        Buildings.WORKSHOP.id -> listOf(
+            ingot(Items.DIAMOND, MatchRules.WORKSHOP_PRICE_DIAMOND, "钻石"),
+            ingot(Items.LAPIS_LAZULI, MatchRules.WORKSHOP_PRICE_LAPIS, "青金石"),
+        )
+        Buildings.GUIDED_CANNON.id -> listOf(
+            ingot(Items.COPPER_INGOT, MatchRules.GUIDED_CANNON_PRICE_COPPER, "铜锭"),
+            ingot(Items.IRON_INGOT, MatchRules.GUIDED_CANNON_PRICE_IRON, "铁锭"),
+            ingot(Items.DIAMOND, MatchRules.GUIDED_CANNON_PRICE_DIAMOND, "钻石"),
+        )
+        Buildings.TELEPORT_SPIRE.id -> listOf(
+            ingot(Items.IRON_INGOT, MatchRules.TELEPORT_SPIRE_PRICE_IRON, "铁锭"),
+            ingot(Items.COPPER_INGOT, MatchRules.TELEPORT_SPIRE_PRICE_COPPER, "铜锭"),
+            ingot(Items.DIAMOND, MatchRules.TELEPORT_SPIRE_PRICE_DIAMOND, "钻石"),
+        )
+        Buildings.QUAKE.id -> listOf(ingot(Items.DIAMOND, MatchRules.QUAKE_PRICE_DIAMOND, "钻石"))
         else -> emptyList()
     }
 

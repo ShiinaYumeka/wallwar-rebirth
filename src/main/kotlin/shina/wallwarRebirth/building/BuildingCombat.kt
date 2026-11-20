@@ -29,11 +29,16 @@ object BuildingCombat {
         val before = site.actionAge
         val beforeEgg = site.eggReleaseAge
         when (site.buildingId) {
-            Buildings.BASE.id -> tickBase(site)
+            Buildings.BASE.id, Buildings.MINERAL_REACTOR.id -> {
+                tickBase(site)
+                if (site.buildingId == Buildings.MINERAL_REACTOR.id) MineralReactorCapture.tickSite(site, level)
+            }
             Buildings.WALL.id -> tickWall(site)
             Buildings.TOWER.id -> tickTower(site, level)
             Buildings.TESLA.id -> tickTesla(site, level)
             Buildings.CANNON.id -> tickCannon(site, level)
+            Buildings.QUAKE.id -> QuakeWeapon.tick(site, level)
+            Buildings.GUIDED_CANNON.id, Buildings.TELEPORT_SPIRE.id -> SuperWeapons.tickCooldown(site)
             Buildings.BARRACKS.id, Buildings.PILLAGER.id -> BarracksWork.tick(site, level)
             Buildings.FARMLAND.id -> FarmlandWork.tick(site, level)
         }
@@ -219,12 +224,6 @@ object BuildingCombat {
             MatchRules.CANNON_TIE_DISTANCE,
         )?.point
 
-    private fun coreBox(level: ServerLevel, pos: BlockPos): AABB {
-        val shape = level.getBlockState(pos).getCollisionShape(level, pos)
-        if (shape.isEmpty) return AABB(pos)
-        return shape.bounds().move(pos.x.toDouble(), pos.y.toDouble(), pos.z.toDouble())
-    }
-
     private fun nearestTarget(site: SiteCoreBlockEntity, level: ServerLevel, range: Double): LivingEntity? =
         TowerTargeting.select(
             TargetWorlds.world,
@@ -234,13 +233,6 @@ object BuildingCombat {
             range,
             MatchRules.TOWER_TIE_DISTANCE,
         ) { canSee(site, level, it) }
-
-    private fun <T : LivingEntity> pick(origin: Vec3, entities: List<T>, tie: Double = MatchRules.TOWER_TIE_DISTANCE): T? =
-        entities.minWithOrNull(
-            compareBy<T> { (distanceToBox(origin, it.boundingBox) / tie).toLong() }
-                .thenBy { it.health }
-                .thenBy { it.id },
-        )
 
     private fun shoot(site: SiteCoreBlockEntity, level: ServerLevel, target: LivingEntity, speed: Float) {
         val origin = Vec3(
@@ -319,7 +311,7 @@ object BuildingCombat {
         )
         val end = target.eyePosition
         val reach = target.boundingBox.clip(origin, end).orElse(end)
-        val span = reach.subtract(origin)
+        val span = reach!!.subtract(origin)
         val distance = span.length()
         if (distance < 1.0e-4) return true
         var cursor = origin

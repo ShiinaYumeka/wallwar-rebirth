@@ -166,6 +166,10 @@ internal fun SiteCoreBlockEntity.absorb(from: SiteCoreBlockEntity) {
     coveredBelow.addAll(from.coveredBelow)
     mineralAges.clear()
     mineralAges.putAll(from.mineralAges)
+    crystalFurnaceOn = from.crystalFurnaceOn
+    crystalFurnaceTicks = from.crystalFurnaceTicks
+    crystalFurnaceIron = from.crystalFurnaceIron
+    crystalFurnaceCopper = from.crystalFurnaceCopper
     copyItems(from.storage, storage)
     copyItems(from.barracksMaterials, barracksMaterials)
     copyItems(from.barracksEggs, barracksEggs)
@@ -198,6 +202,15 @@ internal fun SiteCoreBlockEntity.storedDamage(amount: Int, struck: BlockPos = bl
         val state = world.getBlockState(struck)
         world.levelEvent(null, LevelEvent.PARTICLES_DESTROY_BLOCK, struck, Block.getId(state))
     }
+    if (commandPost && buildingId == Buildings.BARRACKS.id && !echoing) {
+        echoing = true
+        try {
+            echoCommandPost(amount, attackerName, attacker)
+        } finally {
+            echoing = false
+        }
+        return
+    }
     val before = health
     health -= amount
     if (health < 0) health = 0
@@ -215,18 +228,20 @@ internal fun SiteCoreBlockEntity.storedDamage(amount: Int, struck: BlockPos = bl
     }
     if (attackerName != null && buildingId == Buildings.BASE.id) warnBase(attackerName)
     setChanged()
-        if (health == 0) {
+    if (health == 0) {
             if (buildingId == Buildings.BASE.id) {
                 val fallen = level as? ServerLevel
                 if (fallen != null) Ports.match.onBaseFallen(fallen, team)
             }
             ProfessionEffects.dropIfWrecker(this, attacker as? Player)
+            ProfessionEffects.rewardConqueror(this, attacker as? Player)
             destroy()
         }
 }
 
 internal fun SiteCoreBlockEntity.storedDamageFromMonster(attacker: LivingEntity, attackerTeam: String, amount: Int, struck: BlockPos, attackerName: String) {
     if (attackerTeam == team) return
+    if (BuildingStyles.monsterIgnoresPart(this, struck)) return
     damage(amount, struck, attackerName, attacker)
 }
 
@@ -236,6 +251,7 @@ internal fun SiteCoreBlockEntity.storedDestroy() {
     val world = level as? ServerLevel ?: return
     BarracksWork.discardStock(this, world)
     FarmlandWork.dropStored(this, world)
+    CrystalFurnaceWork.abortAndDrop(this, world)
     val parts = partPositions.toList()
     partPositions.clear()
     BuildingStyles.clearTrackedParts(
@@ -257,11 +273,17 @@ internal fun SiteCoreBlockEntity.storedDemolish(player: ServerPlayer): Boolean {
         player.sendSystemMessage(Component.literal("不能拆除"))
         return false
     }
-    if (team.isNotEmpty() && player.team?.name != team) {
+    if (buildingId == Buildings.MINERAL_REACTOR.id) {
+        if (team.isEmpty() || player.team?.name != team) {
+            player.sendSystemMessage(Component.literal("只有占领方可以拆除"))
+            return false
+        }
+    } else if (team.isNotEmpty() && player.team?.name != team) {
         player.sendSystemMessage(Component.literal("只有同队可以拆除"))
         return false
     }
     val world = level as? ServerLevel ?: return false
+    dropModulesOnRemove = true
     val marks = ArrayList<BlockPos>()
     marks.add(blockPos)
     marks.addAll(partPositions)
@@ -270,5 +292,13 @@ internal fun SiteCoreBlockEntity.storedDemolish(player: ServerPlayer): Boolean {
         world.sendParticles(ParticleTypes.EXPLOSION, pos.x + 0.5, pos.y + 0.5, pos.z + 0.5, 1, 0.0, 0.0, 0.0, 0.0)
     }
     return true
+}
+
+private fun SiteCoreBlockEntity.echoCommandPost(dealt: Int, attackerName: String?, attacker: LivingEntity?) {
+    val world = level as? ServerLevel ?: return
+    val base = SiteCores.all().firstOrNull { site ->
+        site.level === world && !site.isRemoved && site.team == team && site.buildingId == Buildings.BASE.id && site.health > 0
+    } ?: return
+    base.damage(dealt, base.blockPos, attackerName, attacker)
 }
 

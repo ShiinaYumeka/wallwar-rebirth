@@ -29,9 +29,13 @@ fun ServerPlayer.playNotifySound(
 }
 
 fun ServerPlayer.showTitle(text: Component, fadeIn: Int = 5, stay: Int = 40, fadeOut: Int = 10) {
+    showTitle(text, Component.empty(), fadeIn, stay, fadeOut)
+}
+
+fun ServerPlayer.showTitle(title: Component, subtitle: Component, fadeIn: Int = 5, stay: Int = 40, fadeOut: Int = 10) {
     connection.send(ClientboundSetTitlesAnimationPacket(fadeIn, stay, fadeOut))
-    connection.send(ClientboundSetSubtitleTextPacket(Component.empty()))
-    connection.send(ClientboundSetTitleTextPacket(text))
+    connection.send(ClientboundSetSubtitleTextPacket(subtitle))
+    connection.send(ClientboundSetTitleTextPacket(title))
 }
 
 fun ServerPlayer.clearTitle() {

@@ -4,7 +4,7 @@ import shina.wallwarRebirth.rules.MatchRules
 
 object BuildingModuleEffects {
     fun lines(definition: BuildingDefinition, slot: ModuleSlot): List<String> = when (definition.id) {
-        Buildings.BASE.id -> base(slot)
+        Buildings.BASE.id, Buildings.MINERAL_REACTOR.id -> base(slot)
         Buildings.WALL.id -> when (slot) {
             ModuleSlot.PRIMARY -> listOf(
                 "没在挨打时，每 ${MatchRules.WALL_HEAL_TICKS / MatchRules.TICKS_PER_SECOND} 秒回复自己 ${MatchRules.WALL_HEAL_AMOUNT} 点。",
@@ -44,6 +44,16 @@ object BuildingModuleEffects {
                 "命中给予的挖掘疲劳从 I 提升到 II，仍持续 ${MatchRules.TESLA_HIT_FATIGUE_TICKS / MatchRules.TICKS_PER_SECOND} 秒。",
             )
             ModuleSlot.DIFFUSION -> listOf("每次攻击时，对射程内已经有蓄风的敌方唤灵再造成一次本次的闪电伤害。")
+        }
+        Buildings.QUAKE.id -> when (slot) {
+            ModuleSlot.PRIMARY -> listOf("溅射半径从 ${MatchRules.QUAKE_SPLASH} 格变为 ${MatchRules.QUAKE_SPLASH_REINFORCED} 格。")
+            ModuleSlot.SECONDARY -> listOf(
+                "易伤每次增加与上限变为 ${MatchRules.QUAKE_STACK_INCREMENT_II} / ${MatchRules.QUAKE_STACK_CAP_II}，层数上限仍是 ${MatchRules.QUAKE_STACK_MAX}。",
+            )
+            ModuleSlot.DIFFUSION -> listOf(
+                "自身 ${MatchRules.QUAKE_RANGE.toInt()} 格内没有敌人时，把这个距离内的同队晶震装置当作射程延伸，攻击那些塔范围内的敌人。",
+                "粒子只从本塔连到那座塔，不连到敌人。占用本塔的攻击间隔，不改那座塔自己的间隔。",
+            )
         }
         Buildings.CANNON.id -> when (slot) {
             ModuleSlot.PRIMARY -> listOf(

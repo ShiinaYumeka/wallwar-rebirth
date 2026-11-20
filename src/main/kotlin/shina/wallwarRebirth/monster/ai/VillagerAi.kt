@@ -7,6 +7,7 @@ import net.minecraft.world.entity.ai.util.DefaultRandomPos
 import net.minecraft.world.item.Items
 import net.minecraft.world.phys.Vec3
 import shina.wallwarRebirth.building.FarmlandWork
+import shina.wallwarRebirth.building.MineralReactorCapture
 import shina.wallwarRebirth.monster.MonsterRules
 import shina.wallwarRebirth.monster.SummonedUnits
 import shina.wallwarRebirth.monster.SummonedVillager
@@ -20,6 +21,7 @@ object VillagerAi {
 
     fun tick(mob: SummonedVillager, level: ServerLevel) {
         if (!mob.isAlive) return
+        if (MineralReactorCapture.redirect(mob, level)) return
         if (mob.mind.tickVillagerCommand(level)) return
         SummonedUnits.add(mob)
         mob.target = null

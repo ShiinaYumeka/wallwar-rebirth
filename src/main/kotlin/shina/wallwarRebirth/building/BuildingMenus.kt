@@ -34,6 +34,9 @@ object BuildingMenus {
         if (definition == null) {
             player.sendSystemMessage(Component.literal("对局里要购买建筑核心再放置"))
             return
+        }
+        if (definition.id == Buildings.MINERAL_REACTOR.id) {
+            MineralReactorGui(player, site, definition).open()
         } else {
             BuildingPanelGui(player, site, definition).open()
         }
@@ -134,13 +137,13 @@ object BuildingMenus {
 
     private fun baseMineral(site: SiteCoreBlockEntity, mineral: MineralOutput): ItemStack {
         val unlocked = site.buildingLevel >= mineral.minLevel
-        val interval = site.intervalOf(Buildings.BASE, mineral)
+        val interval = site.intervalOf(mineral)
         val builder = ItemStackBuilder.of(mineral.item)
             .setName(plain(mineral.name, if (unlocked) ChatFormatting.YELLOW else ChatFormatting.GRAY))
         when {
             !unlocked -> builder.appendLore(plain("尚未解锁"))
             interval == null -> builder.appendLore(plain("不生成"))
-            else -> builder.appendLore(plain(mineral.describe(interval)))
+            else -> builder.appendLore(plain(mineral.describe(interval, site.diamondPercent(mineral))))
         }
         return builder.build()
     }
@@ -201,7 +204,6 @@ class BuildingPanelGui(
     false,
 ) {
     private val producer = isProducer(definition)
-    private val barracks = definition.id == Buildings.BARRACKS.id
     private val pillagerTower = definition.id == Buildings.PILLAGER.id
 
     init {
@@ -292,16 +294,31 @@ class BuildingPanelGui(
             })
             return
         }
-        setSlot(UPGRADE_SLOT, GuiElement(upgradeIcon()) { _, clickType, _, _ ->
-            if (!clickType.isLeft || clickType.shift) return@GuiElement
-            close()
-            viewer.level().server.execute { UpgradePanelGui(viewer, site, definition).open() }
-        })
+        if (definition.maxLevel > 1) {
+            setSlot(UPGRADE_SLOT, GuiElement(upgradeIcon()) { _, clickType, _, _ ->
+                if (!clickType.isLeft || clickType.shift) return@GuiElement
+                close()
+                viewer.level().server.execute { UpgradePanelGui(viewer, site, definition).open() }
+            })
+        }
         setSlot(INFO_SLOT, GuiElement(infoIcon(), GuiElementInterface.EMPTY_CALLBACK))
         setSlot(DEMOLISH_SLOT, GuiElement(demolishIcon()) { _, clickType, _, _ ->
             if (!clickType.isLeft || clickType.shift) return@GuiElement
             if (site.demolish(viewer)) close()
         })
+        if (definition.teamUnique) {
+            setSlot(ACTION_SLOT, GuiElement(superWeaponIcon()) { _, clickType, _, _ ->
+                if (!clickType.isLeft || clickType.shift) return@GuiElement
+                useSuperWeapon()
+            })
+        }
+        if (definition.id == Buildings.CRYSTAL_FURNACE.id) {
+            setSlot(ACTION_SLOT, GuiElement(furnaceSwitchIcon()) { _, clickType, _, _ ->
+                if (!clickType.isLeft || clickType.shift) return@GuiElement
+                CrystalFurnaceWork.toggle(site, viewer)
+                paintButtons()
+            })
+        }
         if (producer) {
             paintProduction()
             setSlot(MARCH_SLOT, GuiElement(marchIcon()) { _, clickType, _, _ ->
@@ -427,6 +444,9 @@ class BuildingPanelGui(
             val color = if (site.buildingLevel >= detail.minLevel) ChatFormatting.GREEN else ChatFormatting.GRAY
             builder.appendLore(line(detail.text, color))
         }
+        if (definition.id == Buildings.CRYSTAL_FURNACE.id) {
+            for (line in CrystalFurnaceWork.infoLines(site)) builder.appendLore(line(line))
+        }
         if (producer) {
             val monster = Monsters.byId(site.producedMonster) ?: if (pillagerTower) Monsters.PILLAGER else Monsters.ZOMBIE
             builder.appendLore(line("当前生产：${monster.displayName}"))
@@ -445,6 +465,48 @@ class BuildingPanelGui(
         for (upgrade in definition.upgrades) {
             val color = if (upgrade.toLevel == site.buildingLevel + 1) ChatFormatting.YELLOW else ChatFormatting.GRAY
             builder.appendLore(line(upgrade.describe(), color))
+        }
+        return builder.build()
+    }
+
+    private fun useSuperWeapon() {
+        if (Match.phase != Match.Phase.FIGHT) return
+        if (!SuperWeapons.ready(site)) return
+        val teleport = definition.id == Buildings.TELEPORT_SPIRE.id
+        close()
+        SuperWeaponAim.tryStart(site, viewer, teleport)
+    }
+
+    private fun superWeaponIcon(): ItemStack {
+        val teleport = definition.id == Buildings.TELEPORT_SPIRE.id
+        val icon = if (teleport) Items.AMETHYST_SHARD else Items.TNT
+        val title = if (teleport) "传送" else "开炮"
+        val ready = SuperWeapons.ready(site) && Match.phase == Match.Phase.FIGHT
+        val builder = ItemStackBuilder.of(if (ready) icon else Items.BARRIER)
+            .setName(line(title, if (ready) ChatFormatting.YELLOW else ChatFormatting.GRAY))
+        if (Match.phase != Match.Phase.FIGHT) {
+            builder.appendLore(line("只有战斗阶段能用"))
+        } else if (!SuperWeapons.ready(site)) {
+            val seconds = (site.weaponCooldown + MatchRules.TICKS_PER_SECOND - 1) / MatchRules.TICKS_PER_SECOND
+            builder.appendLore(line("冷却剩余 $seconds 秒"))
+        } else {
+            builder.appendLore(line("进入旁观视角选定地表位置"))
+        }
+        return builder.build()
+    }
+
+    private fun furnaceSwitchIcon(): ItemStack {
+        val on = site.crystalFurnaceOn
+        val canToggleOn = Match.isFight()
+        val builder = ItemStackBuilder.of(if (on) Items.REDSTONE_TORCH else Items.LEVER)
+            .setName(line(if (on) "关闭" else "开启", if (on) ChatFormatting.RED else if (canToggleOn) ChatFormatting.GREEN else ChatFormatting.GRAY))
+        builder.appendLore(line(if (on) "已开启" else "已关闭"))
+        if (!on && !canToggleOn) {
+            builder.appendLore(line("只有战斗阶段能开启"))
+        } else if (on) {
+            builder.appendLore(line("关闭后不再开始新批次，正在转化的那批会做完"))
+        } else {
+            builder.appendLore(line("开启后自动从团队仓库扣料转化"))
         }
         return builder.build()
     }
@@ -480,6 +542,7 @@ class BuildingPanelGui(
         const val UPGRADE_SLOT = 2
         const val INFO_SLOT = 4
         const val DEMOLISH_SLOT = 6
+        const val ACTION_SLOT = 8
         const val STORAGE_ORIGIN = 18
         const val MARCH_SLOT = 53
         const val HOLD_SLOT = 52

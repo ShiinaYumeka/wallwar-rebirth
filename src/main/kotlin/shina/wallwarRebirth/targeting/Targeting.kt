@@ -5,16 +5,25 @@ import net.minecraft.world.entity.player.Player
 import net.minecraft.world.phys.AABB
 import net.minecraft.world.phys.Vec3
 import shina.wallwarRebirth.contract.WallwarTeams
+import java.util.UUID
 import kotlin.math.sqrt
 
 object Targeting {
     const val TIE = 0.001
+    private val aiming = HashSet<UUID>()
 
     fun hostile(left: String, right: String): Boolean = WallwarTeams.hostile(left, right)
 
-    /** Spectator and creative players never enter targeting, chase, or counter lists. */
+    fun setAiming(player: UUID, aiming: Boolean) {
+        if (aiming) this.aiming.add(player) else this.aiming.remove(player)
+    }
+
+    fun isAiming(player: UUID): Boolean = player in aiming
+
+    /** Spectator, creative, and super-weapon aimers never enter targeting, chase, or counter lists. */
     @JvmStatic
-    fun canTargetPlayer(player: Player): Boolean = !player.isSpectator && !player.isCreative
+    fun canTargetPlayer(player: Player): Boolean =
+        !player.isSpectator && !player.isCreative && !isAiming(player.uuid)
 
     fun distanceToBox(origin: Vec3, box: AABB): Double {
         val dx = if (origin.x in box.minX..box.maxX) 0.0 else origin.x.coerceIn(box.minX, box.maxX) - origin.x

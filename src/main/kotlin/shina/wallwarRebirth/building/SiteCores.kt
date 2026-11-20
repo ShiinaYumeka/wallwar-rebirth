@@ -1,6 +1,7 @@
 package shina.wallwarRebirth.building
 
 import net.minecraft.core.BlockPos
+import net.minecraft.server.level.ServerLevel
 import net.minecraft.world.level.Level
 
 object SiteCores {
@@ -33,5 +34,16 @@ object SiteCores {
             if (core.encloses(pos)) return true
         }
         return false
+    }
+
+    fun hasLiveWorkshop(level: ServerLevel, team: String): Boolean {
+        if (team.isEmpty()) return false
+        return all().any { core ->
+            core.level === level &&
+                !core.isRemoved &&
+                core.buildingId == Buildings.WORKSHOP.id &&
+                core.team == team &&
+                core.health > 0
+        }
     }
 }

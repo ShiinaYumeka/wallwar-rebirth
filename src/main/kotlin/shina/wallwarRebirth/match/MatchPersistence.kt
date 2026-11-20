@@ -73,11 +73,9 @@ object MatchPersistence {
         Match.worldReady = tag.getBooleanOr("WorldReady", false)
         Match.testMode = tag.getBooleanOr("TestMode", false)
         val loadedSize = tag.getIntOr("MapSize", MatchRules.MAP_SIZE)
-        Match.mapSize = if (loadedSize >= MatchRules.minimumMapSize() && (loadedSize - MatchRules.MAP_SIZE) % MatchRules.MAP_SIZE_STEP == 0) {
-            loadedSize
-        } else {
-            MatchRules.MAP_SIZE
-        }
+        val inRange = loadedSize in MatchRules.minimumMapSize()..MatchRules.maximumMapSize()
+        val stepped = (loadedSize - MatchRules.MAP_SIZE) % MatchRules.MAP_SIZE_STEP == 0
+        Match.mapSize = if (inRange && stepped) loadedSize else MatchRules.MAP_SIZE
         Match.terrainSeed = tag.getLongOr("TerrainSeed", 0L)
         if (Match.terrainSeed != 0L) MatchWorld.reseed(current, Match.terrainSeed)
         Match.redBase = BlockPos.of(tag.getLongOr("RedBase", 0L))

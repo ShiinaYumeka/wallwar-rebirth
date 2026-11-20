@@ -15,7 +15,6 @@ import shina.wallwarRebirth.building.Footprint
 import shina.wallwarRebirth.building.ItemAmount
 import shina.wallwarRebirth.building.ModuleSlot
 import shina.wallwarRebirth.building.OminousBanners
-import shina.wallwarRebirth.building.levelMark
 import shina.wallwarRebirth.rules.MatchRules
 import kotlin.math.ceil
 import kotlin.math.floor
@@ -140,41 +139,41 @@ private fun guideBuildings(): List<GuideBuilding> = listOf(
     GuideBuilding(Buildings.RELAY.id, Buildings.RELAY.displayName, Buildings.RELAY, Items.HOPPER),
     GuideBuilding(Buildings.FARMLAND.id, Buildings.FARMLAND.displayName, Buildings.FARMLAND, Items.COMPOSTER),
     GuideBuilding(Buildings.PILLAGER.id, Buildings.PILLAGER.displayName, Buildings.PILLAGER, Items.WHITE_BANNER),
+    GuideBuilding(Buildings.WORKSHOP.id, Buildings.WORKSHOP.displayName, Buildings.WORKSHOP, Items.BLAST_FURNACE),
+    GuideBuilding(Buildings.CRYSTAL_FURNACE.id, Buildings.CRYSTAL_FURNACE.displayName, Buildings.CRYSTAL_FURNACE, Items.FURNACE),
+    GuideBuilding(Buildings.GUIDED_CANNON.id, Buildings.GUIDED_CANNON.displayName, Buildings.GUIDED_CANNON, Items.TNT),
+    GuideBuilding(Buildings.TELEPORT_SPIRE.id, Buildings.TELEPORT_SPIRE.displayName, Buildings.TELEPORT_SPIRE, Items.AMETHYST_SHARD),
+    GuideBuilding(Buildings.QUAKE.id, Buildings.QUAKE.displayName, Buildings.QUAKE, Items.LODESTONE),
     GuideBuilding("wonder", "奇观", null, Items.NETHER_STAR, wonder = true),
 )
 
 private fun footprintText(footprint: Footprint): String = when (footprint) {
     Footprint.SQUARE_7 -> "7×7"
+    Footprint.SQUARE_9 -> "9×9"
+    Footprint.SQUARE_5 -> "5×5"
     Footprint.SQUARE_3 -> "3×3"
     Footprint.SQUARE_1 -> "1×1"
     Footprint.WALL_9 -> "1×9"
 }
 
 private fun costOptions(definition: BuildingDefinition): List<GuideOption> {
+    val purchase = if (definition.id == Buildings.BASE.id) {
+        listOf("开局由地图放好，每队一座。不能购买、放置或拆除。")
+    } else {
+        val costs = purchaseCosts(definition)
+        if (costs.isEmpty()) listOf("不能购买") else costs.map { "${it.name} ×${it.count}" }
+    }
     val options = ArrayList<GuideOption>()
-    if (definition.id == Buildings.BASE.id) {
+    options.add(GuideOption(Items.GOLD_INGOT, "1 级", purchase, 1))
+    for (upgrade in definition.upgrades) {
         options.add(
             GuideOption(
-                Items.EMERALD,
-                "获得方式",
-                listOf("开局由地图放好，每队一座。不能购买、放置或拆除。"),
+                Items.GOLD_INGOT,
+                "${upgrade.toLevel} 级",
+                upgrade.costs.map { "${it.name} ×${it.count}" },
+                upgrade.toLevel,
             ),
         )
-    } else {
-        for (part in purchaseCosts(definition)) {
-            options.add(GuideOption(part.item, "购买 ${part.name} ×${part.count}", count = part.count))
-        }
-    }
-    for (upgrade in definition.upgrades) {
-        for (part in upgrade.costs) {
-            options.add(
-                GuideOption(
-                    part.item,
-                    "升到${levelMark(upgrade.toLevel)}级 ${part.name} ×${part.count}",
-                    count = part.count,
-                ),
-            )
-        }
     }
     return options
 }
@@ -185,7 +184,6 @@ private fun purchaseCosts(definition: BuildingDefinition): List<ItemAmount> = wh
     Buildings.TESLA.id -> listOf(ItemAmount(Items.COPPER_INGOT, MatchRules.TESLA_PRICE_COPPER, "铜锭"))
     Buildings.BARRACKS.id -> listOf(ItemAmount(Items.IRON_INGOT, MatchRules.BARRACKS_PRICE_IRON, "铁锭"))
     Buildings.CANNON.id -> listOf(
-        ItemAmount(Items.IRON_INGOT, MatchRules.CANNON_PRICE_IRON, "铁锭"),
         ItemAmount(Items.COPPER_INGOT, MatchRules.CANNON_PRICE_COPPER, "铜锭"),
     )
     Buildings.RELAY.id -> listOf(
@@ -197,6 +195,25 @@ private fun purchaseCosts(definition: BuildingDefinition): List<ItemAmount> = wh
         ItemAmount(Items.COPPER_INGOT, MatchRules.FARMLAND_PRICE_COPPER, "铜锭"),
     )
     Buildings.PILLAGER.id -> listOf(ItemAmount(Items.IRON_INGOT, MatchRules.PILLAGER_TOWER_PRICE_IRON, "铁锭"))
+    Buildings.WORKSHOP.id -> listOf(
+        ItemAmount(Items.DIAMOND, MatchRules.WORKSHOP_PRICE_DIAMOND, "钻石"),
+        ItemAmount(Items.LAPIS_LAZULI, MatchRules.WORKSHOP_PRICE_LAPIS, "青金石"),
+    )
+    Buildings.CRYSTAL_FURNACE.id -> listOf(
+        ItemAmount(Items.IRON_INGOT, MatchRules.CRYSTAL_FURNACE_PRICE_IRON, "铁锭"),
+        ItemAmount(Items.COPPER_INGOT, MatchRules.CRYSTAL_FURNACE_PRICE_COPPER, "铜锭"),
+    )
+    Buildings.GUIDED_CANNON.id -> listOf(
+        ItemAmount(Items.COPPER_INGOT, MatchRules.GUIDED_CANNON_PRICE_COPPER, "铜锭"),
+        ItemAmount(Items.IRON_INGOT, MatchRules.GUIDED_CANNON_PRICE_IRON, "铁锭"),
+        ItemAmount(Items.DIAMOND, MatchRules.GUIDED_CANNON_PRICE_DIAMOND, "钻石"),
+    )
+    Buildings.TELEPORT_SPIRE.id -> listOf(
+        ItemAmount(Items.IRON_INGOT, MatchRules.TELEPORT_SPIRE_PRICE_IRON, "铁锭"),
+        ItemAmount(Items.COPPER_INGOT, MatchRules.TELEPORT_SPIRE_PRICE_COPPER, "铜锭"),
+        ItemAmount(Items.DIAMOND, MatchRules.TELEPORT_SPIRE_PRICE_DIAMOND, "钻石"),
+    )
+    Buildings.QUAKE.id -> listOf(ItemAmount(Items.DIAMOND, MatchRules.QUAKE_PRICE_DIAMOND, "钻石"))
     else -> emptyList()
 }
 
@@ -283,6 +300,37 @@ private fun combatOptions(definition: BuildingDefinition, index: Int): List<Guid
             GuideOption(Items.STONE_BRICKS, "建筑伤害 $building", count = building),
         )
     }
+    Buildings.CRYSTAL_FURNACE.id -> {
+        val rate = MatchRules.CRYSTAL_FURNACE_SUCCESS_RATE[index]
+        val ticks = MatchRules.CRYSTAL_FURNACE_CONVERT_TICKS
+        listOf(
+            GuideOption(Items.CLOCK, "转化 ${MatchRules.secondsText(ticks)} 秒", count = wholeSeconds(ticks)),
+            GuideOption(Items.DIAMOND, "成功率 $rate%", count = rate),
+        )
+    }
+    Buildings.GUIDED_CANNON.id -> {
+        val cooldown = MatchRules.GUIDED_CANNON_COOLDOWN[index]
+        val center = MatchRules.GUIDED_CANNON_CENTER_DAMAGE.toInt()
+        val building = floor(MatchRules.GUIDED_CANNON_CENTER_DAMAGE * MatchRules.CANNON_BUILDING_FRACTION + 0.5).toInt()
+        listOf(
+            GuideOption(Items.CLOCK, "冷却 ${MatchRules.secondsText(cooldown)} 秒", count = wholeSeconds(cooldown)),
+            GuideOption(Items.TNT, "中心伤害 $center", count = center),
+            GuideOption(Items.STONE_BRICKS, "建筑伤害 $building", count = building),
+        )
+    }
+    Buildings.TELEPORT_SPIRE.id -> {
+        val cooldown = MatchRules.TELEPORT_SPIRE_COOLDOWN[index]
+        listOf(GuideOption(Items.CLOCK, "冷却 ${MatchRules.secondsText(cooldown)} 秒", count = wholeSeconds(cooldown)))
+    }
+    Buildings.QUAKE.id -> {
+        val range = MatchRules.QUAKE_RANGE.toInt()
+        listOf(
+            GuideOption(Items.ENDER_EYE, "射程 $range", count = range),
+            intervalOption(MatchRules.QUAKE_INTERVAL[index]),
+            GuideOption(Items.IRON_SWORD, "基础伤害 ${MatchRules.QUAKE_DAMAGE}", count = MatchRules.QUAKE_DAMAGE),
+            GuideOption(Items.FIRE_CHARGE, "溅射 ${MatchRules.QUAKE_SPLASH.toInt()}", count = MatchRules.QUAKE_SPLASH.toInt()),
+        )
+    }
     else -> emptyList()
 }
 
@@ -296,5 +344,8 @@ private fun seekLines(definition: BuildingDefinition): List<String> = when (defi
     Buildings.TOWER.id -> listOf("优先最近的、没有被实心方块挡住的敌方唤灵，没有再打没有被挡住的敌方玩家。不打我方，不拆建筑。")
     Buildings.TESLA.id -> listOf("16 格内优先最近的、没有蓄风的敌方玩家，没有再打没有蓄风的敌方唤灵。已有蓄风的不选。不拆建筑。旁观与创造不选。")
     Buildings.CANNON.id -> listOf("射程内先锁最近的敌方唤灵，没有再锁最近的敌方玩家，两类都没有时锁敌方建筑（基地也算）。")
+    Buildings.GUIDED_CANNON.id -> listOf("冷却就绪后在面板开炮，以旁观视角从天上选定地表，右键选定后再按右键确认。潜行取消，不进入冷却。爆炸不破坏方块，不伤友方、无队伍和自身。")
+    Buildings.TELEPORT_SPIRE.id -> listOf("冷却就绪后在面板传送，选定方式与晶核制导炮相同。确认后玩家传到安全落点，正在跟随的同队唤灵一起传；没有落点的唤灵留下。")
+    Buildings.QUAKE.id -> listOf("不要求视线。优先最大生命值最高的敌方，然后更近，然后当前生命更低，然后更小标识。溅射伤害相等、无衰减。只打敌方玩家和唤灵。")
     else -> emptyList()
 }

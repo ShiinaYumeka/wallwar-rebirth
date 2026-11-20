@@ -4,4 +4,5 @@ enum class BuildingCategory(val label: String) {
     CORE("核心建筑"),
     NORMAL("普通建筑"),
     WONDER("奇观"),
+    SUPERWEAPON("超级武器类"),
 }

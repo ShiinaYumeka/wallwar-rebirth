@@ -64,6 +64,7 @@ object MatchHooks {
         ServerPlayConnectionEvents.JOIN.register { handler, _, _ -> Match.onJoin(handler.player) }
         ServerPlayConnectionEvents.DISCONNECT.register { handler, server ->
             CannonCrew.disconnect(handler.player)
+            SuperWeaponAim.disconnect(handler.player)
             Match.onLeave(server)
         }
         ServerPlayerEvents.AFTER_RESPAWN.register { _, newPlayer, _ -> Match.afterRespawn(newPlayer) }
@@ -81,6 +82,9 @@ object MatchHooks {
                 MatchMenu.stripOnDeath(entity)
             }
             true
+        }
+        ServerLivingEntityEvents.AFTER_DEATH.register { entity, _ ->
+            QuakeWeapon.clear(entity)
         }
         ServerLivingEntityEvents.ALLOW_DAMAGE.register { entity, source, _ ->
             if (Match.phase != Match.Phase.SETTLE) return@register true
@@ -102,17 +106,25 @@ object MatchHooks {
             true
         }
         AttackEntityCallback.EVENT.register { player, _, _, _, _ ->
-            if (player is ServerPlayer && CannonCrew.busy(player)) InteractionResult.FAIL else InteractionResult.PASS
+            if (player is ServerPlayer && (CannonCrew.busy(player) || SuperWeaponAim.busy(player))) InteractionResult.FAIL else InteractionResult.PASS
         }
         AttackBlockCallback.EVENT.register { player, _, _, _, _ ->
-            if (player is ServerPlayer && CannonCrew.busy(player)) InteractionResult.FAIL else InteractionResult.PASS
+            if (player is ServerPlayer && (CannonCrew.busy(player) || SuperWeaponAim.busy(player))) InteractionResult.FAIL else InteractionResult.PASS
         }
-        UseItemCallback.EVENT.register { player, level, hand ->
+        UseItemCallback.EVENT.register { player, _, _ ->
+            if (player is ServerPlayer && SuperWeaponAim.busy(player)) {
+                SuperWeaponAim.handleClick(player)
+                return@register InteractionResult.FAIL
+            }
             if (player is ServerPlayer && CannonCrew.busy(player)) return@register InteractionResult.FAIL
             InteractionResult.PASS
         }
         UseBlockCallback.EVENT.register { player, world, hand, hit ->
             if (player !is ServerPlayer) return@register InteractionResult.PASS
+            if (SuperWeaponAim.busy(player)) {
+                SuperWeaponAim.handleClick(player)
+                return@register InteractionResult.FAIL
+            }
             if (CannonCrew.busy(player)) return@register InteractionResult.FAIL
             if (world is ServerLevel && FarmlandWork.isProtected(world, hit.blockPos)) return@register InteractionResult.FAIL
             if (Match.phase == Match.Phase.FIGHT) {

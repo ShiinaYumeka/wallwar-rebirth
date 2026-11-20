@@ -21,16 +21,10 @@ import shina.wallwarRebirth.shop.match.TeamWarehouses
 
 object FarmlandWork {
     fun isPart(core: SiteCoreBlockEntity, pos: BlockPos): Boolean =
-        core.buildingId == Buildings.FARMLAND.id && pos != core.blockPos
+        BuildingStyles.isUnbreakablePart(core, pos)
 
     fun owner(level: ServerLevel, pos: BlockPos): SiteCoreBlockEntity? =
-        SiteCores.all().firstOrNull { core ->
-            core.level === level &&
-                !core.isRemoved &&
-                core.buildingId == Buildings.FARMLAND.id &&
-                pos in core.partPositions &&
-                pos != core.blockPos
-        }
+        BuildingStyles.ownerOfProtectedPart(level, pos)
 
     @JvmStatic
     fun isProtected(level: BlockGetter, pos: BlockPos): Boolean =

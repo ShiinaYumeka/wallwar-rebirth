@@ -2,8 +2,10 @@ package shina.wallwarRebirth.building
 
 import net.minecraft.core.BlockPos
 import net.minecraft.server.level.ServerLevel
+import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.level.block.CropBlock
 import net.minecraft.world.level.block.FarmBlock
+import net.minecraft.world.phys.AABB
 import shina.wallwarRebirth.monster.MonsterDefinition
 import shina.wallwarRebirth.monster.Monsters
 import shina.wallwarRebirth.monster.Summoning
@@ -35,7 +37,30 @@ object BuildingPlacement {
         )
     }
 
-    private fun findStandable(level: ServerLevel, site: SiteCoreBlockEntity): BlockPos? {
+    fun settle(level: ServerLevel, site: SiteCoreBlockEntity, lift: Int) {
+        val players = level.players().filter { it.isAlive && !it.isSpectator }
+        if (lift > 0) {
+            for (player in players) {
+                if (!inside(player, site)) continue
+                player.teleportTo(level, player.x, player.y + lift, player.z, emptySet(), player.yRot, player.xRot, false)
+            }
+        }
+        val taken = HashSet<BlockPos>()
+        for (player in players) {
+            if (!inside(player, site)) continue
+            val stand = findStandable(level, site, taken) ?: continue
+            taken.add(stand)
+            player.teleportTo(level, stand.x + 0.5, stand.y.toDouble(), stand.z + 0.5, emptySet(), player.yRot, player.xRot, false)
+        }
+    }
+
+    private fun inside(player: ServerPlayer, site: SiteCoreBlockEntity): Boolean {
+        val box = player.boundingBox.inflate(-0.05, -0.05, -0.05)
+        if (box.intersects(AABB(site.blockPos))) return true
+        return site.partPositions.any { box.intersects(AABB(it)) }
+    }
+
+    private fun findStandable(level: ServerLevel, site: SiteCoreBlockEntity, excluded: Set<BlockPos> = emptySet()): BlockPos? {
         val origin = site.blockPos
         val spots = ArrayList<BlockPos>()
         for (dy in intArrayOf(0, -1, 1)) {
@@ -53,7 +78,7 @@ object BuildingPlacement {
                 .thenBy { it.x }
                 .thenBy { it.z },
         )
-        return spots.firstOrNull { usable(level, site, it) }
+        return spots.firstOrNull { it !in excluded && usable(level, site, it) }
     }
 
     private fun usable(level: ServerLevel, site: SiteCoreBlockEntity, pos: BlockPos): Boolean {

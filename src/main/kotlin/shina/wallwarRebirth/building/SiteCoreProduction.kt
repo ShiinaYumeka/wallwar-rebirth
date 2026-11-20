@@ -2,13 +2,22 @@ package shina.wallwarRebirth.building
 
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.world.item.ItemStack
+import net.minecraft.world.item.Items
 import shina.wallwarRebirth.rules.MatchRules
 import shina.wallwarRebirth.shop.match.TeamWarehouses
 
-internal fun rolled(world: ServerLevel, mineral: MineralOutput): Boolean = when {
-    mineral.chancePercent > 0 -> world.random.nextInt(100) < mineral.chancePercent
+internal fun rolled(world: ServerLevel, mineral: MineralOutput, percent: Int = mineral.chancePercent): Boolean = when {
+    percent > 0 -> world.random.nextInt(100) < percent
     mineral.chance <= 1 -> true
     else -> world.random.nextInt(mineral.chance) == 0
+}
+
+internal fun SiteCoreBlockEntity.diamondPercent(mineral: MineralOutput): Int {
+    if (buildingId != Buildings.BASE.id || mineral.item != Items.DIAMOND || mineral.chancePercent <= 0) {
+        return mineral.chancePercent
+    }
+    val world = level as? ServerLevel ?: return mineral.chancePercent
+    return if (SiteCores.hasLiveWorkshop(world, team)) MatchRules.WORKSHOP_DIAMOND_PERCENT else mineral.chancePercent
 }
 
 internal fun SiteCoreBlockEntity.insert(stack: ItemStack): ItemStack {
@@ -30,9 +39,9 @@ internal fun SiteCoreBlockEntity.insert(stack: ItemStack): ItemStack {
     return remaining
 }
 
-internal fun SiteCoreBlockEntity.intervalOf(definition: BuildingDefinition, mineral: MineralOutput): Int? {
+internal fun SiteCoreBlockEntity.intervalOf(mineral: MineralOutput): Int? {
     if (buildingLevel < mineral.minLevel) return null
-    val ticks = if (buildingId == Buildings.BASE.id && !reinforce.isEmpty) {
+    val ticks = if ((buildingId == Buildings.BASE.id || buildingId == Buildings.MINERAL_REACTOR.id) && !reinforce.isEmpty) {
         MatchRules.BASE_BOOSTED_TICKS
     } else {
         mineral.baseTicks
@@ -42,11 +51,12 @@ internal fun SiteCoreBlockEntity.intervalOf(definition: BuildingDefinition, mine
 
 internal fun SiteCoreBlockEntity.storedProduceCycle() {
     val definition = Buildings.byId(buildingId) ?: return
-    if (buildingId != Buildings.BASE.id) return
+    if (buildingId != Buildings.BASE.id && buildingId != Buildings.MINERAL_REACTOR.id) return
+    if (buildingId == Buildings.MINERAL_REACTOR.id && team.isEmpty()) return
     val world = level as? ServerLevel ?: return
     for (mineral in definition.minerals()) {
-        if (intervalOf(definition, mineral) == null) continue
-        if (!rolled(world, mineral)) continue
+        if (intervalOf(mineral) == null) continue
+        if (!rolled(world, mineral, diamondPercent(mineral))) continue
         TeamWarehouses.acceptAll(team, ItemStack(mineral.item, mineral.count))
     }
     setChanged()
@@ -68,12 +78,12 @@ internal fun SiteCoreBlockEntity.storedOffer(stack: ItemStack) {
 internal fun SiteCoreBlockEntity.storedProductionLines(): List<Pair<String, Boolean>> {
     val definition = Buildings.byId(buildingId) ?: return emptyList()
     return definition.minerals().map { mineral ->
-        val interval = intervalOf(definition, mineral)
+        val interval = intervalOf(mineral)
         val unlocked = buildingLevel >= mineral.minLevel
         val text = when {
             !unlocked -> "${mineral.name}：${mineral.describeBase()}"
             interval == null -> "${mineral.name}：不生成"
-            else -> "${mineral.name}：${mineral.describe(interval)}"
+            else -> "${mineral.name}：${mineral.describe(interval, diamondPercent(mineral))}"
         }
         text to (unlocked && interval != null)
     }

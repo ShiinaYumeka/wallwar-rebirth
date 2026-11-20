@@ -25,7 +25,8 @@ object SummonDefaultTargeting {
             core.health > 0 &&
                 core.buildingId.isNotEmpty() &&
                 core.pos !in ignore &&
-                !(skipDefensive && core.defensive) &&
+                !Buildings.neutral(core.buildingId) &&
+                !(skipDefensive && core.buildingId == Buildings.WALL.id) &&
                 Targeting.hostile(team, core.team) &&
                 (radius == null || origin.distanceTo(Vec3.atCenterOf(core.pos)) <= radius)
         }

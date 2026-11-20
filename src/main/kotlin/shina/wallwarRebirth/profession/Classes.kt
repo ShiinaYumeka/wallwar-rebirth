@@ -23,8 +23,11 @@ object Classes {
     const val WRECKER = "wrecker"
     const val BASTION = "bastion"
     const val SWORDSMAN = "swordsman"
+    const val CONQUEROR = "conqueror"
+    const val CHAMPION = "champion"
+    const val COMMANDER = "commander"
 
-    val selectable = listOf(MINER, WRECKER, BASTION, SWORDSMAN)
+    val selectable = listOf(MINER, WRECKER, BASTION, SWORDSMAN, CONQUEROR, CHAMPION, COMMANDER)
 
     data class Spec(
         val id: String,
@@ -68,6 +71,30 @@ object Classes {
             "在商店购买的剑带有亡灵杀手 II 和节肢杀手 II，不另收费；每次生效后冷却 180 秒",
             "手持急速冲刺右键，获得速度 II，持续 5 秒，冷却 30 秒",
         ),
+        Spec(
+            CONQUEROR,
+            "征服者",
+            { ModItems.SKILL_CONQUEROR },
+            Items.IRON_AXE,
+            "自己把带有强化模块的敌方建筑生命扣到 0 时，获得该模块购买价 75% 的青金石，每种向上取整",
+            "手持镇压右键，对面向 4 格内的敌方防御建筑核心造成 8 点伤害，冷却 90 秒",
+        ),
+        Spec(
+            CHAMPION,
+            "冠军",
+            { ModItems.SKILL_CHAMPION },
+            Items.GOLDEN_APPLE,
+            "穿着一整套钻石护甲时，最大生命提升 10 点，攻击力与对建筑的伤害各提升 1 点",
+            "手持加冕右键，恢复 2 点生命；若正穿着整套钻石护甲，改为恢复 8 点并清除负面效果，冷却 60 秒",
+        ),
+        Spec(
+            COMMANDER,
+            "指挥官",
+            { ModItems.SKILL_COMMANDER },
+            Items.GOAT_HORN,
+            "开局获得一座 3 级兵营，且不能再购买或放置新的兵营。放下时对方收到提醒；打到这座兵营的伤害会转到我方基地，兵营本身不扣血",
+            "手持调度右键，若这座兵营当前满血，则回收并可以重新放置，冷却 30 秒",
+        ),
     )
 
     private val byId = specs.associateBy { it.id }
@@ -88,6 +115,12 @@ object Classes {
     fun isBastion(classLocked: Boolean, classId: String): Boolean = isClass(classLocked, classId, BASTION)
 
     fun isSwordsman(classLocked: Boolean, classId: String): Boolean = isClass(classLocked, classId, SWORDSMAN)
+
+    fun isConqueror(classLocked: Boolean, classId: String): Boolean = isClass(classLocked, classId, CONQUEROR)
+
+    fun isChampion(classLocked: Boolean, classId: String): Boolean = isClass(classLocked, classId, CHAMPION)
+
+    fun isCommander(classLocked: Boolean, classId: String): Boolean = isClass(classLocked, classId, COMMANDER)
 
     class Cast(val message: String?, val readyAt: Long?)
 
@@ -114,6 +147,9 @@ object Classes {
             WRECKER -> wreckerDig(now, player)
             SWORDSMAN -> sprint(now)
             BASTION -> repair(now, context)
+            CONQUEROR -> suppress(now, player, context)
+            CHAMPION -> crown(now, player)
+            COMMANDER -> CommandPosts.reclaim(player, now)
             else -> null
         }
     }
@@ -157,6 +193,24 @@ object Classes {
         site.health = min(max, site.health + heal)
         site.setChanged()
         return Cast("城墙恢复 $heal 点生命", now + MatchRules.BASTION_SKILL_COOLDOWN_TICKS)
+    }
+
+    private fun suppress(now: Long, player: ServerPlayer, context: UseOnContext?): Cast {
+        val site = ProfessionEffects.facingDefense(player, context)
+            ?: return Cast("没有面向敌方防御建筑的核心", null)
+        val definition = Buildings.byId(site.buildingId)
+        site.damage(MatchRules.CONQUEROR_DAMAGE, site.blockPos, player.scoreboardName, player)
+        val name = definition?.displayName ?: "建筑"
+        return Cast("对${name} 造成 ${MatchRules.CONQUEROR_DAMAGE} 点伤害", now + MatchRules.CONQUEROR_SKILL_COOLDOWN_TICKS)
+    }
+
+    private fun crown(now: Long, player: ServerPlayer): Cast {
+        val armed = ProfessionEffects.championArmed(player)
+        val amount = if (armed) MatchRules.CHAMPION_HEAL_ARMORED else MatchRules.CHAMPION_HEAL
+        if (armed) ProfessionEffects.clearHarmful(player)
+        player.heal(amount.toFloat())
+        val text = if (armed) "恢复 $amount 点生命，并清除负面效果" else "恢复 $amount 点生命"
+        return Cast(text, now + MatchRules.CHAMPION_SKILL_COOLDOWN_TICKS)
     }
 
     fun applyEffect(player: ServerPlayer, classId: String) {

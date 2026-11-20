@@ -12,6 +12,7 @@ import net.minecraft.world.entity.LivingEntity
 import net.minecraft.world.entity.Mob
 import net.minecraft.world.phys.Vec3
 import shina.wallwarRebirth.building.BuildingMining
+import shina.wallwarRebirth.building.BuildingStyles
 import shina.wallwarRebirth.building.Relay
 import shina.wallwarRebirth.match.Match
 import shina.wallwarRebirth.rules.MatchRules
@@ -87,6 +88,9 @@ class SummonedBrain(private val mob: Mob, private val unit: SummonedUnit) {
     private var fuseBuilding: SiteCoreBlockEntity? = null
 
     fun following(): Boolean = commandMode == CommandMode.FOLLOW
+
+    fun follows(player: ServerPlayer): Boolean =
+        commandMode == CommandMode.FOLLOW && followOwnerId == player.uuid
 
     fun called(): Boolean = summonPos != null
 
@@ -284,11 +288,6 @@ class SummonedBrain(private val mob: Mob, private val unit: SummonedUnit) {
     private fun livingScanDue(): Boolean {
         val spread = mob.id and Int.MAX_VALUE
         return (mob.tickCount + spread) % MonsterRules.REPATH_TICKS == 0
-    }
-
-    internal fun currentLivingIntent(level: ServerLevel): LivingEntity? {
-        if (phase != Phase.CHASE && phase != Phase.COUNTER) return null
-        return living(level, focusId)?.takeIf { it.isAlive && !it.isRemoved }
     }
 
     internal fun currentCoreIntent(level: ServerLevel): SiteCoreBlockEntity? {
@@ -917,6 +916,8 @@ class SummonedBrain(private val mob: Mob, private val unit: SummonedUnit) {
         var bestDist = Double.POSITIVE_INFINITY
         fun consider(core: SiteCoreBlockEntity, pos: BlockPos) {
             if (core.isRemoved || core.health <= 0 || core.team == unit.summonedTeam || skipsDefensive(core)) return
+            if (Buildings.neutral(core.buildingId)) return
+            if (BuildingStyles.monsterIgnoresPart(core, pos)) return
             val dx = mob.x - (pos.x + 0.5)
             val dy = mob.y - (pos.y + 0.5)
             val dz = mob.z - (pos.z + 0.5)
@@ -1163,17 +1164,6 @@ class SummonedBrain(private val mob: Mob, private val unit: SummonedUnit) {
         ) as? ServerPlayer
     }
 
-    private fun monstersInRadius(level: ServerLevel): List<SummonedUnit> = SummonedUnits.all().filter { other ->
-        other !== unit &&
-            other.living().level() === level &&
-            unit.summonedTeam != other.summonedTeam &&
-            distanceToEntity(other.living()) <= chaseRadius
-    }
-
-    private fun playersInRadius(level: ServerLevel): List<ServerPlayer> = level.players().filter { player ->
-        isHostilePlayer(player) && distanceToEntity(player) <= chaseRadius
-    }
-
     private fun nearestEnemy(enemies: List<LivingEntity>): LivingEntity? = enemies.minWithOrNull(
         compareBy<LivingEntity> { if (it is ServerPlayer) 1 else 0 }
             .thenBy { distanceToEntity(it) }
@@ -1202,6 +1192,7 @@ class SummonedBrain(private val mob: Mob, private val unit: SummonedUnit) {
 
     private fun isHostileCore(core: SiteCoreBlockEntity): Boolean {
         if (core.isRemoved || core.buildingId.isEmpty() || skipsDefensive(core)) return false
+        if (Buildings.neutral(core.buildingId)) return false
         if (core.blockPos in unreachableCores) return false
         return unit.summonedTeam != core.team
     }
@@ -1276,12 +1267,13 @@ class SummonedBrain(private val mob: Mob, private val unit: SummonedUnit) {
             return hypot(dx, dz)
         }
         if (horizontal(core.blockPos) <= range) return true
+        if (BuildingStyles.monsterCoreOnly(core.buildingId)) return false
         return core.partPositions.any { horizontal(it) <= range }
     }
 
     private fun skipsDefensive(core: SiteCoreBlockEntity): Boolean {
         if (!ignoreDefensiveBuildings) return false
-        return Buildings.byId(core.buildingId)?.defensive == true
+        return core.buildingId == Buildings.WALL.id
     }
 
     private fun distanceToEntity(entity: Entity): Double = mob.position().distanceTo(entity.position())
@@ -1351,8 +1343,6 @@ class SummonedBrain(private val mob: Mob, private val unit: SummonedUnit) {
         COUNTER,
     }
 
-    private data class CoreChoice(val core: SiteCoreBlockEntity, val distance: Double)
-
     private data class SiegeHit(val core: SiteCoreBlockEntity, val pos: BlockPos)
 
     fun applyCommand(player: ServerPlayer, follow: Boolean) {
@@ -1387,7 +1377,13 @@ class SummonedBrain(private val mob: Mob, private val unit: SummonedUnit) {
 
     private fun refreshCommand(level: ServerLevel) {
         if (commandMode != CommandMode.FOLLOW) return
+        if (ownerAiming()) return
         if (followOwner(level) == null) becomeExpedition(leaveHold = true)
+    }
+
+    private fun ownerAiming(): Boolean {
+        val id = followOwnerId ?: return false
+        return Targeting.isAiming(id)
     }
 
     private fun followOwner(level: ServerLevel): ServerPlayer? {
@@ -1409,6 +1405,7 @@ class SummonedBrain(private val mob: Mob, private val unit: SummonedUnit) {
     }
 
     private fun tickFollow(level: ServerLevel) {
+        if (ownerAiming()) return
         val owner = followOwner(level)
         if (owner == null) {
             becomeExpedition(leaveHold = true)

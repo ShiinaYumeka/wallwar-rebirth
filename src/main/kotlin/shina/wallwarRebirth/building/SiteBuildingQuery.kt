@@ -43,7 +43,9 @@ object SiteBuildingQuery : BuildingQuery {
         for (core in SiteCores.all()) {
             if (core.level !== level) continue
             add(core, core.blockPos)
-            for (part in core.partPositions) add(core, part)
+            for (part in core.partPositions) {
+                if (!BuildingStyles.monsterIgnoresPart(core, part)) add(core, part)
+            }
         }
         val reach = ceil(radius.toDouble()).toInt() + 1
         for (x in -reach..reach) {

@@ -35,6 +35,8 @@ data class LevelNote(val minLevel: Int, val text: String)
 
 enum class Footprint {
     SQUARE_7,
+    SQUARE_9,
+    SQUARE_5,
     SQUARE_3,
     SQUARE_1,
     WALL_9,
@@ -75,6 +77,10 @@ data class BuildingDefinition(
     val acceptsDiffusion: Boolean = false,
     val defensive: Boolean = false,
     val realWorldParts: Boolean = false,
+    val coverBelowLayers: Int = 1,
+    val requiresWorkshop: Boolean = false,
+    val teamUnique: Boolean = false,
+    val neutral: Boolean = false,
 ) {
     fun categoryText(): String = if (defensive) "${category.label}（防御）" else category.label
 

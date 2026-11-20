@@ -22,13 +22,9 @@ object BuildingFootprints {
             }
             cells
         }
-        Footprint.SQUARE_7 -> {
-            val cells = HashSet<BlockPos>()
-            for (dx in -3..3) {
-                for (dz in -3..3) cells.add(origin.offset(dx, 0, dz))
-            }
-            cells
-        }
+        Footprint.SQUARE_7 -> square(origin, 3)
+        Footprint.SQUARE_9 -> square(origin, 4)
+        Footprint.SQUARE_5 -> square(origin, 2)
     }
 
     fun rejection(
@@ -49,8 +45,18 @@ object BuildingFootprints {
 
     fun inside(definition: BuildingDefinition, x: Int, z: Int): Boolean = when (definition.footprint) {
         Footprint.SQUARE_7 -> x in -3..3 && z in -3..3
+        Footprint.SQUARE_9 -> x in -4..4 && z in -4..4
+        Footprint.SQUARE_5 -> x in -2..2 && z in -2..2
         Footprint.SQUARE_1 -> x == 0 && z == 0
         Footprint.SQUARE_3 -> x in -1..1 && z in -1..1
         Footprint.WALL_9 -> (z == 0 && x in -4..4) || (x == 0 && z in -4..4)
+    }
+
+    private fun square(origin: BlockPos, radius: Int): Set<BlockPos> {
+        val cells = HashSet<BlockPos>()
+        for (dx in -radius..radius) {
+            for (dz in -radius..radius) cells.add(origin.offset(dx, 0, dz))
+        }
+        return cells
     }
 }

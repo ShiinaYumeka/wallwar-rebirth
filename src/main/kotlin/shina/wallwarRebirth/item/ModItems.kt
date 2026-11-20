@@ -85,6 +85,15 @@ object ModItems {
     val SKILL_SWORDSMAN: Item = skill("skill_sprint", "急速冲刺", Items.FEATHER, "手持右键获得速度 II，持续 5 秒，冷却 30 秒")
 
     @JvmField
+    val SKILL_CONQUEROR: Item = skill("skill_suppress", "镇压", Items.IRON_AXE, "手持右键，对面向 4 格内的敌方防御建筑核心造成 8 点伤害，冷却 90 秒")
+
+    @JvmField
+    val SKILL_CHAMPION: Item = skill("skill_crown", "加冕", Items.GOLDEN_APPLE, "手持右键恢复 2 点生命；穿着整套钻石护甲时改为恢复 8 点并清除负面效果，冷却 60 秒")
+
+    @JvmField
+    val SKILL_COMMANDER: Item = skill("skill_dispatch", "调度", Items.GOAT_HORN, "手持右键，在这座兵营满血时回收它，冷却 30 秒")
+
+    @JvmField
     val TERMINAL: Item = register("portable_terminal") { properties ->
         PortableTerminalItem(
             properties = properties.stacksTo(1)
@@ -259,12 +268,30 @@ object ModItems {
     @JvmField
     val CORE_FARMLAND: Item = core("core_farmland", "农田核心", Items.COMPOSTER, "farmland")
 
+    @JvmField
+    val CORE_WORKSHOP: Item = core("core_workshop", "晶核工坊核心", Items.BLAST_FURNACE, "workshop")
+
+    @JvmField
+    val CORE_CRYSTAL_FURNACE: Item = core("core_crystal_furnace", "晶化反应炉核心", Items.FURNACE, "crystal_furnace")
+
+    @JvmField
+    val CORE_GUIDED_CANNON: Item = core("core_guided_cannon", "晶核制导炮核心", Items.TNT, "guided_cannon")
+
+    @JvmField
+    val CORE_TELEPORT_SPIRE: Item = core("core_teleport_spire", "传送尖塔核心", Items.AMETHYST_SHARD, "teleport_spire")
+
+    @JvmField
+    val CORE_QUAKE: Item = core("core_quake", "晶震装置核心", Items.LODESTONE, "quake")
+
     fun init() {
         MENU
         SKILL_MINER
         SKILL_WRECKER
         SKILL_BASTION
         SKILL_SWORDSMAN
+        SKILL_CONQUEROR
+        SKILL_CHAMPION
+        SKILL_COMMANDER
         REINFORCE
         REINFORCE_TWO
         DIFFUSION
@@ -297,6 +324,11 @@ object ModItems {
         CORE_RELAY
         CORE_PILLAGER
         CORE_FARMLAND
+        CORE_WORKSHOP
+        CORE_CRYSTAL_FURNACE
+        CORE_GUIDED_CANNON
+        CORE_TELEPORT_SPIRE
+        CORE_QUAKE
     }
 
     private fun skill(path: String, name: String, icon: Item, lore: String): Item = register(path) { properties ->

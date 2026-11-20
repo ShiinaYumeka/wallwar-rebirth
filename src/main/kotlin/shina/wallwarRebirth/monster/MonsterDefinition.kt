@@ -120,7 +120,7 @@ data class MonsterDefinition(
         if (axe) lines.add("手持铁斧近战，对玩家伤害 ${playerAttack.toInt()}")
         if (miner) {
             lines.add("不主动攻击建筑和敌人，挨打后才反击")
-            lines.add("挖满 ${MatchRules.MINER_CARGO} 块矿后回本队基地，每 ${MatchRules.MINER_ORES_PER_CYCLE} 块让基地按当前等级和模块生产一次，钻石仍按 ${MatchRules.BASE_DIAMOND_PERCENT}% 概率")
+            lines.add("挖满 ${MatchRules.MINER_CARGO} 块矿后回本队基地，每 ${MatchRules.MINER_ORES_PER_CYCLE} 块让基地按当前等级和模块生产一次，钻石按 ${MatchRules.BASE_DIAMOND_PERCENT}% 概率，本队有晶核工坊时为 ${MatchRules.WORKSHOP_DIAMOND_PERCENT}%")
             lines.add("交矿时卡住约 1 秒，会先走近 1.5 格，还卡住就换到旁边再靠近")
             lines.add("死亡时按身上的矿计数掉落等量铁锭和等量铜锭")
         }
@@ -145,14 +145,11 @@ object MonsterRules {
     const val STUCK_HORIZONTAL = MatchRules.STUCK_HORIZONTAL
     const val SIEGE_GIVE_UP_TICKS = MatchRules.SIEGE_GIVE_UP_TICKS
     const val SIEGE_GIVE_UP_RANGE = MatchRules.SIEGE_GIVE_UP_RANGE
-    const val CHASE_RADIUS_MAX = MatchRules.CHASE_RADIUS_MAX
-    const val CHASE_RADIUS_START = MatchRules.CHASE_RADIUS_START
     const val RADIUS_RECOVER_PER_SECOND = MatchRules.RADIUS_RECOVER_PER_SECOND
     const val RADIUS_SHRINK_PER_SECOND = MatchRules.RADIUS_SHRINK_PER_SECOND
     const val CHASE_LOSE_INTEREST_TICKS = MatchRules.CHASE_LOSE_INTEREST_TICKS
     const val COUNTER_END_TICKS = MatchRules.COUNTER_END_TICKS
     const val SECOND_TICKS = MatchRules.TICKS_PER_SECOND
-    const val MELEE_INTERVAL_TICKS = MatchRules.BUILDING_HIT_TICKS
     const val REPATH_TICKS = MatchRules.REPATH_TICKS
     const val SKELETON_BOW_RANGE = MatchRules.SKELETON_BOW_RANGE
     const val SKELETON_BOW_SPEED = MatchRules.SKELETON_BOW_SPEED

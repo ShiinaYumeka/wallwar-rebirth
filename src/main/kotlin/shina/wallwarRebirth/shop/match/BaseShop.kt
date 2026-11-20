@@ -14,11 +14,16 @@ import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
 import shina.wallwarRebirth.WallwarMod
 import shina.wallwarRebirth.building.BuildingMenus
+import shina.wallwarRebirth.building.Buildings
 import shina.wallwarRebirth.building.ModuleSlot
 import shina.wallwarRebirth.building.SiteCoreBlockEntity
+import shina.wallwarRebirth.building.SiteCores
+import shina.wallwarRebirth.building.SuperWeapons
+import shina.wallwarRebirth.item.BuildingCoreItem
 import shina.wallwarRebirth.gui.ItemStackBuilder
 import shina.wallwarRebirth.item.ModItems
 import shina.wallwarRebirth.match.Match
+import shina.wallwarRebirth.profession.Classes
 import shina.wallwarRebirth.profession.ProfessionEffects
 import shina.wallwarRebirth.rules.MatchRules
 import shina.wallwarRebirth.shop.ShopSession
@@ -63,7 +68,7 @@ object BaseShop {
         val goods = listings(currentPage)
         val sheets = when (currentPage) {
             Page.WAREHOUSE -> 2
-            Page.BASE -> 1
+            Page.BASE, Page.BUILDING -> 1
             else -> (goods.maxOfOrNull { it.row / ROWS } ?: 0) + 1
         }
         val current = sheet.coerceIn(0, (sheets - 1).coerceAtLeast(0))
@@ -71,11 +76,22 @@ object BaseShop {
         for (tab in Page.entries) {
             items.add(Tab(tab.tabSlot, tab, currentPage, site, access))
         }
-        for (good in goods) {
-            if (good.row / ROWS != current) continue
-            items.add(Offer(slotOf(good.row % ROWS, good.column), good.item))
+        if (currentPage == Page.BUILDING) {
+            items.add(CategoryLabel(buildingSlot(0, 0), "资源类"))
+            items.add(CategoryLabel(buildingSlot(0, 1), "生产类"))
+            items.add(CategoryLabel(buildingSlot(0, 2), "防御类"))
+            items.add(CategoryLabel(buildingSlot(0, 4), "超级武器类"))
+            items.add(CategoryLabel(buildingSlot(0, 5), "模块"))
+            for (good in goods) {
+                items.add(BuildingOffer(buildingSlot(good.row, good.column), good.item, site))
+            }
+        } else {
+            for (good in goods) {
+                if (good.row / ROWS != current) continue
+                items.add(Offer(slotOf(good.row % ROWS, good.column), good.item))
+            }
+            if (sheets > 1) items.add(PageTurn(PAGE_SLOT, site, currentPage, current, sheets, access))
         }
-        if (sheets > 1) items.add(PageTurn(PAGE_SLOT, site, currentPage, current, sheets, access))
         val reserved = items.map { it.index() }.toSet()
         PageGui(
             ShopSession(useTeamWarehouse = true),
@@ -86,7 +102,6 @@ object BaseShop {
             currentPage,
             current,
             reserved,
-            access,
         ).open()
     }
 
@@ -98,13 +113,16 @@ object BaseShop {
 
     private fun slotOf(row: Int, column: Int): Int = (row + 2) * 9 + column
 
+    private fun buildingSlot(row: Int, column: Int): Int = (row + 1) * 9 + column
+
+
     private fun listings(page: Page): List<Listing> = when (page) {
         Page.WEAPON -> listOf(
             tool(0, 0, Items.IRON_SWORD, "iron", MatchRules.SWORD_MATERIAL),
             tool(0, 1, Items.IRON_AXE, "iron", MatchRules.AXE_MATERIAL),
             tool(0, 2, Items.IRON_PICKAXE, "iron", MatchRules.PICKAXE_MATERIAL),
             tool(0, 3, Items.IRON_SHOVEL, "iron", MatchRules.SHOVEL_MATERIAL),
-            tool(0, 4, Items.IRON_SPEAR, "iron", MatchRules.SPEAR_MATERIAL),
+            tool(0, 4, Items.IRON_SPEAR, "iron", MatchRules.IRON_SPEAR_IRON),
             tool(0, 5, Items.BOW, "iron", MatchRules.BOW_IRON),
             tool(0, 6, Items.ARROW, "iron", MatchRules.ARROW_IRON, MatchRules.ARROW_COUNT),
             tool(1, 0, Items.DIAMOND_SWORD, "diamond", MatchRules.SWORD_MATERIAL),
@@ -134,7 +152,7 @@ object BaseShop {
         Page.BASE, Page.WAREHOUSE -> emptyList()
         Page.BUILDING -> listOf(
             listing(
-                0,
+                1,
                 0,
                 ItemStack(ModItems.CORE_RELAY),
                 mapOf(
@@ -143,31 +161,62 @@ object BaseShop {
                 ),
             ),
             listing(
+                2,
                 0,
-                1,
                 ItemStack(ModItems.CORE_FARMLAND),
                 mapOf(
                     WallwarMod.idOf("iron") to MatchRules.FARMLAND_PRICE_IRON,
                     WallwarMod.idOf("copper") to MatchRules.FARMLAND_PRICE_COPPER,
                 ),
             ),
-            listing(1, 0, ItemStack(ModItems.CORE_BARRACKS), iron(MatchRules.BARRACKS_PRICE_IRON)),
-            listing(1, 1, ItemStack(ModItems.CORE_PILLAGER), iron(MatchRules.PILLAGER_TOWER_PRICE_IRON)),
-            listing(2, 0, ItemStack(ModItems.CORE_WALL), copper(MatchRules.WALL_PRICE_COPPER)),
-            listing(2, 1, ItemStack(ModItems.CORE_TOWER), copper(MatchRules.TOWER_PRICE_COPPER)),
-            listing(2, 2, ItemStack(ModItems.CORE_TESLA), copper(MatchRules.TESLA_PRICE_COPPER)),
+            listing(1, 1, ItemStack(ModItems.CORE_BARRACKS), iron(MatchRules.BARRACKS_PRICE_IRON)),
+            listing(2, 1, ItemStack(ModItems.CORE_PILLAGER), iron(MatchRules.PILLAGER_TOWER_PRICE_IRON)),
             listing(
-                2,
                 3,
-                ItemStack(ModItems.CORE_CANNON),
+                1,
+                ItemStack(ModItems.CORE_WORKSHOP),
                 mapOf(
-                    WallwarMod.idOf("iron") to MatchRules.CANNON_PRICE_IRON,
-                    WallwarMod.idOf("copper") to MatchRules.CANNON_PRICE_COPPER,
+                    WallwarMod.idOf("diamond") to MatchRules.WORKSHOP_PRICE_DIAMOND,
+                    WallwarMod.idOf("lapis") to MatchRules.WORKSHOP_PRICE_LAPIS,
                 ),
             ),
-            listing(3, 0, ItemStack(ModItems.REINFORCE), lapis(MatchRules.MODULE_LAPIS)),
-            listing(3, 1, ItemStack(ModItems.REINFORCE_TWO), lapis(MatchRules.MODULE_TWO_LAPIS)),
-            listing(3, 2, ItemStack(ModItems.DIFFUSION), lapis(MatchRules.MODULE_DIFFUSION_LAPIS)),
+            listing(
+                4,
+                1,
+                ItemStack(ModItems.CORE_CRYSTAL_FURNACE),
+                mapOf(
+                    WallwarMod.idOf("iron") to MatchRules.CRYSTAL_FURNACE_PRICE_IRON,
+                    WallwarMod.idOf("copper") to MatchRules.CRYSTAL_FURNACE_PRICE_COPPER,
+                ),
+            ),
+            listing(1, 2, ItemStack(ModItems.CORE_WALL), copper(MatchRules.WALL_PRICE_COPPER)),
+            listing(2, 2, ItemStack(ModItems.CORE_TOWER), copper(MatchRules.TOWER_PRICE_COPPER)),
+            listing(3, 2, ItemStack(ModItems.CORE_TESLA), copper(MatchRules.TESLA_PRICE_COPPER)),
+            listing(1, 3, ItemStack(ModItems.CORE_CANNON), copper(MatchRules.CANNON_PRICE_COPPER)),
+            listing(2, 3, ItemStack(ModItems.CORE_QUAKE), diamond(MatchRules.QUAKE_PRICE_DIAMOND)),
+            listing(
+                1,
+                4,
+                ItemStack(ModItems.CORE_GUIDED_CANNON),
+                mapOf(
+                    WallwarMod.idOf("copper") to MatchRules.GUIDED_CANNON_PRICE_COPPER,
+                    WallwarMod.idOf("iron") to MatchRules.GUIDED_CANNON_PRICE_IRON,
+                    WallwarMod.idOf("diamond") to MatchRules.GUIDED_CANNON_PRICE_DIAMOND,
+                ),
+            ),
+            listing(
+                2,
+                4,
+                ItemStack(ModItems.CORE_TELEPORT_SPIRE),
+                mapOf(
+                    WallwarMod.idOf("iron") to MatchRules.TELEPORT_SPIRE_PRICE_IRON,
+                    WallwarMod.idOf("copper") to MatchRules.TELEPORT_SPIRE_PRICE_COPPER,
+                    WallwarMod.idOf("diamond") to MatchRules.TELEPORT_SPIRE_PRICE_DIAMOND,
+                ),
+            ),
+            listing(1, 5, ItemStack(ModItems.REINFORCE), lapis(MatchRules.MODULE_LAPIS)),
+            listing(2, 5, ItemStack(ModItems.REINFORCE_TWO), lapis(MatchRules.MODULE_TWO_LAPIS)),
+            listing(3, 5, ItemStack(ModItems.DIFFUSION), lapis(MatchRules.MODULE_DIFFUSION_LAPIS)),
         )
     }
 
@@ -179,6 +228,8 @@ object BaseShop {
     private fun copper(count: Int) = mapOf(WallwarMod.idOf("copper") to count)
 
     private fun lapis(count: Int) = mapOf(WallwarMod.idOf("lapis") to count)
+
+    private fun diamond(count: Int) = mapOf(WallwarMod.idOf("diamond") to count)
 
     private fun listing(row: Int, column: Int, stack: ItemStack, costs: Map<Identifier, Int>): Listing {
         val id = BuiltInRegistries.ITEM.getKey(stack.item)
@@ -206,7 +257,6 @@ private class PageGui(
     private val page: BaseShop.Page,
     sheet: Int,
     reserved: Set<Int>,
-    private val access: BaseShop.Access,
 ) : ShopGui(session, player, layers, 6) {
     init {
         title = Component.literal(heading)
@@ -216,7 +266,7 @@ private class PageGui(
         }
         val barrier = ItemStack(Items.BARRIER).hideTooltip()
         for (slot in listOf(4, 5)) setSlot(slot, GuiElement(barrier, GuiElementInterface.EMPTY_CALLBACK))
-        if (page != BaseShop.Page.WAREHOUSE) {
+        if (page != BaseShop.Page.WAREHOUSE && page != BaseShop.Page.BUILDING) {
             val marker = ItemStack(Items.LIME_STAINED_GLASS_PANE).hideTooltip()
             setSlot(9 + page.tabSlot, GuiElement(marker, GuiElementInterface.EMPTY_CALLBACK))
         }
@@ -359,6 +409,102 @@ private class Offer(
             ItemStackBuilder.of(offer.icon).build()
         } else {
             ItemStackBuilder.of(offer.icon).addCostInfo(gui.player, offer, locked, useTeamWarehouse = true).build()
+        }
+        built.remove(DataComponents.CUSTOM_MODEL_DATA)
+        return built
+    }
+}
+
+
+private class CategoryLabel(
+    private val slot: Int,
+    private val title: String,
+) : ShopItemWithIndex {
+    override fun index(): Int = slot
+
+    override fun getDefaultIcon(): ItemStack = icon()
+
+    override fun getIcon(gui: ShopGui, viewModel: ShopItemViewModel): ItemStack = icon()
+
+    override fun getBaseItem(gui: ShopGui, clickType: ClickType, viewModel: ShopItemViewModel): BaseShopItem =
+        BaseShopItem(icon(), emptyMap(), emptyList(), false, 0, true, null)
+
+    override fun executeBuying(item: BaseShopItem, gui: ShopGui, clickType: ClickType, materialSuffix: Component?) {
+    }
+
+    private fun icon(): ItemStack =
+        ItemStackBuilder.of(Items.NAME_TAG)
+            .setName(Component.literal(title).withStyle { style -> style.withColor(ChatFormatting.YELLOW).withItalic(false) })
+            .build()
+}
+
+private class BuildingOffer(
+    private val slot: Int,
+    private val offer: BaseShopItem,
+    private val site: SiteCoreBlockEntity,
+) : ShopItemWithIndex {
+    override fun index(): Int = slot
+
+    override fun getDefaultIcon(): ItemStack = shown(null, lockReason(null))
+
+    override fun getIcon(gui: ShopGui, viewModel: ShopItemViewModel): ItemStack = shown(gui, lockReason(gui))
+
+    override fun getBaseItem(gui: ShopGui, clickType: ClickType, viewModel: ShopItemViewModel): BaseShopItem = offer
+
+    override fun isLocked(gui: ShopGui, item: BaseShopItem?): Boolean = !Match.isFight() || lockReason(gui) != null
+
+    override fun updateView(gui: ShopGui, viewModel: ShopItemViewModel) {
+        val page = gui as? PageGui
+        gui.session.valid = page?.stillOpen() == true
+    }
+
+    override fun executeBuying(item: BaseShopItem, gui: ShopGui, clickType: ClickType, materialSuffix: Component?) {
+        if (lockReason(gui) != null) return
+        val player = gui.player
+        if (ProfessionEffects.givePurchased(player, item)) {
+            if (!item.hideBuyText) player.sendSystemMessage(ProfessionEffects.boughtMessage(item, materialSuffix))
+        } else {
+            super.executeBuying(item, gui, clickType, materialSuffix)
+        }
+        ProfessionEffects.refundIfBastionWall(player, item)
+    }
+
+    private fun lockReason(gui: ShopGui?): String? {
+        val player = gui?.player ?: return null
+        val world = player.level()
+        val team = site.team.ifEmpty { player.team?.name ?: "" }
+        val item = offer.icon.item as? BuildingCoreItem ?: return null
+        val definition = Buildings.byId(item.coreBuildingId()) ?: return null
+        if (definition.requiresWorkshop && !SiteCores.hasLiveWorkshop(world, team)) {
+            return "需要本队已放下且仍存在的晶核工坊"
+        }
+        if (definition.teamUnique && SuperWeapons.teamOwns(world, team, definition.id)) {
+            return "本队已有一座该种超级武器"
+        }
+        if (definition.id == Buildings.BARRACKS.id) {
+            val member = Match.member(player.uuid)
+            if (member != null && Classes.isCommander(member.classLocked, member.classId)) {
+                return "指挥官不能再购买兵营"
+            }
+        }
+        return null
+    }
+
+    private fun shown(gui: ShopGui?, reason: String?): ItemStack {
+        if (reason != null) {
+            return ItemStackBuilder.of(Items.BARRIER)
+                .setName(Component.literal(offer.icon.hoverName.string).withStyle { style ->
+                    style.withColor(ChatFormatting.RED).withItalic(false)
+                })
+                .appendLore(Component.literal(reason).withStyle { style ->
+                    style.withColor(ChatFormatting.GRAY).withItalic(false)
+                })
+                .build()
+        }
+        val built = if (gui == null) {
+            ItemStackBuilder.of(offer.icon).build()
+        } else {
+            ItemStackBuilder.of(offer.icon).addCostInfo(gui.player, offer, !Match.isFight(), useTeamWarehouse = true).build()
         }
         built.remove(DataComponents.CUSTOM_MODEL_DATA)
         return built

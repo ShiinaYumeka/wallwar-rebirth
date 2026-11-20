@@ -16,6 +16,7 @@ import net.minecraft.world.level.block.Block
 import net.minecraft.world.level.block.state.BlockState
 import net.minecraft.world.phys.BlockHitResult
 import shina.wallwarRebirth.building.BuildingPlacement
+import shina.wallwarRebirth.building.SuperWeapons
 import shina.wallwarRebirth.building.Buildings
 import shina.wallwarRebirth.building.OminousBanners
 import shina.wallwarRebirth.building.ModSites
@@ -23,6 +24,8 @@ import shina.wallwarRebirth.building.SiteCoreBlockEntity
 import shina.wallwarRebirth.building.reportBuilding
 import shina.wallwarRebirth.item.core.PolymerInteractionType
 import shina.wallwarRebirth.match.Match
+import shina.wallwarRebirth.profession.Classes
+import shina.wallwarRebirth.profession.CommandPosts
 import xyz.nucleoid.packettweaker.PacketContext
 
 class BuildingCoreItem(
@@ -46,6 +49,32 @@ class BuildingCoreItem(
             return InteractionResult.FAIL
         }
         val definition = Buildings.byId(buildingId) ?: return InteractionResult.FAIL
+        val teamName = player.team?.name ?: ""
+        if (definition.teamUnique && SuperWeapons.teamOwns(world, teamName, definition.id, ignoreStack = context.itemInHand)) {
+            player.reportBuilding("本队已有一座${definition.displayName}")
+            return InteractionResult.FAIL
+        }
+        val commandPost = buildingId == Buildings.BARRACKS.id && CommandPosts.isTagged(context.itemInHand)
+        if (buildingId == Buildings.BARRACKS.id) {
+            val member = Match.member(player.uuid)
+            val commander = member != null && Classes.isCommander(member.classLocked, member.classId)
+            if (commander && !commandPost) {
+                player.reportBuilding("不能再放置兵营")
+                return InteractionResult.FAIL
+            }
+            if (!commander && commandPost) {
+                player.reportBuilding("只有指挥官可以放置这座兵营")
+                return InteractionResult.FAIL
+            }
+            if (commandPost && !Match.isFight()) {
+                player.reportBuilding("对局开始后才能放置这座兵营")
+                return InteractionResult.FAIL
+            }
+            if (commandPost && CommandPosts.placed(world, player.uuid) != null) {
+                player.reportBuilding("这座兵营已经放下")
+                return InteractionResult.FAIL
+            }
+        }
         val feet = context.clickedPos.relative(context.clickedFace)
         if (world.isOutsideBuildHeight(feet)) {
             player.reportBuilding("这个位置不能放置")
@@ -61,13 +90,15 @@ class BuildingCoreItem(
         val site = world.getBlockEntity(feet) as? SiteCoreBlockEntity
         val facing = Direction.byName(player.direction.serializedName) ?: player.direction
         val error = site?.assign(definition, false, player.team?.name ?: "", facing)
-        if (site == null || error != null) {
-            world.setBlock(feet, net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL)
+        val placed = placedSite(world, feet, definition.id)
+        if (site == null || error != null || placed == null) {
+            world.setBlock(feet, net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS or Block.UPDATE_SUPPRESS_DROPS)
             player.reportBuilding(error ?: "这个位置不能放置")
             return InteractionResult.FAIL
         }
+        if (commandPost) CommandPosts.install(placed, player)
         context.itemInHand.shrink(1)
-        BuildingPlacement.spawnAfterPlace(world, site)
+        BuildingPlacement.spawnAfterPlace(world, placed)
         player.sendSystemMessage(Component.literal("已放置${definition.displayName}"))
         return InteractionResult.SUCCESS
     }
@@ -113,6 +144,20 @@ class BuildingCoreItem(
         if (buildingId != Buildings.PILLAGER.id) return
         val lookup = context.registryWrapperLookup ?: return
         OminousBanners.apply(out, lookup)
+    }
+
+    fun coreBuildingId(): String = buildingId
+
+    private fun placedSite(world: ServerLevel, feet: net.minecraft.core.BlockPos, id: String): SiteCoreBlockEntity? {
+        val here = world.getBlockEntity(feet) as? SiteCoreBlockEntity
+        if (here != null && !here.isRemoved && here.buildingId == id) return here
+        var pos = feet.above()
+        repeat(64) {
+            val found = world.getBlockEntity(pos) as? SiteCoreBlockEntity
+            if (found != null && !found.isRemoved && found.buildingId == id) return found
+            pos = pos.above()
+        }
+        return null
     }
 
     override fun isIgnoringItemInteractionPlaySoundExceptedEntity(

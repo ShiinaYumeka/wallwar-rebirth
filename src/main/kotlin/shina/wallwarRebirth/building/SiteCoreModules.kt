@@ -34,7 +34,7 @@ internal fun SiteCoreBlockEntity.setModule(slot: ModuleSlot, stack: ItemStack) {
             val had = !reinforceTwo.isEmpty
             reinforceTwo = stack
             if (stack.isEmpty) reinforceTwoMineral = ""
-            if (!stack.isEmpty && buildingId == Buildings.BASE.id) healAge = 0
+            if (!stack.isEmpty && (buildingId == Buildings.BASE.id || buildingId == Buildings.MINERAL_REACTOR.id)) healAge = 0
             if (had && buildingId == Buildings.BARRACKS.id) {
                 val world = level as? ServerLevel
                 if (world != null) BarracksWork.dumpStock(this, world)
@@ -50,7 +50,7 @@ internal fun SiteCoreBlockEntity.setModule(slot: ModuleSlot, stack: ItemStack) {
 }
 
 internal fun SiteCoreBlockEntity.sanitizeMinerals(definition: BuildingDefinition) {
-    if (buildingId == Buildings.BASE.id) reinforceTwoMineral = ""
+    if (buildingId == Buildings.BASE.id || buildingId == Buildings.MINERAL_REACTOR.id) reinforceTwoMineral = ""
     val unlocked = definition.minerals().filter { buildingLevel >= it.minLevel }.map { SiteCoreBlockEntity.itemKey(it.item) }.toSet()
     if (reinforceMineral.isNotEmpty() && reinforceMineral !in unlocked) reinforceMineral = ""
 }
@@ -69,8 +69,17 @@ internal fun SiteCoreBlockEntity.clearModules() {
     dripQueue.clear()
 }
 
-internal fun SiteCoreBlockEntity.dropModule(world: Level, pos: BlockPos, stack: ItemStack) {
+internal fun dropModule(world: Level, pos: BlockPos, stack: ItemStack) {
     if (!stack.isEmpty) Containers.dropItemStack(world, pos.x + 0.5, pos.y + 0.5, pos.z + 0.5, stack.copy())
+}
+
+internal fun SiteCoreBlockEntity.dropInstalledModules() {
+    val world = level ?: return
+    dropModule(world, blockPos, reinforce)
+    dropModule(world, blockPos, reinforceTwo)
+    dropModule(world, blockPos, diffuse)
+    clearModules()
+    setChanged()
 }
 
 internal fun SiteCoreBlockEntity.storedSetMineral(slot: ModuleSlot, item: Item) {
