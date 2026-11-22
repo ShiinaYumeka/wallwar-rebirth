@@ -460,7 +460,7 @@ class SummonedBrain(private val mob: Mob, private val unit: SummonedUnit) {
             deliver(level)
             return
         }
-        minerPile.removeAll { !SurfaceOres.isOre(level.getBlockState(BlockPos.of(it)).block) }
+        minerPile.removeAll { !SurfaceOres.isMineableOre(level, BlockPos.of(it)) }
         minerIgnored.removeAll { !SurfaceOres.isOre(level.getBlockState(BlockPos.of(it)).block) }
         if (minerPile.isEmpty()) {
             if (mob.tickCount % MatchRules.TICKS_PER_SECOND != 0) {
@@ -481,10 +481,9 @@ class SummonedBrain(private val mob: Mob, private val unit: SummonedUnit) {
             mob.lookControl.setLookAt(Vec3.atCenterOf(pos))
             minerTicks++
             if (minerTicks < MatchRules.MINER_MINE_TICKS) return
-            level.destroyBlock(pos, false)
+            if (level.destroyBlock(pos, false)) minerCargo++
             minerPile.remove(target)
             minerIgnored.remove(target)
-            minerCargo++
             minerTicks = 0
             mob.swing(InteractionHand.MAIN_HAND)
         } else {

@@ -88,7 +88,7 @@ object BaseShop {
         } else {
             for (good in goods) {
                 if (good.row / ROWS != current) continue
-                items.add(Offer(slotOf(good.row % ROWS, good.column), good.item))
+                items.add(Offer(slotOf(good.row % ROWS, good.column), good.item, good.requiresWorkshop))
             }
             if (sheets > 1) items.add(PageTurn(PAGE_SLOT, site, currentPage, current, sheets, access))
         }
@@ -122,13 +122,21 @@ object BaseShop {
             tool(0, 1, Items.IRON_AXE, "iron", MatchRules.AXE_MATERIAL),
             tool(0, 2, Items.IRON_PICKAXE, "iron", MatchRules.PICKAXE_MATERIAL),
             tool(0, 3, Items.IRON_SHOVEL, "iron", MatchRules.SHOVEL_MATERIAL),
-            tool(0, 4, Items.IRON_SPEAR, "iron", MatchRules.IRON_SPEAR_IRON),
+            listing(
+                0,
+                4,
+                ItemStack(Items.TNT),
+                mapOf(
+                    WallwarMod.idOf("diamond") to MatchRules.SHOP_TNT_DIAMOND,
+                    WallwarMod.idOf("redstone") to MatchRules.SHOP_TNT_REDSTONE,
+                ),
+                requiresWorkshop = true,
+            ),
             tool(0, 5, Items.BOW, "iron", MatchRules.BOW_IRON),
             tool(0, 6, Items.ARROW, "iron", MatchRules.ARROW_IRON, MatchRules.ARROW_COUNT),
             tool(1, 0, Items.DIAMOND_SWORD, "diamond", MatchRules.SWORD_MATERIAL),
             tool(1, 1, Items.DIAMOND_AXE, "diamond", MatchRules.AXE_MATERIAL),
             tool(1, 2, Items.DIAMOND_PICKAXE, "diamond", MatchRules.PICKAXE_MATERIAL),
-            tool(1, 3, Items.DIAMOND_SHOVEL, "diamond", MatchRules.SHOVEL_MATERIAL),
             tool(1, 4, Items.DIAMOND_SPEAR, "diamond", MatchRules.SPEAR_MATERIAL),
             tool(1, 5, Items.CROSSBOW, "iron", MatchRules.CROSSBOW_IRON),
             tool(1, 6, Items.COOKED_BEEF, "iron", MatchRules.BEEF_IRON, MatchRules.BEEF_COUNT),
@@ -220,8 +228,8 @@ object BaseShop {
         )
     }
 
-    private fun tool(row: Int, column: Int, item: Item, material: String, cost: Int, count: Int = 1) =
-        listing(row, column, ItemStack(item, count), mapOf(WallwarMod.idOf(material) to cost))
+    private fun tool(row: Int, column: Int, item: Item, material: String, cost: Int, count: Int = 1, requiresWorkshop: Boolean = false) =
+        listing(row, column, ItemStack(item, count), mapOf(WallwarMod.idOf(material) to cost), requiresWorkshop)
 
     private fun iron(count: Int) = mapOf(WallwarMod.idOf("iron") to count)
 
@@ -231,7 +239,7 @@ object BaseShop {
 
     private fun diamond(count: Int) = mapOf(WallwarMod.idOf("diamond") to count)
 
-    private fun listing(row: Int, column: Int, stack: ItemStack, costs: Map<Identifier, Int>): Listing {
+    private fun listing(row: Int, column: Int, stack: ItemStack, costs: Map<Identifier, Int>, requiresWorkshop: Boolean = false): Listing {
         val id = BuiltInRegistries.ITEM.getKey(stack.item)
         val item = BaseShopItem(
             stack,
@@ -242,11 +250,11 @@ object BaseShop {
             false,
             Component.literal("商店只在战斗阶段可购买"),
         )
-        return Listing(row, column, item)
+        return Listing(row, column, item, requiresWorkshop)
     }
 }
 
-private data class Listing(val row: Int, val column: Int, val item: BaseShopItem)
+private data class Listing(val row: Int, val column: Int, val item: BaseShopItem, val requiresWorkshop: Boolean = false)
 
 private class PageGui(
     session: ShopSession,
@@ -273,6 +281,8 @@ private class PageGui(
         if (page == BaseShop.Page.WAREHOUSE) fillWarehouse(sheet)
         if (page == BaseShop.Page.BASE) BuildingMenus.paintBaseShop(this, site)
     }
+
+    fun siteTeam(): String = site.team
 
     override fun canSpectatorsClick(): Boolean = true
 
@@ -378,16 +388,17 @@ private class PageTurn(
 private class Offer(
     private val slot: Int,
     private val offer: BaseShopItem,
+    private val requiresWorkshop: Boolean = false,
 ) : ShopItemWithIndex {
     override fun index(): Int = slot
 
-    override fun getDefaultIcon(): ItemStack = shown(null, locked = false)
+    override fun getDefaultIcon(): ItemStack = shown(null, workshopLock(null))
 
-    override fun getIcon(gui: ShopGui, viewModel: ShopItemViewModel): ItemStack = shown(gui, isLocked(gui, offer))
+    override fun getIcon(gui: ShopGui, viewModel: ShopItemViewModel): ItemStack = shown(gui, lockReason(gui))
 
     override fun getBaseItem(gui: ShopGui, clickType: ClickType, viewModel: ShopItemViewModel): BaseShopItem = offer
 
-    override fun isLocked(gui: ShopGui, item: BaseShopItem?): Boolean = !Match.isFight()
+    override fun isLocked(gui: ShopGui, item: BaseShopItem?): Boolean = !Match.isFight() || workshopLock(gui) != null
 
     override fun updateView(gui: ShopGui, viewModel: ShopItemViewModel) {
         val page = gui as? PageGui
@@ -395,6 +406,7 @@ private class Offer(
     }
 
     override fun executeBuying(item: BaseShopItem, gui: ShopGui, clickType: ClickType, materialSuffix: Component?) {
+        if (workshopLock(gui) != null) return
         val player = gui.player
         if (ProfessionEffects.givePurchased(player, item)) {
             if (!item.hideBuyText) player.sendSystemMessage(ProfessionEffects.boughtMessage(item, materialSuffix))
@@ -404,7 +416,32 @@ private class Offer(
         ProfessionEffects.refundIfBastionWall(player, item)
     }
 
-    private fun shown(gui: ShopGui?, locked: Boolean): ItemStack {
+    private fun workshopLock(gui: ShopGui?): String? {
+        if (!requiresWorkshop) return null
+        val player = gui?.player ?: return "需要本队已放下且仍存在的晶核工坊"
+        val world = player.level()
+        val page = gui as? PageGui
+        val team = page?.siteTeam() ?: (player.team?.name ?: "")
+        if (team.isEmpty() || !SiteCores.hasLiveWorkshop(world, team)) {
+            return "需要本队已放下且仍存在的晶核工坊"
+        }
+        return null
+    }
+
+    private fun lockReason(gui: ShopGui?): String? = workshopLock(gui)
+
+    private fun shown(gui: ShopGui?, reason: String?): ItemStack {
+        if (reason != null) {
+            return ItemStackBuilder.of(Items.BARRIER)
+                .setName(Component.literal(offer.icon.hoverName.string).withStyle { style ->
+                    style.withColor(ChatFormatting.RED).withItalic(false)
+                })
+                .appendLore(Component.literal(reason).withStyle { style ->
+                    style.withColor(ChatFormatting.GRAY).withItalic(false)
+                })
+                .build()
+        }
+        val locked = gui != null && !Match.isFight()
         val built = if (gui == null) {
             ItemStackBuilder.of(offer.icon).build()
         } else {

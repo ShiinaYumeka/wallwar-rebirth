@@ -7,7 +7,6 @@ import net.minecraft.world.entity.LivingEntity
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
 import net.minecraft.world.entity.ai.attributes.Attributes
-import shina.wallwarRebirth.item.ModItems
 import shina.wallwarRebirth.rules.MatchRules
 import shina.wallwarRebirth.shop.match.TeamWarehouses
 import shina.wallwarRebirth.monster.MonsterDefinition
@@ -27,27 +26,6 @@ object BarracksSlots {
             stack.`is`(ItemTags.LOGS) ||
             (wheat && stack.`is`(Items.WHEAT))
 
-    fun acceptsEgg(stack: ItemStack): Boolean =
-        stack.`is`(ModItems.EGG_ZOMBIE) ||
-            stack.`is`(ModItems.EGG_SKELETON) ||
-            stack.`is`(ModItems.EGG_GOLEM) ||
-            stack.`is`(ModItems.EGG_SPIDER) ||
-            stack.`is`(ModItems.EGG_MINER) ||
-            stack.`is`(ModItems.EGG_HUSK) ||
-            stack.`is`(ModItems.EGG_DEATH_KNIGHT) ||
-            stack.`is`(ModItems.EGG_CREEPER) ||
-            stack.`is`(ModItems.EGG_CHARGED_CREEPER) ||
-            stack.`is`(ModItems.EGG_WARRIOR) ||
-            stack.`is`(ModItems.EGG_VILLAGER)
-}
-
-object TowerSlots {
-    fun acceptsEgg(stack: ItemStack): Boolean =
-        stack.`is`(ModItems.EGG_PILLAGER) ||
-            stack.`is`(ModItems.EGG_VINDICATOR) ||
-            stack.`is`(ModItems.EGG_EVOKER) ||
-            stack.`is`(ModItems.EGG_ILLUSIONER) ||
-            stack.`is`(ModItems.EGG_RAVAGER)
 }
 
 private class Producer(
@@ -87,11 +65,10 @@ object BarracksWork {
         return false
     }
 
-    fun releaseNow(site: SiteCoreBlockEntity, level: ServerLevel): Boolean = releaseOne(site, level)
-
     private fun produce(site: SiteCoreBlockEntity, level: ServerLevel, definition: MonsterDefinition) {
         if (!definition.productionReady) return
         if (site.buildingLevel < definition.rank) return
+        if (definition.requiresWorkshop && !SiteCores.hasLiveWorkshop(level, site.team)) return
         val costs = definition.cost.map { ItemAmount(it.item, it.count, it.name) }
         val warehouse = TeamWarehouses.of(site.team)
         if (!InventoryCosts.hasAll(site.barracksMaterials, warehouse, costs)) return

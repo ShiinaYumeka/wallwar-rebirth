@@ -215,6 +215,9 @@ object ModItems {
     val EGG_HUSK: Item = egg("summon_husk", "唤灵·尸壳", Items.HUSK_SPAWN_EGG, "husk")
 
     @JvmField
+    val EGG_ARMORED_HUSK: Item = egg("summon_armored_husk", "唤灵·重甲尸壳", Items.HUSK_SPAWN_EGG, "armored_husk")
+
+    @JvmField
     val EGG_DEATH_KNIGHT: Item = egg("summon_death_knight", "唤灵·骷髅死士", Items.SKELETON_SPAWN_EGG, "death_knight")
 
     @JvmField
@@ -306,6 +309,7 @@ object ModItems {
         EGG_SPIDER
         EGG_MINER
         EGG_HUSK
+        EGG_ARMORED_HUSK
         EGG_DEATH_KNIGHT
         EGG_CREEPER
         EGG_CHARGED_CREEPER

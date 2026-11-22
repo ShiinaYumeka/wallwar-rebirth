@@ -14,6 +14,7 @@ import net.minecraft.sounds.SoundEvents
 import net.minecraft.sounds.SoundSource
 import net.minecraft.util.random.WeightedList
 import net.minecraft.world.entity.Entity
+import net.minecraft.world.entity.MoverType
 import net.minecraft.world.entity.EntityType
 import net.minecraft.world.entity.LivingEntity
 import net.minecraft.world.entity.ai.attributes.Attributes
@@ -49,6 +50,8 @@ class CannonShell(type: EntityType<out CannonShell>, level: Level) : PrimedTnt(t
     var falloff: Double = MatchRules.CANNON_FALLOFF
     private var leftCore = false
     var manned: Boolean = false
+    var thrown: Boolean = false
+    private var mannedStopped = false
     private var flightTicks = 0
     private var guided = false
     private var climbing = false
@@ -88,6 +91,10 @@ class CannonShell(type: EntityType<out CannonShell>, level: Level) : PrimedTnt(t
 
     override fun tick() {
         val server = level() as? ServerLevel ?: return
+        if (thrown) {
+            tickThrown(server)
+            return
+        }
         if (Match.frozen(server) && !guided) return
         if (guided) {
             tickGuided(server)
@@ -187,6 +194,19 @@ class CannonShell(type: EntityType<out CannonShell>, level: Level) : PrimedTnt(t
         }
     }
 
+    private fun tickThrown(level: ServerLevel) {
+        if (Match.frozen(level)) return
+        setDeltaMovement(deltaMovement.add(0.0, -0.04, 0.0))
+        move(MoverType.SELF, deltaMovement)
+        setDeltaMovement(deltaMovement.scale(0.98))
+        if (onGround()) {
+            setDeltaMovement(deltaMovement.multiply(0.7, -0.5, 0.7))
+        }
+        val left = getFuse() - 1
+        setFuse(left)
+        if (left <= 0) detonate(level, position())
+    }
+
     private fun fillBlast(level: ServerLevel, center: Vec3, radius: Double) {
         val step = 1.75
         var x = -radius
@@ -234,13 +254,14 @@ class CannonShell(type: EntityType<out CannonShell>, level: Level) : PrimedTnt(t
         flightTicks++
         val rider = passengers.firstOrNull() as? ServerPlayer
         val here = position()
-        if (rider == null || !rider.isAlive) {
+        if (flightTicks >= MatchRules.CANNON_MANNED_TICKS) {
+            if (rider != null && rider.isAlive) CannonCrew.kill(level, rider, here)
             detonate(level, here)
             return
         }
-        if (flightTicks >= MatchRules.CANNON_MANNED_TICKS) {
-            CannonCrew.kill(level, rider, here)
-            detonate(level, here)
+        if (mannedStopped) return
+        if (rider == null || !rider.isAlive) {
+            mannedStopped = true
             return
         }
         val look = rider.lookAngle
@@ -249,8 +270,8 @@ class CannonShell(type: EntityType<out CannonShell>, level: Level) : PrimedTnt(t
         val impact = sweep(level, here, step, rider)
         if (impact != null) {
             setPos(impact.x, impact.y, impact.z)
-            CannonCrew.kill(level, rider, impact)
-            detonate(level, impact)
+            setDeltaMovement(Vec3.ZERO)
+            mannedStopped = true
             return
         }
         val next = here.add(step)
@@ -370,7 +391,7 @@ class CannonShell(type: EntityType<out CannonShell>, level: Level) : PrimedTnt(t
         }
         for (site in SiteCores.all()) {
             if (site.level !== level || site.isRemoved || site.health <= 0 || site.buildingId.isEmpty()) continue
-            if (site.blockPos == corePos) continue
+            if (!thrown && site.blockPos == corePos) continue
             if (cannonTeam == site.team) continue
             val box = coreBox(level, site.blockPos)
             if (distanceToBox(center, box) > powerRadius) continue
@@ -412,6 +433,8 @@ class CannonShell(type: EntityType<out CannonShell>, level: Level) : PrimedTnt(t
         output.putDouble("Falloff", falloff)
         output.putBoolean("LeftCore", leftCore)
         output.putBoolean("Manned", manned)
+        output.putBoolean("Thrown", thrown)
+        output.putBoolean("MannedStopped", mannedStopped)
         output.putInt("FlightTicks", flightTicks)
         output.putBoolean("Guided", guided)
         output.putBoolean("Climbing", climbing)
@@ -432,12 +455,14 @@ class CannonShell(type: EntityType<out CannonShell>, level: Level) : PrimedTnt(t
         falloff = input.getDoubleOr("Falloff", MatchRules.CANNON_FALLOFF)
         leftCore = input.getBooleanOr("LeftCore", false)
         manned = input.getBooleanOr("Manned", false)
+        thrown = input.getBooleanOr("Thrown", false)
+        mannedStopped = input.getBooleanOr("MannedStopped", false)
         flightTicks = input.getIntOr("FlightTicks", 0)
         guided = input.getBooleanOr("Guided", false)
         climbing = input.getBooleanOr("Climbing", false)
         targetX = input.getDoubleOr("TargetX", 0.5)
         targetZ = input.getDoubleOr("TargetZ", 0.5)
-        setFuse(FUSE_HOLD)
+        if (!thrown) setFuse(FUSE_HOLD)
     }
 
     private fun teamOf(entity: LivingEntity): String? = when (entity) {
@@ -447,6 +472,24 @@ class CannonShell(type: EntityType<out CannonShell>, level: Level) : PrimedTnt(t
     }
 
     private data class Impact(val cell: BlockPos, val point: Vec3)
+
+
+    private fun throwFrom(shooter: Entity, velocity: Float, inaccuracy: Float) {
+        val deg = PI / 180.0
+        val xRot = shooter.xRot.toDouble()
+        val yRot = shooter.yRot.toDouble()
+        val f = -sin(yRot * deg) * cos(xRot * deg)
+        val g = -sin(xRot * deg)
+        val h = cos(yRot * deg) * cos(xRot * deg)
+        val dir = Vec3(f, g, h).normalize().add(
+            random.triangle(0.0, 0.0172275 * inaccuracy.toDouble()),
+            random.triangle(0.0, 0.0172275 * inaccuracy.toDouble()),
+            random.triangle(0.0, 0.0172275 * inaccuracy.toDouble()),
+        ).scale(velocity.toDouble())
+        deltaMovement = dir
+        val motion = shooter.deltaMovement
+        deltaMovement = deltaMovement.add(motion.x, if (shooter.onGround()) 0.0 else motion.y, motion.z)
+    }
 
     companion object {
         private const val FUSE_HOLD = 30000
@@ -495,6 +538,23 @@ class CannonShell(type: EntityType<out CannonShell>, level: Level) : PrimedTnt(t
             return Vec3(site.blockPos.x + 0.5, top + 1.05, site.blockPos.z + 0.5)
         }
 
+        fun launchThrown(level: ServerLevel, player: ServerPlayer, team: String) {
+            val shell = CannonShell(ModMonsters.CANNON_SHELL, level)
+            shell.thrown = true
+            shell.cannonTeam = team
+            shell.corePos = BlockPos.ZERO
+            shell.centerDamage = MatchRules.CANNON_CENTER_DAMAGE[1]
+            shell.powerRadius = MatchRules.CANNON_POWER
+            shell.falloff = MatchRules.CANNON_FALLOFF
+            val look = player.lookAngle
+            val origin = player.eyePosition.add(look.scale(0.4))
+            shell.snapTo(origin.x, origin.y, origin.z, player.yRot, player.xRot)
+            shell.throwFrom(player, MatchRules.SHOP_TNT_SPEED, MatchRules.SHOP_TNT_INACCURACY)
+            shell.setFuse(MatchRules.SHOP_TNT_FUSE_TICKS)
+            level.addFreshEntity(shell)
+            level.playSound(null, player.blockPosition(), SoundEvents.TNT_PRIMED, SoundSource.PLAYERS, 1f, 1f)
+        }
+
         fun launch(level: ServerLevel, site: SiteCoreBlockEntity, aim: Vec3, centerDamage: Double, wide: Boolean) {
             val origin = Vec3.atCenterOf(site.blockPos)
             val motion = CannonFlight.velocity(origin, aim) ?: return
@@ -523,7 +583,7 @@ class CannonShell(type: EntityType<out CannonShell>, level: Level) : PrimedTnt(t
             shell.prime(
                 team = site.team,
                 core = site.blockPos.immutable(),
-                centerDamage = centerDamage,
+                centerDamage = centerDamage * MatchRules.CANNON_MANNED_DAMAGE_SCALE,
                 powerRadius = if (wide) MatchRules.CANNON_POWER_WIDE else MatchRules.CANNON_POWER,
                 falloff = if (wide) MatchRules.CANNON_FALLOFF_WIDE else MatchRules.CANNON_FALLOFF,
                 motion = Vec3.ZERO,

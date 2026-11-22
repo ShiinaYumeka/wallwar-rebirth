@@ -39,6 +39,8 @@ object ModMonsters {
         private set
     lateinit var HUSK: EntityType<SummonedHusk>
         private set
+    lateinit var ARMORED_HUSK: EntityType<SummonedArmoredHusk>
+        private set
     lateinit var DEATH_KNIGHT: EntityType<SummonedDeathknight>
         private set
     lateinit var CREEPER: EntityType<SummonedCreeper>
@@ -83,6 +85,8 @@ object ModMonsters {
         FabricDefaultAttributeRegistry.register(MINER, Zombie.createAttributes())
         HUSK = register("summoned_husk", ::SummonedHusk, MobCategory.MONSTER, 0.6f, 1.95f, 8)
         FabricDefaultAttributeRegistry.register(HUSK, Zombie.createAttributes())
+        ARMORED_HUSK = register("summoned_armored_husk", ::SummonedArmoredHusk, MobCategory.MONSTER, 0.6f, 1.95f, 8)
+        FabricDefaultAttributeRegistry.register(ARMORED_HUSK, Zombie.createAttributes())
         DEATH_KNIGHT = register("summoned_death_knight", ::SummonedDeathknight, MobCategory.MONSTER, 0.6f, 1.99f, 8)
         FabricDefaultAttributeRegistry.register(DEATH_KNIGHT, AbstractSkeleton.createAttributes())
         CREEPER = register("summoned_creeper", ::SummonedCreeper, MobCategory.MONSTER, 0.6f, 1.7f, 8)

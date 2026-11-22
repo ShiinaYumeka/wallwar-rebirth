@@ -16,7 +16,7 @@ object BuildingModuleEffects {
         }
         Buildings.TOWER.id -> when (slot) {
             ModuleSlot.PRIMARY -> listOf("一支箭最多命中 ${MatchRules.TOWER_PIERCE_HITS} 个敌对目标，命中后继续飞。")
-            ModuleSlot.SECONDARY -> listOf("射击间隔减少 25%，变为 ${towerIntervals()} 秒。")
+            ModuleSlot.SECONDARY -> listOf("射击间隔减少 40%，变为 ${towerIntervals()} 秒。")
             ModuleSlot.DIFFUSION -> listOf("一次射出三支箭，左右各偏 ${MatchRules.TOWER_SPREAD_DEGREES.toInt()} 度。")
         }
         Buildings.BARRACKS.id -> when (slot) {
@@ -41,7 +41,7 @@ object BuildingModuleEffects {
                 "攻击范围扩大 50%，${MatchRules.TESLA_RANGE.toInt()} 格变为 ${(MatchRules.TESLA_RANGE * MatchRules.TESLA_RANGE_SCALE).toInt()} 格。",
             )
             ModuleSlot.SECONDARY -> listOf(
-                "命中给予的挖掘疲劳从 I 提升到 II，仍持续 ${MatchRules.TESLA_HIT_FATIGUE_TICKS / MatchRules.TICKS_PER_SECOND} 秒。",
+                "命中给予的挖掘疲劳和虚弱都从 I 提升到 II。挖掘疲劳仍持续 ${MatchRules.TESLA_HIT_FATIGUE_TICKS / MatchRules.TICKS_PER_SECOND} 秒，虚弱仍持续 ${MatchRules.TESLA_HIT_WEAKNESS_TICKS / MatchRules.TICKS_PER_SECOND} 秒。",
             )
             ModuleSlot.DIFFUSION -> listOf("每次攻击时，对射程内已经有蓄风的敌方唤灵再造成一次本次的闪电伤害。")
         }
@@ -60,10 +60,10 @@ object BuildingModuleEffects {
                 "爆炸半径扩大 50%。威力半径 ${MatchRules.CANNON_POWER_WIDE.toInt()} 格，生物伤害在 ${MatchRules.CANNON_FALLOFF_WIDE.toInt()} 格归零。",
             )
             ModuleSlot.SECONDARY -> listOf(
-                "发射间隔减少 20%，变为 ${MatchRules.secondsText(MatchRules.CANNON_INTERVAL * 4 / 5)} 秒。",
+                "发射间隔减少 30%，变为 ${MatchRules.secondsText(MatchRules.CANNON_INTERVAL * 7 / 10)} 秒。",
             )
             ModuleSlot.DIFFUSION -> listOf(
-                "本队生存玩家潜行右键进入。有目标时蓄力完成后沿视线发射载人 TNT，撞上或 ${MatchRules.CANNON_MANNED_TICKS / MatchRules.TICKS_PER_SECOND} 秒后爆炸。",
+                "本队生存玩家潜行右键进入。有目标时蓄力完成后沿视线发射载人 TNT，碰到方块不会立即爆炸，固定 ${MatchRules.CANNON_MANNED_TICKS / MatchRules.TICKS_PER_SECOND} 秒后爆炸，爆炸伤害提升 25%。",
             )
         }
         else -> emptyList()
@@ -80,6 +80,6 @@ object BuildingModuleEffects {
     }
 
     private fun towerIntervals(): String = MatchRules.TOWER_INTERVAL.map { ticks ->
-        MatchRules.secondsText(ticks * 3 / 4)
+        MatchRules.secondsText(ticks * 3 / 5)
     }.distinct().joinToString(" / ")
 }

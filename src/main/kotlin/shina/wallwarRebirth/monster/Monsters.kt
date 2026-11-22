@@ -110,6 +110,30 @@ object Monsters {
         egg = ModItems.EGG_HUSK,
         undead = true,
         buildingsOnly = true,
+        movementSpeedScale = MatchRules.HUSK_SPEED_SCALE,
+    )
+
+    val ARMORED_HUSK = MonsterDefinition(
+        id = "armored_husk",
+        displayName = "唤灵·重甲尸壳",
+        rank = 2,
+        health = MatchRules.ARMORED_HUSK_HEALTH,
+        armor = MatchRules.ARMORED_HUSK_ARMOR,
+        playerAttack = MatchRules.ARMORED_HUSK_ATTACK,
+        buildingDamage = MatchRules.HUSK_BUILDING_DAMAGE,
+        buildingIntervalTicks = MatchRules.BUILDING_HIT_TICKS,
+        attackRange = MatchRules.BUILDING_ATTACK_RANGE,
+        cost = listOf(
+            MonsterCost(Items.IRON_INGOT, MatchRules.ARMORED_HUSK_COST_IRON, "铁锭"),
+            MonsterCost(Items.REDSTONE, MatchRules.ARMORED_HUSK_COST_REDSTONE, "红石"),
+        ),
+        baseProductionTicks = MatchRules.ZOMBIE_PRODUCTION_TICKS,
+        egg = ModItems.EGG_ARMORED_HUSK,
+        undead = true,
+        wornArmor = true,
+        sword = true,
+        requiresWorkshop = true,
+        movementSpeedScale = MatchRules.HUSK_SPEED_SCALE,
     )
 
     val DEATH_KNIGHT = MonsterDefinition(
@@ -322,7 +346,7 @@ object Monsters {
     )
 
     private val all = listOf(
-        ZOMBIE, SKELETON, GOLEM, SPIDER, MINER, HUSK, DEATH_KNIGHT, CREEPER, CHARGED_CREEPER, WARRIOR,
+        ZOMBIE, SKELETON, GOLEM, SPIDER, MINER, HUSK, ARMORED_HUSK, DEATH_KNIGHT, CREEPER, CHARGED_CREEPER, WARRIOR,
         PILLAGER, VINDICATOR, EVOKER, VEX, ILLUSIONER, RAVAGER, VILLAGER,
     )
 

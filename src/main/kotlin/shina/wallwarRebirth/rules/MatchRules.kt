@@ -122,9 +122,9 @@ object MatchRules {
     const val TESLA_RANGE_SCALE = 1.5
     const val TESLA_RING_ABOVE = 7.0
     val TESLA_DAMAGE = listOf(6.0, 10.0, 14.0)
-    const val TESLA_WIND_TICKS = 20 * TICKS_PER_SECOND
-    val TESLA_INTERVAL = listOf(10, 8, 6).map { it * TICKS_PER_SECOND }
-    const val TESLA_PRICE_COPPER = 32
+    const val TESLA_WIND_TICKS = 10 * TICKS_PER_SECOND
+    val TESLA_INTERVAL = listOf(5, 4, 3).map { it * TICKS_PER_SECOND }
+    const val TESLA_PRICE_COPPER = 24
     const val TESLA_UPGRADE_2_COPPER = 24
     const val TESLA_UPGRADE_3_COPPER = 24
     const val TESLA_HIT_BLINDNESS_TICKS = TICKS_PER_SECOND
@@ -134,6 +134,8 @@ object MatchRules {
     const val TESLA_HIT_FATIGUE_AMPLIFIER = 0
     const val TESLA_HIT_FATIGUE_AMPLIFIER_II = 1
     const val TESLA_HIT_WEAKNESS_TICKS = 5 * TICKS_PER_SECOND
+    const val TESLA_HIT_WEAKNESS_AMPLIFIER = 0
+    const val TESLA_HIT_WEAKNESS_AMPLIFIER_II = 1
     const val TESLA_TIE_DISTANCE = 0.001
 
     val BARRACKS_HEALTH = listOf(24, 24, 24)
@@ -232,7 +234,8 @@ object MatchRules {
     const val VILLAGER_COST_DIAMOND = 1
     const val VILLAGER_PRODUCTION_TICKS = 30 * TICKS_PER_SECOND
     const val CANNON_MANNED_STEP = 0.5
-    const val CANNON_MANNED_TICKS = 4 * TICKS_PER_SECOND
+    const val CANNON_MANNED_TICKS = 5 * TICKS_PER_SECOND
+    const val CANNON_MANNED_DAMAGE_SCALE = 1.25
 
     const val MINER_ZOMBIE_HEALTH = 60.0
     const val MINER_ZOMBIE_ARMOR = 15.0
@@ -248,6 +251,13 @@ object MatchRules {
     const val HUSK_HEALTH = 80.0
     const val HUSK_COST_REDSTONE = 2
     const val HUSK_BUILDING_DAMAGE = 1
+    const val HUSK_SPEED_SCALE = 0.75
+    const val ARMORED_HUSK_HEALTH = HUSK_HEALTH
+    const val ARMORED_HUSK_ARMOR = 15.0
+    const val IRON_SWORD_ATTACK = 5.0
+    const val ARMORED_HUSK_ATTACK = ZOMBIE_ATTACK + IRON_SWORD_ATTACK
+    const val ARMORED_HUSK_COST_IRON = 8
+    const val ARMORED_HUSK_COST_REDSTONE = 4
     const val DEATH_KNIGHT_HEALTH = 5.0
     const val DEATH_KNIGHT_ATTACK = 10.0
     const val DEATH_KNIGHT_COST_REDSTONE = 2
@@ -343,8 +353,12 @@ object MatchRules {
     const val AXE_MATERIAL = 3
     const val PICKAXE_MATERIAL = 3
     const val SHOVEL_MATERIAL = 1
-    const val SPEAR_MATERIAL = 1
-    const val IRON_SPEAR_IRON = 4
+    const val SPEAR_MATERIAL = 4
+    const val SHOP_TNT_DIAMOND = 1
+    const val SHOP_TNT_REDSTONE = 4
+    const val SHOP_TNT_FUSE_TICKS = 4 * TICKS_PER_SECOND
+    const val SHOP_TNT_SPEED = 1.5f
+    const val SHOP_TNT_INACCURACY = 1.0f
     const val HELMET_MATERIAL = 5
     const val CHESTPLATE_MATERIAL = 8
     const val LEGGINGS_MATERIAL = 7

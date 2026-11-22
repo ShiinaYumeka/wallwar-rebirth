@@ -18,6 +18,7 @@ object MonsterGuide {
         Monsters.SPIDER,
         Monsters.MINER,
         Monsters.HUSK,
+        Monsters.ARMORED_HUSK,
         Monsters.DEATH_KNIGHT,
         Monsters.CREEPER,
         Monsters.WARRIOR,
@@ -168,6 +169,9 @@ private fun supplement(definition: MonsterDefinition): List<String> {
         lines.add("挖满 ${MatchRules.MINER_CARGO} 块矿后回本队基地。铁镐加成为对玩家攻击的一部分。交矿卡住时会走近一点，还卡住就换个位置。")
     }
     if (definition.sword) lines.add("手持铁剑近战，挥击间隔与僵尸相同，伤害不含铁剑的原版攻击。")
+    if (definition.wornArmor && definition.sword) lines.add("一套铁甲提供护甲 ${definition.armor.toInt()}，铁甲和铁剑击杀不掉。")
+    if (definition.requiresWorkshop) lines.add("本队要有已放下且仍存在的晶核工坊才能开始制作。已经放出来的不受工坊被拆影响。")
+    if (definition.movementSpeedScale != 1.0) lines.add("基础移速是普通尸壳原速的 ${(definition.movementSpeedScale * 100).toInt()}%。")
     if (definition.copperGear) lines.add("铜甲和铜剑不掉，对玩家伤害不含铜剑的原版攻击。")
     if (definition.batch > 1) lines.add("一轮生产放出 ${definition.batch} 只。")
     if (definition.fangs) {

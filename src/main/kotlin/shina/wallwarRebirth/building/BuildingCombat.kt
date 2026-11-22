@@ -78,7 +78,7 @@ object BuildingCombat {
         val target = nearestTarget(site, level, range)
         TowerCrossbows.aim(site, level, target)
         val baseInterval = MatchRules.TOWER_INTERVAL[index]
-        val interval = if (site.reinforceTwo.isEmpty) baseInterval else baseInterval * 3 / 4
+        val interval = if (site.reinforceTwo.isEmpty) baseInterval else baseInterval * 3 / 5
         val (nextAge, fire) = IntervalGate.step(site.actionAge, interval, target != null)
         site.actionAge = nextAge
         if (!fire || target == null) return
@@ -109,7 +109,12 @@ object BuildingCombat {
             } else {
                 MatchRules.TESLA_HIT_FATIGUE_AMPLIFIER_II
             }
-            applyTeslaDebuffs(target, fatigue)
+            val weakness = if (site.reinforceTwo.isEmpty) {
+                MatchRules.TESLA_HIT_WEAKNESS_AMPLIFIER
+            } else {
+                MatchRules.TESLA_HIT_WEAKNESS_AMPLIFIER_II
+            }
+            applyTeslaDebuffs(target, fatigue, weakness)
         }
         if (player != null) applyTeslaSpark(player)
         for (extra in charged) {
@@ -138,14 +143,14 @@ object BuildingCombat {
             mob
         }
 
-    private fun applyTeslaDebuffs(target: LivingEntity, fatigueAmplifier: Int) {
+    private fun applyTeslaDebuffs(target: LivingEntity, fatigueAmplifier: Int, weaknessAmplifier: Int) {
         fun hidden(effect: net.minecraft.core.Holder<net.minecraft.world.effect.MobEffect>, ticks: Int, amplifier: Int) {
             target.addEffect(MobEffectInstance(effect, ticks, amplifier, false, false, true))
         }
         hidden(MobEffects.BLINDNESS, MatchRules.TESLA_HIT_BLINDNESS_TICKS, 0)
         hidden(MobEffects.SLOWNESS, MatchRules.TESLA_HIT_SLOWNESS_TICKS, MatchRules.TESLA_HIT_SLOWNESS_AMPLIFIER)
         hidden(MobEffects.MINING_FATIGUE, MatchRules.TESLA_HIT_FATIGUE_TICKS, fatigueAmplifier)
-        hidden(MobEffects.WEAKNESS, MatchRules.TESLA_HIT_WEAKNESS_TICKS, 0)
+        hidden(MobEffects.WEAKNESS, MatchRules.TESLA_HIT_WEAKNESS_TICKS, weaknessAmplifier)
     }
 
     private fun applyTeslaSpark(target: LivingEntity) {
@@ -185,7 +190,7 @@ object BuildingCombat {
 
     private fun tickCannon(site: SiteCoreBlockEntity, level: ServerLevel) {
         val index = (site.buildingLevel - 1).coerceIn(0, MatchRules.CANNON_CENTER_DAMAGE.lastIndex)
-        val interval = if (site.reinforceTwo.isEmpty) MatchRules.CANNON_INTERVAL else MatchRules.CANNON_INTERVAL * 4 / 5
+        val interval = if (site.reinforceTwo.isEmpty) MatchRules.CANNON_INTERVAL else MatchRules.CANNON_INTERVAL * 7 / 10
         val wide = !site.reinforce.isEmpty
         if (site.gunner != null && !site.diffuse.isEmpty) {
             val rider = CannonCrew.rider(site, level)

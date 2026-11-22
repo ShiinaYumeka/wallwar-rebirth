@@ -768,6 +768,93 @@ object UpdateNotices {
                 ),
             ),
         ),
+        UpdateNotice(
+            version = "1.1.1",
+            entries = listOf(
+                UpdateEntry(
+                    Items.TNT,
+                    "超级武器瞄准",
+                    listOf("晶核制导炮和传送尖塔统一用左键选点，再按左键确认。空手或持物都能操作，潜行取消"),
+                ),
+                UpdateEntry(
+                    Items.IRON_AXE,
+                    "职业技能",
+                    listOf("手持镇压或强力粘合剂右键建筑核心时，优先处理技能"),
+                ),
+                UpdateEntry(
+                    Items.WHEAT,
+                    "建筑拆除",
+                    listOf("移除农田、晶核工坊等建筑时，结构中的小麦和紫水晶等方块不再因支撑消失而掉落"),
+                ),
+                UpdateEntry(
+                    Items.IRON_PICKAXE,
+                    "矿工僵尸",
+                    listOf("不再选中建筑结构里的矿石，包括边角矿物反应堆里的矿石"),
+                ),
+                UpdateEntry(
+                    Items.CHEST,
+                    "商店",
+                    listOf(
+                        "下架铁长矛和钻石铲",
+                        "钻石矛造价改为钻石 ×4",
+                        "新增 TNT，售价钻石 ×1、红石 ×4；需要本队已放下且仍在的晶核工坊才能购买",
+                        "战斗阶段右键投出点燃的 TNT，固定引信 4 秒，碰到方块不会立即爆炸",
+                        "爆炸伤害与 2 级炮台相同：中心 30，威力半径 4，8 格外为 0；建筑按四分之一计算；不破坏、不引燃方块，不伤害友方和己方建筑",
+                    ),
+                ),
+                UpdateEntry(
+                    Items.HUSK_SPAWN_EGG,
+                    "尸壳",
+                    listOf(
+                        "基础移动速度降低 25%",
+                    ),
+                ),
+                UpdateEntry(
+                    Items.IRON_CHESTPLATE,
+                    "重甲尸壳",
+                    listOf(
+                        "新增兵种，售价铁锭 ×8、红石 ×4",
+                        "需要本队已放下且仍在的晶核工坊才能开始制作；已经放出来的不受工坊被拆影响",
+                        "80 生命，一套铁甲提供 15 护甲，铁剑，对玩家伤害 8",
+                        "移速与削弱后的尸壳相同",
+                        "索敌优先攻击建筑，但受伤会反击",
+                        "生产间隔、对建筑伤害等其余规则与尸壳相同",
+                    ),
+                ),
+                UpdateEntry(
+                    Items.LIGHTNING_ROD,
+                    "特斯拉塔",
+                    listOf(
+                        "购买改为铜锭 ×24",
+                        "命中给予的蓄风改为唤灵 10 秒、玩家 5 秒",
+                        "强化 2 除了把挖掘疲劳提升到 II，也会把虚弱提升到 II",
+                        "基础攻击间隔由 10 / 8 / 6 秒改为 5 / 4 / 3 秒",
+                    ),
+                ),
+                UpdateEntry(
+                    Items.CROSSBOW,
+                    "弩架",
+                    listOf(
+                        "强化 2 的射击间隔减少由 25% 提升到 40%，间隔变为 1.2 秒",
+                    ),
+                ),
+                UpdateEntry(
+                    Items.DISPENSER,
+                    "炮台",
+                    listOf(
+                        "强化 2 的发射间隔减少由 20% 提升到 30%，间隔变为 7 秒",
+                        "扩散的载人 TNT 碰到方块不会立即爆炸，固定 5 秒后爆炸，爆炸伤害提升 25%",
+                    ),
+                ),
+                UpdateEntry(
+                    Items.ANVIL,
+                    "建筑",
+                    listOf(
+                        "升级后生命回满，变为新等级的上限",
+                    ),
+                ),
+            ),
+        ),
     )
 
     fun latestIndex(): Int = all.lastIndex

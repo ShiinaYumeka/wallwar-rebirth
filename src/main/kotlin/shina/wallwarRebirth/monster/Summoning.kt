@@ -93,6 +93,7 @@ object Summoning {
         Monsters.ZOMBIE.id -> ModMonsters.ZOMBIE
         Monsters.MINER.id -> ModMonsters.MINER
         Monsters.HUSK.id -> ModMonsters.HUSK
+        Monsters.ARMORED_HUSK.id -> ModMonsters.ARMORED_HUSK
         Monsters.DEATH_KNIGHT.id -> ModMonsters.DEATH_KNIGHT
         Monsters.CREEPER.id, Monsters.CHARGED_CREEPER.id -> ModMonsters.CREEPER
         Monsters.WARRIOR.id -> ModMonsters.WARRIOR
@@ -112,6 +113,7 @@ object Summoning {
         Monsters.ZOMBIE.id -> SummonedZombie(ModMonsters.ZOMBIE, level)
         Monsters.MINER.id -> SummonedMiner(ModMonsters.MINER, level)
         Monsters.HUSK.id -> SummonedHusk(ModMonsters.HUSK, level)
+        Monsters.ARMORED_HUSK.id -> SummonedArmoredHusk(ModMonsters.ARMORED_HUSK, level)
         Monsters.DEATH_KNIGHT.id -> SummonedDeathknight(ModMonsters.DEATH_KNIGHT, level)
         Monsters.CREEPER.id, Monsters.CHARGED_CREEPER.id -> SummonedCreeper(ModMonsters.CREEPER, level)
         Monsters.WARRIOR.id -> SummonedWarrior(ModMonsters.WARRIOR, level)

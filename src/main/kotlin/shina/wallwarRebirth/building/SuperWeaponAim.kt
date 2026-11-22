@@ -41,6 +41,7 @@ object SuperWeaponAim {
         val kind: Kind,
         val savedMode: GameType,
         var selected: BlockPos? = null,
+        var lastClickTick: Long = Long.MIN_VALUE,
         var sneakArmed: Boolean = false,
     )
 
@@ -104,6 +105,9 @@ object SuperWeaponAim {
             return true
         }
         val surface = surfaceOf(level, player) ?: return true
+        val now = level.gameTime
+        if (session.lastClickTick != Long.MIN_VALUE && now - session.lastClickTick < 4L) return true
+        session.lastClickTick = now
         val selected = session.selected
         if (selected == null || selected != surface) {
             session.selected = surface
@@ -304,9 +308,9 @@ object SuperWeaponAim {
             if (selected) "已选定打击地点" else "选定打击地点"
         }
         val subtitle = if (session.kind == Kind.TELEPORT) {
-            if (selected) "再按右键确认传送，潜行取消" else "右键选定，潜行取消"
+            if (selected) "再按左键确认传送，潜行取消" else "左键选定，潜行取消"
         } else {
-            if (selected) "再按右键确认开炮，潜行取消" else "右键选定，潜行取消"
+            if (selected) "再按左键确认开炮，潜行取消" else "左键选定，潜行取消"
         }
         player.showTitle(Component.literal(title), Component.literal(subtitle), 0, 30, 0)
     }

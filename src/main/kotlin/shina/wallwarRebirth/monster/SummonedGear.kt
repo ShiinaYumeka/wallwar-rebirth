@@ -7,7 +7,9 @@ import net.minecraft.server.level.ServerLevel
 import net.minecraft.world.entity.EquipmentSlot
 import net.minecraft.world.entity.LivingEntity
 import net.minecraft.world.entity.Mob
+import net.minecraft.world.entity.ai.attributes.AttributeModifier
 import net.minecraft.world.entity.ai.attributes.Attributes
+import shina.wallwarRebirth.WallwarMod
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
 import net.minecraft.world.item.component.ItemAttributeModifiers
@@ -18,6 +20,20 @@ object SummonedGear {
         val worn = if (definition.wornArmor || definition.copperGear) 0.0 else definition.armor
         mob.getAttribute(Attributes.ARMOR)?.baseValue = worn
         mob.getAttribute(Attributes.ATTACK_DAMAGE)?.baseValue = definition.playerAttack
+        val speed = mob.getAttribute(Attributes.MOVEMENT_SPEED)
+        if (speed != null) {
+            val modifierId = WallwarMod.idOf("summon_speed")
+            speed.removeModifier(modifierId)
+            if (definition.movementSpeedScale != 1.0) {
+                speed.addPermanentModifier(
+                    AttributeModifier(
+                        modifierId,
+                        definition.movementSpeedScale - 1.0,
+                        AttributeModifier.Operation.ADD_MULTIPLIED_BASE,
+                    ),
+                )
+            }
+        }
         if (fill) mob.health = mob.maxHealth
     }
 

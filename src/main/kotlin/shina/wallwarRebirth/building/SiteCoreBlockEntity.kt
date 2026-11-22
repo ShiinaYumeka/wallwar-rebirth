@@ -374,7 +374,6 @@ class SiteCoreBlockEntity(pos: BlockPos, state: BlockState) : BlockEntity(ModSit
         if (buildingId == Buildings.WALL.id) {
             ProfessionEffects.refundWallUpgrade(player, next.costs)
         }
-        val oldMax = definition.maxHealth(buildingLevel)
         val oldCooldown = if (SuperWeapons.isSuperWeapon(definition.id)) {
             SuperWeapons.cooldownTicks(definition, buildingLevel)
         } else {
@@ -385,9 +384,7 @@ class SiteCoreBlockEntity(pos: BlockPos, state: BlockState) : BlockEntity(ModSit
             val cut = oldCooldown - SuperWeapons.cooldownTicks(definition, buildingLevel)
             if (cut > 0) weaponCooldown = (weaponCooldown - cut).coerceAtLeast(0)
         }
-        val newMax = definition.maxHealth(buildingLevel)
-        val delta = newMax - oldMax
-        health = if (delta >= 0) health + delta else minOf(health, newMax)
+        health = definition.maxHealth(buildingLevel)
         sanitizeMinerals(definition)
         val previous = partPositions.toList()
         partPositions.clear()

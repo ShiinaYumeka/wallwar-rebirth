@@ -28,6 +28,9 @@ object SiteCores {
         return null
     }
 
+    fun ownsBlock(level: Level, pos: BlockPos): Boolean =
+        cores.any { it.level === level && !it.isRemoved && (it.blockPos == pos || pos in it.partPositions) }
+
     fun insideBuilding(level: Level, pos: BlockPos): Boolean {
         for (core in all()) {
             if (core.level !== level || core.isRemoved || core.buildingId.isEmpty()) continue

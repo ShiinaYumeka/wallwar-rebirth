@@ -344,7 +344,7 @@ private fun seekLines(definition: BuildingDefinition): List<String> = when (defi
     Buildings.TOWER.id -> listOf("优先最近的、没有被实心方块挡住的敌方唤灵，没有再打没有被挡住的敌方玩家。不打我方，不拆建筑。")
     Buildings.TESLA.id -> listOf("16 格内优先最近的、没有蓄风的敌方玩家，没有再打没有蓄风的敌方唤灵。已有蓄风的不选。不拆建筑。旁观与创造不选。")
     Buildings.CANNON.id -> listOf("射程内先锁最近的敌方唤灵，没有再锁最近的敌方玩家，两类都没有时锁敌方建筑（基地也算）。")
-    Buildings.GUIDED_CANNON.id -> listOf("冷却就绪后在面板开炮，以旁观视角从天上选定地表，右键选定后再按右键确认。潜行取消，不进入冷却。爆炸不破坏方块，不伤友方、无队伍和自身。")
+    Buildings.GUIDED_CANNON.id -> listOf("冷却就绪后在面板开炮，以旁观视角从天上选定地表，左键选定后再按左键确认。潜行取消，不进入冷却。爆炸不破坏方块，不伤友方、无队伍和自身。")
     Buildings.TELEPORT_SPIRE.id -> listOf("冷却就绪后在面板传送，选定方式与晶核制导炮相同。确认后玩家传到安全落点，正在跟随的同队唤灵一起传；没有落点的唤灵留下。")
     Buildings.QUAKE.id -> listOf("不要求视线。优先最大生命值最高的敌方，然后更近，然后当前生命更低，然后更小标识。溅射伤害相等、无衰减。只打敌方玩家和唤灵。")
     else -> emptyList()

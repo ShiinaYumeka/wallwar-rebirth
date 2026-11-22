@@ -118,7 +118,7 @@ object Buildings {
         production = emptyList(),
         healthByLevel = MatchRules.TESLA_HEALTH,
         icon = Items.LIGHTNING_ROD,
-        summary = "按等级间隔电击 16 格内没有蓄风的敌人，优先玩家。命中造成闪电伤害并给予 20 秒蓄风；玩家的蓄风时间减半。蓄风只显示计时，死亡不爆炸。",
+        summary = "按等级间隔电击 16 格内没有蓄风的敌人，优先玩家。命中造成闪电伤害并给予 ${MatchRules.secondsText(MatchRules.TESLA_WIND_TICKS)} 秒蓄风；玩家的蓄风时间减半。蓄风只显示计时，死亡不爆炸。",
         footprint = Footprint.SQUARE_3,
         details = listOf(
             LevelNote(1, teslaNote(0)),

@@ -462,6 +462,8 @@ object BuildingStyles {
     const val BLOCKED = "这个位置有方块挡着"
 
     private const val CLEAR =
-        net.minecraft.world.level.block.Block.UPDATE_CLIENTS or net.minecraft.world.level.block.Block.UPDATE_SUPPRESS_DROPS
+        net.minecraft.world.level.block.Block.UPDATE_CLIENTS or
+            net.minecraft.world.level.block.Block.UPDATE_SUPPRESS_DROPS or
+            net.minecraft.world.level.block.Block.UPDATE_KNOWN_SHAPE
 }
 

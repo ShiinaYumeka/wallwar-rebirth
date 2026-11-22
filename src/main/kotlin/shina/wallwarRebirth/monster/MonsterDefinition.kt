@@ -34,6 +34,8 @@ data class MonsterDefinition(
     val axe: Boolean = false,
     val civilian: Boolean = false,
     val buildingsOnly: Boolean = false,
+    val requiresWorkshop: Boolean = false,
+    val movementSpeedScale: Double = 1.0,
     val chaseRadiusStart: Double = MatchRules.CHASE_RADIUS_START,
     val chaseRadiusMax: Double = MatchRules.CHASE_RADIUS_MAX,
 ) {
@@ -126,6 +128,8 @@ data class MonsterDefinition(
         }
         if (sword) lines.add("手持铁剑近战，挥击间隔与僵尸相同，伤害不含铁剑的原版攻击")
         if (copperGear) lines.add("铜甲和铜剑不掉，对玩家伤害不含铜剑的原版攻击")
+        if (wornArmor && sword) lines.add("一套铁甲提供护甲 ${armor.toInt()}，铁甲和铁剑击杀不掉")
+        if (requiresWorkshop) lines.add("本队要有已放下且仍存在的晶核工坊才能开始制作。已经放出来的不受工坊被拆影响。")
         if (batch > 1) lines.add("一轮生产放出 $batch 只")
         lines.add("消耗 ${costText()}")
         lines.add("当前产出间隔 ${MatchRules.secondsText(productionTicks(barracksLevel))} 秒")

@@ -21,6 +21,8 @@ import net.minecraft.world.item.BlockItem
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
 import net.minecraft.world.item.context.BlockPlaceContext
+import net.minecraft.world.item.context.UseOnContext
+import shina.wallwarRebirth.item.ModItems
 import net.minecraft.world.level.block.Block
 import net.minecraft.world.level.block.CrafterBlock
 import net.minecraft.world.level.block.CraftingTableBlock
@@ -29,6 +31,7 @@ import net.minecraft.world.level.block.state.BlockState
 import net.minecraft.world.level.storage.loot.parameters.LootContextParams
 import shina.wallwarRebirth.building.*
 import shina.wallwarRebirth.item.BuildingCoreItem
+import shina.wallwarRebirth.item.ShopTnt
 import shina.wallwarRebirth.item.SummonEggItem
 import shina.wallwarRebirth.monster.SummonedUnit
 import shina.wallwarRebirth.world.SurfaceOres
@@ -111,21 +114,32 @@ object MatchHooks {
         AttackBlockCallback.EVENT.register { player, _, _, _, _ ->
             if (player is ServerPlayer && (CannonCrew.busy(player) || SuperWeaponAim.busy(player))) InteractionResult.FAIL else InteractionResult.PASS
         }
-        UseItemCallback.EVENT.register { player, _, _ ->
+        UseItemCallback.EVENT.register { player, _, hand ->
             if (player is ServerPlayer && SuperWeaponAim.busy(player)) {
-                SuperWeaponAim.handleClick(player)
                 return@register InteractionResult.FAIL
             }
             if (player is ServerPlayer && CannonCrew.busy(player)) return@register InteractionResult.FAIL
+            if (player is ServerPlayer) {
+                val result = ShopTnt.use(player, hand)
+                if (result != InteractionResult.PASS) return@register result
+            }
             InteractionResult.PASS
         }
         UseBlockCallback.EVENT.register { player, world, hand, hit ->
             if (player !is ServerPlayer) return@register InteractionResult.PASS
             if (SuperWeaponAim.busy(player)) {
-                SuperWeaponAim.handleClick(player)
                 return@register InteractionResult.FAIL
             }
             if (CannonCrew.busy(player)) return@register InteractionResult.FAIL
+            val held = player.getItemInHand(hand)
+            if (world.getBlockEntity(hit.blockPos) is SiteCoreBlockEntity &&
+                (held.`is`(ModItems.SKILL_CONQUEROR) || held.`is`(ModItems.SKILL_BASTION))
+            ) {
+                val result = Match.useSkill(player, held, UseOnContext(player, hand, hit))
+                if (result != InteractionResult.PASS) return@register result
+            }
+            val thrown = ShopTnt.use(player, hand)
+            if (thrown != InteractionResult.PASS) return@register thrown
             if (world is ServerLevel && FarmlandWork.isProtected(world, hit.blockPos)) return@register InteractionResult.FAIL
             if (Match.phase == Match.Phase.FIGHT) {
                 val block = world.getBlockState(hit.blockPos).block
