@@ -63,7 +63,7 @@ object BuildingModuleEffects {
                 "发射间隔减少 30%，变为 ${MatchRules.secondsText(MatchRules.CANNON_INTERVAL * 7 / 10)} 秒。",
             )
             ModuleSlot.DIFFUSION -> listOf(
-                "本队生存玩家潜行右键进入。有目标时蓄力完成后沿视线发射载人 TNT，碰到方块不会立即爆炸，固定 ${MatchRules.CANNON_MANNED_TICKS / MatchRules.TICKS_PER_SECOND} 秒后爆炸，爆炸伤害提升 25%。",
+                "本队生存玩家潜行右键进入。有目标时蓄力完成后沿视线发射载人 TNT，撞上实心方块、敌方玩家或敌方唤灵时立刻爆炸，从发射起满 ${MatchRules.CANNON_MANNED_TICKS / MatchRules.TICKS_PER_SECOND} 秒也会爆炸，爆炸伤害提升 25%。",
             )
         }
         else -> emptyList()

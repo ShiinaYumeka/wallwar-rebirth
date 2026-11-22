@@ -546,7 +546,7 @@ class BuildingPanelGui(
         const val STORAGE_ORIGIN = 18
         const val MARCH_SLOT = 53
         const val HOLD_SLOT = 52
-        val PRODUCTION_SLOTS = intArrayOf(23, 24, 25, 26, 32, 33, 34, 35, 41, 42, 43)
+        val PRODUCTION_SLOTS = intArrayOf(23, 24, 25, 26, 32, 33, 34, 35, 41, 42, 43, 44)
         const val MAX_DISPLAY_STACK = 99
     }
 }

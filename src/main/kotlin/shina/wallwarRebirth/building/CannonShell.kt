@@ -34,6 +34,7 @@ import shina.wallwarRebirth.monster.SummonedUnit
 import shina.wallwarRebirth.targeting.Targeting
 import xyz.nucleoid.packettweaker.PacketContext
 import java.util.Optional
+import java.util.UUID
 import kotlin.math.PI
 import kotlin.math.ceil
 import kotlin.math.cos
@@ -52,6 +53,7 @@ class CannonShell(type: EntityType<out CannonShell>, level: Level) : PrimedTnt(t
     var manned: Boolean = false
     var thrown: Boolean = false
     private var mannedStopped = false
+    private var creditedPlayerId: UUID? = null
     private var flightTicks = 0
     private var guided = false
     private var climbing = false
@@ -254,14 +256,18 @@ class CannonShell(type: EntityType<out CannonShell>, level: Level) : PrimedTnt(t
         flightTicks++
         val rider = passengers.firstOrNull() as? ServerPlayer
         val here = position()
-        if (flightTicks >= MatchRules.CANNON_MANNED_TICKS) {
+        if (mannedStopped) {
             if (rider != null && rider.isAlive) CannonCrew.kill(level, rider, here)
             detonate(level, here)
             return
         }
-        if (mannedStopped) return
         if (rider == null || !rider.isAlive) {
-            mannedStopped = true
+            detonate(level, here)
+            return
+        }
+        if (flightTicks >= MatchRules.CANNON_MANNED_TICKS) {
+            CannonCrew.kill(level, rider, here)
+            detonate(level, here)
             return
         }
         val look = rider.lookAngle
@@ -270,8 +276,8 @@ class CannonShell(type: EntityType<out CannonShell>, level: Level) : PrimedTnt(t
         val impact = sweep(level, here, step, rider)
         if (impact != null) {
             setPos(impact.x, impact.y, impact.z)
-            setDeltaMovement(Vec3.ZERO)
-            mannedStopped = true
+            CannonCrew.kill(level, rider, impact)
+            detonate(level, impact)
             return
         }
         val next = here.add(step)
@@ -389,6 +395,7 @@ class CannonShell(type: EntityType<out CannonShell>, level: Level) : PrimedTnt(t
                 }
             }
         }
+        val attacker = if (manned) creditedPlayer(level) else null
         for (site in SiteCores.all()) {
             if (site.level !== level || site.isRemoved || site.health <= 0 || site.buildingId.isEmpty()) continue
             if (!thrown && site.blockPos == corePos) continue
@@ -396,10 +403,12 @@ class CannonShell(type: EntityType<out CannonShell>, level: Level) : PrimedTnt(t
             val box = coreBox(level, site.blockPos)
             if (distanceToBox(center, box) > powerRadius) continue
             val amount = floor(centerDamage * MatchRules.CANNON_BUILDING_FRACTION + 0.5).toInt()
-            site.damage(amount, site.blockPos)
+            site.damage(amount, site.blockPos, attacker?.scoreboardName, attacker)
+        }
+        if (guided || manned) {
+            clearPlanks(level, center, powerRadius)
         }
         if (guided) {
-            clearPlanks(level, center, powerRadius)
             fillBlast(level, center, powerRadius)
         }
         discard()
@@ -433,6 +442,7 @@ class CannonShell(type: EntityType<out CannonShell>, level: Level) : PrimedTnt(t
         output.putDouble("Falloff", falloff)
         output.putBoolean("LeftCore", leftCore)
         output.putBoolean("Manned", manned)
+        output.putString("CreditedPlayer", creditedPlayerId?.toString() ?: "")
         output.putBoolean("Thrown", thrown)
         output.putBoolean("MannedStopped", mannedStopped)
         output.putInt("FlightTicks", flightTicks)
@@ -455,6 +465,7 @@ class CannonShell(type: EntityType<out CannonShell>, level: Level) : PrimedTnt(t
         falloff = input.getDoubleOr("Falloff", MatchRules.CANNON_FALLOFF)
         leftCore = input.getBooleanOr("LeftCore", false)
         manned = input.getBooleanOr("Manned", false)
+        creditedPlayerId = input.getStringOr("CreditedPlayer", "").takeIf { it.isNotEmpty() }?.let { runCatching { UUID.fromString(it) }.getOrNull() }
         thrown = input.getBooleanOr("Thrown", false)
         mannedStopped = input.getBooleanOr("MannedStopped", false)
         flightTicks = input.getIntOr("FlightTicks", 0)
@@ -463,6 +474,11 @@ class CannonShell(type: EntityType<out CannonShell>, level: Level) : PrimedTnt(t
         targetX = input.getDoubleOr("TargetX", 0.5)
         targetZ = input.getDoubleOr("TargetZ", 0.5)
         if (!thrown) setFuse(FUSE_HOLD)
+    }
+
+    private fun creditedPlayer(level: ServerLevel): ServerPlayer? {
+        val id = creditedPlayerId ?: return null
+        return level.server.playerList.getPlayer(id)
     }
 
     private fun teamOf(entity: LivingEntity): String? = when (entity) {
@@ -590,6 +606,7 @@ class CannonShell(type: EntityType<out CannonShell>, level: Level) : PrimedTnt(t
                 origin = origin,
             )
             shell.manned = true
+            shell.creditedPlayerId = player.uuid
             level.addFreshEntity(shell)
             CannonCrew.embark(site, player, shell)
         }
