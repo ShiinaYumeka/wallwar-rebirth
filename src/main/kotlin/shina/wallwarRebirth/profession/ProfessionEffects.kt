@@ -110,6 +110,7 @@ object ProfessionEffects {
         var lapis = 0
         if (!site.reinforce.isEmpty) lapis += moduleLapis(MatchRules.MODULE_LAPIS)
         if (!site.reinforceTwo.isEmpty) lapis += moduleLapis(MatchRules.MODULE_TWO_LAPIS)
+        if (!site.diffuse.isEmpty) lapis += moduleLapis(MatchRules.MODULE_DIFFUSION_LAPIS)
         if (lapis <= 0) return
         val stack = ItemStack(Items.LAPIS_LAZULI, lapis)
         if (!player.inventory.add(stack)) {

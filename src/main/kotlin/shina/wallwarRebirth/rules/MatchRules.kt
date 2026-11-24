@@ -268,7 +268,7 @@ object MatchRules {
     const val CREEPER_BUILDING_DAMAGE = 10
     const val CREEPER_ATTACK_RANGE = 3.0
     const val CREEPER_COST_REDSTONE = 2
-    const val CHARGED_CREEPER_HEALTH = 100.0
+    const val CHARGED_CREEPER_HEALTH = 40.0
     const val CHARGED_CREEPER_ATTACK = CREEPER_ATTACK * 2
     const val CHARGED_CREEPER_BUILDING_DAMAGE = CREEPER_BUILDING_DAMAGE * 2
     const val CHARGED_CREEPER_COST_REDSTONE = 5
@@ -288,6 +288,7 @@ object MatchRules {
     const val SPIDER_ATTACK = 5.0
     const val SPIDER_BUILDING_DAMAGE = 1
     const val GOLEM_HEALTH = 100.0
+    const val GOLEM_INGOT_REPAIR = 8.0f
     const val GOLEM_ARMOR = 15.0
     const val GOLEM_ATTACK = 12.0
     const val GOLEM_BUILDING_DAMAGE = 4

@@ -375,7 +375,9 @@ class SummonedBrain(private val mob: Mob, private val unit: SummonedUnit) {
 
     fun save(output: net.minecraft.world.level.storage.ValueOutput) {
         output.putString("Kind", unit.kindId)
-        output.putString("Team", unit.summonedTeam)
+        if (unit.summonedTeam.isNotEmpty()) {
+            output.putString("Team", unit.summonedTeam)
+        }
         output.putString("Phase", phase.name)
         output.putDouble("ChaseRadius", chaseRadius)
         output.putInt("MeleeCooldown", meleeCooldown)
@@ -410,7 +412,8 @@ class SummonedBrain(private val mob: Mob, private val unit: SummonedUnit) {
     fun load(input: net.minecraft.world.level.storage.ValueInput) {
         unit.kindId = input.getStringOr("Kind", unit.kindId)
         if (Monsters.byId(unit.kindId) == null) unit.kindId = Monsters.ZOMBIE.id
-        unit.summonedTeam = input.getStringOr("Team", "")
+        val storedTeam = input.getStringOr("Team", "")
+        unit.summonedTeam = if (storedTeam.isEmpty()) "" else storedTeam
         phase = runCatching { Phase.valueOf(input.getStringOr("Phase", Phase.PATH.name)) }.getOrDefault(Phase.PATH)
         chaseRadius = input.getDoubleOr("ChaseRadius", stats.chaseRadiusStart)
         if (unit.kindId == SummonedVex.VEX_ID) chaseRadius = stats.chaseRadiusMax
