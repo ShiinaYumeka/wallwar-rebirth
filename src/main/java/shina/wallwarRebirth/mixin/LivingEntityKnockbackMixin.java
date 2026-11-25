@@ -9,6 +9,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.ModifyVariable;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import shina.wallwarRebirth.combat.ArrowKnockback;
+import shina.wallwarRebirth.combat.ChampionCombat;
 import shina.wallwarRebirth.combat.FriendlyFire;
 
 @Mixin(LivingEntity.class)
@@ -20,6 +21,11 @@ public class LivingEntityKnockbackMixin {
             return;
         }
         ArrowKnockback.enter(source);
+    }
+
+    @ModifyVariable(method = "hurtServer", at = @At("HEAD"), argsOnly = true, ordinal = 0)
+    private float wallwar$championDamage(float amount, ServerLevel level, DamageSource source) {
+        return ChampionCombat.adjust((LivingEntity) (Object) this, source, amount);
     }
 
     @Inject(method = "hurtServer", at = @At("RETURN"))

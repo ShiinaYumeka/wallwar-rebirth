@@ -76,7 +76,7 @@ object ModItems {
     val SKILL_MINER: Item = skill("skill_golden_hour", "黄金时刻", Items.CLOCK, "手持右键获得急迫 I，持续 30 秒，冷却 60 秒")
 
     @JvmField
-    val SKILL_WRECKER: Item = skill("skill_practiced", "娴熟技巧", Items.EXPERIENCE_BOTTLE, "手持右键后 30 秒内挖掘建筑伤害翻倍，清除自身的挖掘疲劳和蓄风；附近 8 格内有敌方唤灵时隐身 10 秒，冷却 60 秒")
+    val SKILL_WRECKER: Item = skill("skill_practiced", "娴熟技巧", Items.EXPERIENCE_BOTTLE, "手持右键清除自身的挖掘疲劳和蓄风；附近 8 格内有敌方唤灵时隐身 10 秒，冷却 60 秒")
 
     @JvmField
     val SKILL_BASTION: Item = skill("skill_binder", "强力粘合剂", Items.SLIME_BALL, "手持右键己方城墙核心，恢复当前生命上限的 50%，冷却 60 秒")
@@ -88,7 +88,7 @@ object ModItems {
     val SKILL_CONQUEROR: Item = skill("skill_suppress", "镇压", Items.IRON_AXE, "手持右键，对面向 4 格内的敌方防御建筑核心造成 8 点伤害，冷却 90 秒")
 
     @JvmField
-    val SKILL_CHAMPION: Item = skill("skill_crown", "加冕", Items.GOLDEN_APPLE, "手持右键恢复 2 点生命；穿着整套钻石护甲时改为恢复 8 点并清除负面效果，冷却 60 秒")
+    val SKILL_CHAMPION: Item = skill("skill_crown", "加冕", Items.GOLDEN_APPLE, "手持右键回满饱食度。穿着整套钻石护甲时额外回满饱和度并清除所有状态效果，冷却 90 秒")
 
     @JvmField
     val SKILL_COMMANDER: Item = skill("skill_dispatch", "调度", Items.GOAT_HORN, "手持右键，在这座兵营满血时回收它，冷却 30 秒")

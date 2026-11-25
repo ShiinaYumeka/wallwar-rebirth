@@ -9,7 +9,7 @@ import net.minecraft.world.phys.Vec3
 object TeslaTargeting {
     fun select(world: TargetWorld, level: ServerLevel, origin: Vec3, team: String, range: Double, tie: Double): LivingEntity? {
         fun eligible(actor: ActorTarget): Boolean =
-            actor.entity.isAlive &&
+            Targeting.canSeek(actor.entity) &&
                 !actor.entity.hasEffect(MobEffects.WIND_CHARGED) &&
                 Targeting.hostile(team, actor.team) &&
                 Targeting.distanceToBox(origin, actor.entity.boundingBox) <= range + tie

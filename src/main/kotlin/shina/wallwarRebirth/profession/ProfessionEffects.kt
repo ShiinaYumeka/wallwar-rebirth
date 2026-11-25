@@ -5,7 +5,6 @@ import net.minecraft.network.chat.Component
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.tags.ItemTags
-import net.minecraft.world.effect.MobEffectCategory
 import net.minecraft.world.entity.EquipmentSlot
 import net.minecraft.world.entity.ai.attributes.AttributeModifier
 import net.minecraft.world.entity.ai.attributes.Attributes
@@ -15,7 +14,6 @@ import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
 import net.minecraft.world.item.context.UseOnContext
 import net.minecraft.world.level.ClipContext
-import net.minecraft.world.level.block.Block
 import net.minecraft.world.phys.HitResult
 import shina.wallwarRebirth.WallwarMod
 import shina.wallwarRebirth.building.BuildingDefinition
@@ -33,12 +31,12 @@ import shina.wallwarRebirth.shop.match.TeamWarehouses
 object ProfessionEffects {
     private val championHealth = AttributeModifier(
         WallwarMod.idOf("champion_health"),
-        MatchRules.CHAMPION_BONUS_HEALTH,
-        AttributeModifier.Operation.ADD_VALUE,
+        MatchRules.CHAMPION_HEALTH_MULTIPLIER,
+        AttributeModifier.Operation.ADD_MULTIPLIED_BASE,
     )
-    private val championAttack = AttributeModifier(
-        WallwarMod.idOf("champion_attack"),
-        MatchRules.CHAMPION_BONUS_ATTACK,
+    private val championKnockback = AttributeModifier(
+        WallwarMod.idOf("champion_knockback"),
+        MatchRules.CHAMPION_KNOCKBACK_RESISTANCE,
         AttributeModifier.Operation.ADD_VALUE,
     )
 
@@ -73,7 +71,7 @@ object ProfessionEffects {
         for (player in server.playerList.players) {
             val member = Match.member(player.uuid) ?: continue
             if (!Classes.isSwordsman(member.classLocked, member.classId)) continue
-            if (member.swordPassiveReadyAt <= 0L || now < member.swordPassiveReadyAt) continue
+            if (member.swordPassiveReadyAt !in 1..now) continue
             member.swordPassiveReadyAt = 0
             dirty = true
             player.sendSystemMessage(Component.literal("被动技能已就绪"))
@@ -90,16 +88,17 @@ object ProfessionEffects {
         refund(player, costs)
     }
 
-    fun dropIfWrecker(site: SiteCoreBlockEntity, attacker: Player?) {
+    fun rewardWrecker(site: SiteCoreBlockEntity, attacker: Player?) {
         val player = attacker as? ServerPlayer ?: return
         val member = Match.member(player.uuid) ?: return
         if (!Classes.isWrecker(member.classLocked, member.classId)) return
         if (site.team.isEmpty() || site.isAlly(player)) return
         val definition = Buildings.byId(site.buildingId) ?: return
-        val world = site.level as? ServerLevel ?: return
-        for (drop in share(spent(definition, site.buildingLevel), MatchRules.WRECKER_SALVAGE_NUM, MatchRules.WRECKER_SALVAGE_DEN)) {
-            Block.popResource(world, site.blockPos, ItemStack(drop.item, drop.count))
-        }
+        val rewards = share(spent(definition, site.buildingLevel), MatchRules.WRECKER_SALVAGE_NUM, MatchRules.WRECKER_SALVAGE_DEN)
+        if (rewards.isEmpty()) return
+        for ((item, count) in rewards) giveResource(player, member.team, ItemStack(item, count))
+        val summary = rewards.joinToString("、") { "${it.name} ×${it.count}" }
+        player.sendSystemMessage(Component.literal("拆毁返还 $summary"))
     }
 
     fun rewardConqueror(site: SiteCoreBlockEntity, attacker: Player?) {
@@ -112,11 +111,7 @@ object ProfessionEffects {
         if (!site.reinforceTwo.isEmpty) lapis += moduleLapis(MatchRules.MODULE_TWO_LAPIS)
         if (!site.diffuse.isEmpty) lapis += moduleLapis(MatchRules.MODULE_DIFFUSION_LAPIS)
         if (lapis <= 0) return
-        val stack = ItemStack(Items.LAPIS_LAZULI, lapis)
-        if (!player.inventory.add(stack)) {
-            val leftover = TeamWarehouses.deposit(member.team, stack)
-            leftover.count = 0
-        }
+        giveResource(player, member.team, ItemStack(Items.LAPIS_LAZULI, lapis))
         player.sendSystemMessage(Component.literal("获得青金石 ×$lapis"))
     }
 
@@ -125,7 +120,7 @@ object ProfessionEffects {
         val site = clicked ?: lookedCore(player) ?: return null
         if (site.isRemoved || site.health <= 0) return null
         val definition = Buildings.byId(site.buildingId) ?: return null
-        if (!definition.defensive && !Buildings.isCombatDefense(site.buildingId)) return null
+        if (!definition.defensive) return null
         if (site.team.isEmpty() || site.isAlly(player)) return null
         return site
     }
@@ -142,22 +137,15 @@ object ProfessionEffects {
 
     fun syncChampion(player: ServerPlayer) {
         val health = player.getAttribute(Attributes.MAX_HEALTH)
-        val attack = player.getAttribute(Attributes.ATTACK_DAMAGE)
+        val knockback = player.getAttribute(Attributes.KNOCKBACK_RESISTANCE)
         if (championArmed(player)) {
             health?.addOrUpdateTransientModifier(championHealth)
-            attack?.addOrUpdateTransientModifier(championAttack)
+            knockback?.addOrUpdateTransientModifier(championKnockback)
             return
         }
         health?.removeModifier(championHealth.id)
-        attack?.removeModifier(championAttack.id)
+        knockback?.removeModifier(championKnockback.id)
         if (player.health > player.maxHealth) player.health = player.maxHealth
-    }
-
-    fun clearHarmful(player: ServerPlayer) {
-        val effects = player.activeEffects.map { it.effect }.toList()
-        for (effect in effects) {
-            if (effect.value().category == MobEffectCategory.HARMFUL) player.removeEffect(effect)
-        }
     }
 
     private fun moduleLapis(price: Int): Int =
@@ -176,14 +164,14 @@ object ProfessionEffects {
         val member = Match.member(player.uuid) ?: return
         if (!Classes.isBastion(member.classLocked, member.classId)) return
         val given = share(costs, MatchRules.BASTION_REFUND_NUM, MatchRules.BASTION_REFUND_DEN)
-        if (given.isEmpty()) return
-        for (part in given) {
-            val stack = ItemStack(part.item, part.count)
-            if (stack.isEmpty) continue
-            if (player.inventory.add(stack)) continue
-            val leftover = TeamWarehouses.deposit(member.team, stack)
-            leftover.count = 0
+        for ((item, count) in given) {
+            giveResource(player, member.team, ItemStack(item, count))
         }
+    }
+
+    private fun giveResource(player: ServerPlayer, team: String, stack: ItemStack) {
+        player.inventory.add(stack)
+        if (!stack.isEmpty) TeamWarehouses.deposit(team, stack)
     }
 
     private fun amountsOf(player: ServerPlayer, costs: Map<net.minecraft.resources.Identifier, Int>): List<ItemAmount> {
@@ -207,8 +195,8 @@ object ProfessionEffects {
             }
         }
         add(purchase(definition))
-        for (upgrade in definition.upgrades) {
-            if (upgrade.toLevel <= level) add(upgrade.costs)
+        for ((toLevel, costs) in definition.upgrades) {
+            if (toLevel <= level) add(costs)
         }
         return merged.values.toList()
     }
@@ -233,6 +221,10 @@ object ProfessionEffects {
         Buildings.WORKSHOP.id -> listOf(
             ingot(Items.DIAMOND, MatchRules.WORKSHOP_PRICE_DIAMOND, "钻石"),
             ingot(Items.LAPIS_LAZULI, MatchRules.WORKSHOP_PRICE_LAPIS, "青金石"),
+        )
+        Buildings.CRYSTAL_FURNACE.id -> listOf(
+            ingot(Items.IRON_INGOT, MatchRules.CRYSTAL_FURNACE_PRICE_IRON, "铁锭"),
+            ingot(Items.COPPER_INGOT, MatchRules.CRYSTAL_FURNACE_PRICE_COPPER, "铜锭"),
         )
         Buildings.GUIDED_CANNON.id -> listOf(
             ingot(Items.COPPER_INGOT, MatchRules.GUIDED_CANNON_PRICE_COPPER, "铜锭"),

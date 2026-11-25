@@ -20,13 +20,13 @@ object HoldTargeting {
         if (wrecking.isNotEmpty()) return nearest(wrecking, origin)
         val summons = world.summons(level).map { it.entity }.filter { candidate ->
             candidate !== self &&
-                candidate.isAlive &&
+                Targeting.canSeek(candidate) &&
                 Targeting.hostile(team, (candidate as? SummonedUnit)?.summonedTeam ?: "") &&
                 Targeting.distanceToBox(origin, candidate.boundingBox) <= range
         }
         if (summons.isNotEmpty()) return nearest(summons, origin)
         val players = world.players(level).map { it.entity }.filter { player ->
-            player.isAlive &&
+            Targeting.canSeek(player) &&
                 Targeting.hostile(team, (player.team?.name ?: "")) &&
                 Targeting.distanceToBox(origin, player.boundingBox) <= range
         }
@@ -43,15 +43,14 @@ object HoldTargeting {
     ): List<LivingEntity> {
         val found = ArrayList<LivingEntity>()
         for (player in BuildingMining.minersOf(level, team)) {
-            if (!player.isAlive || !Targeting.canTargetPlayer(player)) continue
+            if (!Targeting.canSeek(player) || !Targeting.canTargetPlayer(player)) continue
             if (!Targeting.hostile(team, player.team?.name ?: "")) continue
             if (Targeting.distanceToBox(origin, player.boundingBox) > range) continue
             found.add(player)
         }
-        for (actor in world.summons(level)) {
-            val living = actor.entity
-            if (living === self || !living.isAlive) continue
-            if (!Targeting.hostile(team, actor.team)) continue
+        for ((living, team1) in world.summons(level)) {
+            if (living === self || !Targeting.canSeek(living)) continue
+            if (!Targeting.hostile(team, team1)) continue
             if (Targeting.distanceToBox(origin, living.boundingBox) > range) continue
             val unit = living as? SummonedUnit ?: continue
             if (!unit.mind.siegingTeam(team)) continue

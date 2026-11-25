@@ -41,12 +41,12 @@ object MatchPersistence {
             entry.putBoolean("ClassLocked", member.classLocked)
             entry.putLong("SkillReadyAt", member.skillReadyAt)
             entry.putLong("SwordPassiveReadyAt", member.swordPassiveReadyAt)
-            entry.putLong("WreckerDigUntil", member.wreckerDigUntil)
             entry.putBoolean("Ready", member.ready)
             entry.putBoolean("Spectating", member.spectating)
             entry.putBoolean("Started", member.started)
             entry.putBoolean("IronGiven", member.ironGiven)
             entry.putInt("RespawnAt", member.respawnAt)
+            entry.putBoolean("ChampionFastRespawn", member.championFastRespawn)
             entry.putBoolean("PendingReset", member.pendingReset)
             entry.putInt("HeldLevel", member.heldLevel)
             entry.putFloat("HeldProgress", member.heldProgress)
@@ -86,7 +86,7 @@ object MatchPersistence {
         val ops = current.registryAccess().createSerializationContext(NbtOps.INSTANCE)
         TeamWarehouses.read(tag, ops)
         val list = tag.getListOrEmpty("Members")
-        for (index in 0 until list.size) {
+        for (index in list.indices) {
             val entry = list.getCompoundOrEmpty(index)
             val id = runCatching { UUID.fromString(entry.getStringOr("Id", "")) }.getOrNull() ?: continue
             val member = Match.Member(id)
@@ -95,18 +95,18 @@ object MatchPersistence {
             member.classLocked = entry.getBooleanOr("ClassLocked", true)
             member.skillReadyAt = entry.getLongOr("SkillReadyAt", 0L)
             member.swordPassiveReadyAt = entry.getLongOr("SwordPassiveReadyAt", 0L)
-            member.wreckerDigUntil = entry.getLongOr("WreckerDigUntil", 0L)
             member.ready = entry.getBooleanOr("Ready", false)
             member.spectating = entry.getBooleanOr("Spectating", false)
             member.started = entry.getBooleanOr("Started", false)
             member.ironGiven = entry.getBooleanOr("IronGiven", false)
             member.respawnAt = entry.getIntOr("RespawnAt", 0)
+            member.championFastRespawn = entry.getBooleanOr("ChampionFastRespawn", false)
             member.pendingReset = entry.getBooleanOr("PendingReset", false)
             member.heldLevel = entry.getIntOr("HeldLevel", 0)
             member.heldProgress = entry.getFloatOr("HeldProgress", 0f)
             val items = entry.getListOrEmpty("HeldItems")
             val stacks = ArrayList<ItemStack>()
-            for (itemIndex in 0 until items.size) {
+            for (itemIndex in items.indices) {
                 val saved = items.getCompoundOrEmpty(itemIndex)
                 val stack = ItemStack.CODEC.parse(ops, saved).resultOrPartial { }.orElse(ItemStack.EMPTY)
                 if (stack != null) {

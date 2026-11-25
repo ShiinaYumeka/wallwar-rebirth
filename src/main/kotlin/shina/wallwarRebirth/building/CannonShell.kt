@@ -3,7 +3,6 @@ package shina.wallwarRebirth.building
 import eu.pb4.polymer.core.api.entity.PolymerEntity
 import net.minecraft.ChatFormatting
 import net.minecraft.core.BlockPos
-import net.minecraft.core.particles.DustParticleOptions
 import net.minecraft.core.particles.ParticleTypes
 import net.minecraft.network.chat.Component
 import net.minecraft.network.protocol.game.ClientboundExplodePacket
@@ -22,6 +21,7 @@ import net.minecraft.world.entity.item.PrimedTnt
 import net.minecraft.world.entity.player.Player
 import net.minecraft.world.level.Level
 import net.minecraft.world.level.ServerExplosion
+import net.minecraft.world.level.levelgen.Heightmap
 import net.minecraft.world.phys.AABB
 import net.minecraft.world.phys.Vec3
 import shina.wallwarRebirth.contract.WallwarTeams
@@ -57,12 +57,12 @@ class CannonShell(type: EntityType<out CannonShell>, level: Level) : PrimedTnt(t
     private var flightTicks = 0
     private var guided = false
     private var climbing = false
-    private var spiral = 0.0
     private var targetX = 0.5
+    private var targetY = Double.NaN
     private var targetZ = 0.5
 
     init {
-        setFuse(FUSE_HOLD)
+        fuse = FUSE_HOLD
     }
 
     fun prime(
@@ -82,9 +82,9 @@ class CannonShell(type: EntityType<out CannonShell>, level: Level) : PrimedTnt(t
         leftCore = false
         guided = false
         climbing = false
-        setFuse(FUSE_HOLD)
+        fuse = FUSE_HOLD
         snapTo(origin.x, origin.y, origin.z, 0f, 0f)
-        setDeltaMovement(motion)
+        deltaMovement = motion
     }
 
     override fun getPolymerEntityType(context: PacketContext): EntityType<*> = EntityType.TNT
@@ -106,123 +106,80 @@ class CannonShell(type: EntityType<out CannonShell>, level: Level) : PrimedTnt(t
             tickManned(server)
             return
         }
-        setFuse(FUSE_HOLD)
+        fuse = FUSE_HOLD
         val velocity = deltaMovement.add(0.0, -MatchRules.CANNON_GRAVITY, 0.0)
         val from = position()
         val hit = firstSolid(server, from, velocity)
         if (hit != null) {
             setPos(hit.point)
-            setDeltaMovement(velocity)
+            deltaMovement = velocity
             detonate(server, hit.point)
             return
         }
         val next = from.add(velocity)
-        setDeltaMovement(velocity)
+        deltaMovement = velocity
         setPos(next.x, next.y, next.z)
         if (next.y < server.minY - 16 || tickCount > MAX_FLIGHT_TICKS) discard()
     }
 
     private fun tickGuided(level: ServerLevel) {
-        setFuse(FUSE_HOLD)
+        fuse = FUSE_HOLD
         flightTicks++
         if (climbing) {
             val speed = MatchRules.GUIDED_CANNON_SPEED
             val from = position()
             val nextY = y + speed
             if (nextY >= level.maxY) {
-                helix(level, from, Vec3(x, level.maxY.toDouble(), z))
+                SuperWeaponParticles.trail(level, from, Vec3(x, level.maxY.toDouble(), z), descending = false, flightTicks)
                 climbing = false
                 setPos(targetX, level.maxY.toDouble(), targetZ)
                 setDeltaMovement(0.0, -speed, 0.0)
+                showFallingWarning(level)
                 return
             }
             setDeltaMovement(0.0, speed, 0.0)
             setPos(x, nextY, z)
-            helix(level, from, position())
+            SuperWeaponParticles.trail(level, from, position(), descending = false, flightTicks)
             return
         }
+        if (flightTicks % 2 == 0) showFallingWarning(level)
         val velocity = deltaMovement
         val from = position()
         val hit = firstSolid(level, from, velocity)
         if (hit != null) {
-            helix(level, from, hit.point)
+            SuperWeaponParticles.trail(level, from, hit.point, descending = true, flightTicks)
             setPos(hit.point)
-            setDeltaMovement(velocity)
+            deltaMovement = velocity
             detonate(level, hit.point)
             return
         }
         val next = from.add(velocity)
-        setDeltaMovement(velocity)
+        deltaMovement = velocity
         setPos(next.x, next.y, next.z)
-        helix(level, from, next)
+        SuperWeaponParticles.trail(level, from, next, descending = true, flightTicks)
         if (next.y < level.minY - 16 || flightTicks > MAX_FLIGHT_TICKS) discard()
     }
 
-    private fun helix(level: ServerLevel, from: Vec3, to: Vec3) {
-        val delta = to.subtract(from)
-        val length = delta.length()
-        if (length < 0.2) return
-        val steps = max(1, ceil(length / 0.85).toInt())
-        for (index in 1..steps) {
-            val point = from.add(delta.scale(index.toDouble() / steps))
-            spiral += 0.62
-            val radius = 1.15
-            level.sendParticles(
-                SPIRAL,
-                true,
-                true,
-                point.x + cos(spiral) * radius,
-                point.y,
-                point.z + sin(spiral) * radius,
-                1,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-            )
-            level.sendParticles(
-                SPIRAL,
-                true,
-                true,
-                point.x + cos(spiral + PI) * radius,
-                point.y,
-                point.z + sin(spiral + PI) * radius,
-                1,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-            )
+    private fun showFallingWarning(level: ServerLevel) {
+        if (!targetY.isFinite()) {
+            targetY = level.getHeight(Heightmap.Types.MOTION_BLOCKING, floor(targetX).toInt(), floor(targetZ).toInt()) + 0.2
         }
+        val span = (level.maxY - targetY).coerceAtLeast(1.0)
+        val progress = ((level.maxY - y) / span).coerceIn(0.0, 1.0)
+        SuperWeaponParticles.fallingWarning(level, Vec3(targetX, targetY, targetZ), progress)
     }
 
     private fun tickThrown(level: ServerLevel) {
         if (Match.frozen(level)) return
-        setDeltaMovement(deltaMovement.add(0.0, -0.04, 0.0))
+        deltaMovement = deltaMovement.add(0.0, -0.04, 0.0)
         move(MoverType.SELF, deltaMovement)
-        setDeltaMovement(deltaMovement.scale(0.98))
+        deltaMovement = deltaMovement.scale(0.98)
         if (onGround()) {
-            setDeltaMovement(deltaMovement.multiply(0.7, -0.5, 0.7))
+            deltaMovement = deltaMovement.multiply(0.7, -0.5, 0.7)
         }
-        val left = getFuse() - 1
-        setFuse(left)
+        val left = fuse - 1
+        fuse = left
         if (left <= 0) detonate(level, position())
-    }
-
-    private fun fillBlast(level: ServerLevel, center: Vec3, radius: Double) {
-        val step = 1.75
-        var x = -radius
-        while (x <= radius + 1.0e-4) {
-            var z = -radius
-            while (z <= radius + 1.0e-4) {
-                if (x * x + z * z <= radius * radius) {
-                    level.sendParticles(ParticleTypes.EXPLOSION, true, true, center.x + x, center.y + 0.3, center.z + z, 1, 0.0, 0.15, 0.0, 0.0)
-                }
-                z += step
-            }
-            x += step
-        }
-        level.sendParticles(ParticleTypes.EXPLOSION_EMITTER, true, true, center.x, center.y, center.z, 1, 0.0, 0.0, 0.0, 0.0)
     }
 
     private fun clearPlanks(level: ServerLevel, center: Vec3, radius: Double) {
@@ -252,7 +209,7 @@ class CannonShell(type: EntityType<out CannonShell>, level: Level) : PrimedTnt(t
     }
 
     private fun tickManned(level: ServerLevel) {
-        setFuse(FUSE_HOLD)
+        fuse = FUSE_HOLD
         flightTicks++
         val rider = passengers.firstOrNull() as? ServerPlayer
         val here = position()
@@ -281,7 +238,7 @@ class CannonShell(type: EntityType<out CannonShell>, level: Level) : PrimedTnt(t
             return
         }
         val next = here.add(step)
-        setDeltaMovement(step)
+        deltaMovement = step
         setPos(next.x, next.y, next.z)
     }
 
@@ -350,7 +307,7 @@ class CannonShell(type: EntityType<out CannonShell>, level: Level) : PrimedTnt(t
         val z = point.z - cell.z
         var inside = false
         shape.forAllBoxes { minX, minY, minZ, maxX, maxY, maxZ ->
-            if (x >= minX && x <= maxX && y >= minY && y <= maxY && z >= minZ && z <= maxZ) inside = true
+            if (x in minX..maxX && y >= minY && y <= maxY && z >= minZ && z <= maxZ) inside = true
         }
         return inside
     }
@@ -409,7 +366,7 @@ class CannonShell(type: EntityType<out CannonShell>, level: Level) : PrimedTnt(t
             clearPlanks(level, center, powerRadius)
         }
         if (guided) {
-            fillBlast(level, center, powerRadius)
+            SuperWeaponParticles.impact(level, center, powerRadius)
         }
         discard()
         val particle = ParticleTypes.EXPLOSION_EMITTER
@@ -449,6 +406,7 @@ class CannonShell(type: EntityType<out CannonShell>, level: Level) : PrimedTnt(t
         output.putBoolean("Guided", guided)
         output.putBoolean("Climbing", climbing)
         output.putDouble("TargetX", targetX)
+        if (targetY.isFinite()) output.putDouble("TargetY", targetY)
         output.putDouble("TargetZ", targetZ)
     }
 
@@ -472,8 +430,9 @@ class CannonShell(type: EntityType<out CannonShell>, level: Level) : PrimedTnt(t
         guided = input.getBooleanOr("Guided", false)
         climbing = input.getBooleanOr("Climbing", false)
         targetX = input.getDoubleOr("TargetX", 0.5)
+        targetY = input.getDoubleOr("TargetY", Double.NaN)
         targetZ = input.getDoubleOr("TargetZ", 0.5)
-        if (!thrown) setFuse(FUSE_HOLD)
+        if (!thrown) fuse = FUSE_HOLD
     }
 
     private fun creditedPlayer(level: ServerLevel): ServerPlayer? {
@@ -527,8 +486,10 @@ class CannonShell(type: EntityType<out CannonShell>, level: Level) : PrimedTnt(t
             shell.guided = true
             shell.climbing = true
             shell.targetX = surface.x + 0.5
+            shell.targetY = surface.y + 1.2
             shell.targetZ = surface.z + 0.5
-            level.addFreshEntity(shell)
+            if (!level.addFreshEntity(shell)) return
+            SuperWeaponParticles.launch(level, origin)
             announceLaunch(level, site)
         }
 
@@ -545,8 +506,6 @@ class CannonShell(type: EntityType<out CannonShell>, level: Level) : PrimedTnt(t
                 player.playNotifySound(SoundEvents.BEACON_ACTIVATE, SoundSource.PLAYERS, 1f, 0.5f)
             }
         }
-
-        private val SPIRAL = DustParticleOptions(0xC26BFF, 1.5f)
 
         private fun aboveTop(site: SiteCoreBlockEntity): Vec3 {
             var top = site.blockPos.y
@@ -566,7 +525,7 @@ class CannonShell(type: EntityType<out CannonShell>, level: Level) : PrimedTnt(t
             val origin = player.eyePosition.add(look.scale(0.4))
             shell.snapTo(origin.x, origin.y, origin.z, player.yRot, player.xRot)
             shell.throwFrom(player, MatchRules.SHOP_TNT_SPEED, MatchRules.SHOP_TNT_INACCURACY)
-            shell.setFuse(MatchRules.SHOP_TNT_FUSE_TICKS)
+            shell.fuse = MatchRules.SHOP_TNT_FUSE_TICKS
             level.addFreshEntity(shell)
             level.playSound(null, player.blockPosition(), SoundEvents.TNT_PRIMED, SoundSource.PLAYERS, 1f, 1f)
         }

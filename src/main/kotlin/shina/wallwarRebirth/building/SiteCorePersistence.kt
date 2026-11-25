@@ -21,17 +21,17 @@ internal fun SiteCoreBlockEntity.restoreCovered(world: ServerLevel) {
     if (coveredBelow.isEmpty()) return
     val pending = coveredBelow.toList()
     coveredBelow.clear()
-    for (covered in pending) {
-        if (world.isOutsideBuildHeight(covered.pos)) continue
-        val state = world.getBlockState(covered.pos)
+    for ((pos, state1) in pending) {
+        if (world.isOutsideBuildHeight(pos)) continue
+        val state = world.getBlockState(pos)
         val cleared = state.isAir ||
             state.block is SiteStructureBlock ||
             state.block is SitePartBlock ||
             state.block is SiteCoreBlock
         if (!cleared) continue
         world.setBlock(
-            covered.pos,
-            covered.state,
+            pos,
+            state1,
             Block.UPDATE_ALL,
         )
     }
@@ -119,6 +119,9 @@ internal fun SiteCoreBlockEntity.readState(input: ValueInput) {
     health = input.getIntOr("Health", -1)
     if (health < 0) {
         health = Buildings.byId(buildingId)?.maxHealth(buildingLevel) ?: 0
+    }
+    if (buildingId == Buildings.TESLA.id) {
+        health = health.coerceAtMost(Buildings.TESLA.maxHealth(buildingLevel))
     }
     team = input.getStringOr("Team", "")
     facing = input.getStringOr("Facing", Direction.SOUTH.serializedName)

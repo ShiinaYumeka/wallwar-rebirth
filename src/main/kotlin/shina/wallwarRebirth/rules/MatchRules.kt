@@ -42,9 +42,8 @@ object MatchRules {
     const val BASTION_SKILL_COOLDOWN_TICKS = 60 * TICKS_PER_SECOND
     const val BASTION_REFUND_NUM = 1
     const val BASTION_REFUND_DEN = 4
-    const val WRECKER_SALVAGE_NUM = 1
+    const val WRECKER_SALVAGE_NUM = 2
     const val WRECKER_SALVAGE_DEN = 10
-    const val WRECKER_ACTIVE_TICKS = 30 * TICKS_PER_SECOND
     const val WRECKER_SKILL_COOLDOWN_TICKS = 60 * TICKS_PER_SECOND
     const val WRECKER_INVISIBILITY_TICKS = 10 * TICKS_PER_SECOND
     const val WRECKER_INVISIBILITY_RANGE = 8.0
@@ -55,13 +54,14 @@ object MatchRules {
     const val CONQUEROR_REACH = 4.0
     const val CONQUEROR_LAPIS_NUM = 75
     const val CONQUEROR_LAPIS_DEN = 100
-    const val CHAMPION_SKILL_COOLDOWN_TICKS = 60 * TICKS_PER_SECOND
-    const val CHAMPION_BONUS_HEALTH = 10.0
-    const val CHAMPION_BONUS_ATTACK = 1.0
-    const val CHAMPION_BONUS_BUILDING = 1
-    const val CHAMPION_HEAL = 2
-    const val CHAMPION_HEAL_ARMORED = 8
+    const val CHAMPION_SKILL_COOLDOWN_TICKS = 90 * TICKS_PER_SECOND
+    const val CHAMPION_HEALTH_MULTIPLIER = 1.0
+    const val CHAMPION_BUILDING_DAMAGE = 2
+    const val CHAMPION_KNOCKBACK_RESISTANCE = 1.0
+    const val CHAMPION_INCOMING_NONPLAYER = 0.5f
+    const val CHAMPION_OUTGOING_CREATURE = 1.5f
     const val COMMANDER_SKILL_COOLDOWN_TICKS = 30 * TICKS_PER_SECOND
+    const val COMMAND_POST_ECHO = 2
     const val SWORDSMAN_PASSIVE_COOLDOWN_TICKS = 180 * TICKS_PER_SECOND
     const val SMITE_PATH = "smite"
     const val SMITE_LEVEL = 2
@@ -91,6 +91,8 @@ object MatchRules {
     const val BASE_BOOSTED_TICKS = 5 * TICKS_PER_SECOND
     const val BASE_IRON_COUNT = 2
     const val BASE_COPPER_COUNT = 2
+    const val BASE_LEVEL1_GEM_TICKS = 14 * TICKS_PER_SECOND
+    const val BASE_LEVEL1_GEM_BOOSTED_TICKS = 10 * TICKS_PER_SECOND
     const val BASE_REDSTONE_TICKS = 7 * TICKS_PER_SECOND
     const val BASE_REDSTONE_COUNT = 1
     const val BASE_LAPIS_COUNT = 1
@@ -99,9 +101,9 @@ object MatchRules {
     const val BASE_DIAMOND_COUNT = 1
 
     val WALL_HEALTH = listOf(60, 90, 120)
-    const val WALL_PRICE_COPPER = 8
-    const val WALL_UPGRADE_2_COPPER = 8
-    const val WALL_UPGRADE_3_COPPER = 8
+    const val WALL_PRICE_COPPER = 12
+    const val WALL_UPGRADE_2_COPPER = 12
+    const val WALL_UPGRADE_3_COPPER = 12
     const val WALL_THORNS_DAMAGE = 4
     const val WALL_HEAL_AMOUNT = 1
     const val WALL_HEAL_TICKS = 2 * TICKS_PER_SECOND
@@ -117,7 +119,7 @@ object MatchRules {
     const val TOWER_TIE_DISTANCE = 0.001
     const val TOWER_PIERCE_HITS = 3
     const val TOWER_SPREAD_DEGREES = 10.0
-    val TESLA_HEALTH = listOf(20, 20, 20)
+    val TESLA_HEALTH = listOf(10, 10, 10)
     const val TESLA_RANGE = 16.0
     const val TESLA_RANGE_SCALE = 1.5
     const val TESLA_RING_ABOVE = 7.0
@@ -354,6 +356,7 @@ object MatchRules {
     const val AXE_MATERIAL = 3
     const val PICKAXE_MATERIAL = 3
     const val SHOVEL_MATERIAL = 1
+    const val HOE_MATERIAL = 2
     const val SPEAR_MATERIAL = 4
     const val SHOP_TNT_DIAMOND = 1
     const val SHOP_TNT_REDSTONE = 4

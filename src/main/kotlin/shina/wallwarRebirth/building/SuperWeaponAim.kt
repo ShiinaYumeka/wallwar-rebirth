@@ -3,7 +3,6 @@ package shina.wallwarRebirth.building
 import net.minecraft.ChatFormatting
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
-import net.minecraft.core.particles.ParticleTypes
 import net.minecraft.network.chat.Component
 import net.minecraft.sounds.SoundEvents
 import net.minecraft.sounds.SoundSource
@@ -29,9 +28,7 @@ import shina.wallwarRebirth.util.playNotifySound
 import shina.wallwarRebirth.util.showTitle
 import java.util.UUID
 import kotlin.math.abs
-import kotlin.math.cos
 import kotlin.math.max
-import kotlin.math.sin
 
 object SuperWeaponAim {
     private enum class Kind { STRIKE, TELEPORT }
@@ -68,6 +65,7 @@ object SuperWeaponAim {
     }
 
     fun tick(server: MinecraftServer) {
+        SuperWeaponParticles.tick(server)
         val arena = server.getLevel(MatchRules.DIMENSION) ?: return
         for (id in sessions.keys.toList()) {
             val session = sessions[id] ?: continue
@@ -84,7 +82,10 @@ object SuperWeaponAim {
             conceal(player, arena)
             prompt(player, session)
             val marked = session.selected
-            if (marked != null && arena.gameTime % 5L == 0L) showRange(arena, site, session, marked)
+            if (marked != null) {
+                val age = arena.gameTime - session.lastClickTick
+                if (age > 0) showPreview(arena, site, session.kind, marked, age)
+            }
             if (!player.isShiftKeyDown) {
                 session.sneakArmed = true
                 continue
@@ -112,6 +113,7 @@ object SuperWeaponAim {
         if (selected == null || selected != surface) {
             session.selected = surface
             prompt(player, session)
+            showPreview(level, site, session.kind, surface, age = 0)
             return true
         }
         confirm(player, site, session, surface)
@@ -168,7 +170,7 @@ object SuperWeaponAim {
         val feet = standableAt(level, surface) ?: standableNear(level, surface, null)
         val dest = feet ?: surface.above()
         snap(player, dest)
-        arrival(level, dest.x + 0.5, dest.y.toDouble(), dest.z + 0.5)
+        SuperWeaponParticles.arrival(level, player.position())
         val used = HashSet<BlockPos>()
         used.add(dest)
         for (unit in SummonedUnits.all()) {
@@ -179,18 +181,13 @@ object SuperWeaponAim {
             if (!unit.mind.follows(player)) continue
             val spot = standableNear(level, dest, used) ?: continue
             used.add(spot)
-            living.teleportTo(level, spot.x + 0.5, spot.y.toDouble(), spot.z + 0.5, emptySet(), living.yRot, living.xRot, false)
-            living.setDeltaMovement(Vec3.ZERO)
+            if (!living.teleportTo(level, spot.x + 0.5, spot.y.toDouble(), spot.z + 0.5, emptySet(), living.yRot, living.xRot, false)) continue
+            living.deltaMovement = Vec3.ZERO
             living.fallDistance = 0.0
             (living as? Mob)?.navigation?.stop()
-            arrival(level, spot.x + 0.5, spot.y.toDouble(), spot.z + 0.5)
+            SuperWeaponParticles.followerArrival(level, living.position())
         }
         announceArrival(level, site, player)
-    }
-
-    private fun arrival(level: ServerLevel, x: Double, y: Double, z: Double) {
-        level.sendParticles(ParticleTypes.PORTAL, true, true, x, y + 1.0, z, 180, 0.75, 1.15, 0.75, 0.8)
-        level.sendParticles(ParticleTypes.REVERSE_PORTAL, true, true, x, y + 0.2, z, 90, 0.55, 0.9, 0.55, 0.2)
     }
 
     private fun announceArrival(level: ServerLevel, site: SiteCoreBlockEntity, player: ServerPlayer) {
@@ -218,11 +215,11 @@ object SuperWeaponAim {
         abilities.flying = true
         abilities.invulnerable = true
         player.onUpdateAbilities()
-        player.setInvulnerable(true)
-        player.setInvisible(true)
+        player.isInvulnerable = true
+        player.isInvisible = true
         player.noPhysics = true
         player.releaseUsingItem()
-        player.setDeltaMovement(Vec3.ZERO)
+        player.deltaMovement = Vec3.ZERO
         player.fallDistance = 0.0
         if (player.level() !== level) return
         val top = level.maxY - 2
@@ -253,33 +250,14 @@ object SuperWeaponAim {
         abilities.flying = false
         abilities.invulnerable = false
         player.onUpdateAbilities()
-        if (!player.hasEffect(net.minecraft.world.effect.MobEffects.INVISIBILITY)) player.setInvisible(false)
-        player.setInvulnerable(false)
+        if (!player.hasEffect(net.minecraft.world.effect.MobEffects.INVISIBILITY)) player.isInvisible = false
+        player.isInvulnerable = false
         player.noPhysics = false
     }
 
-    private fun showRange(level: ServerLevel, site: SiteCoreBlockEntity, session: Session, surface: BlockPos) {
-        val radius = if (session.kind == Kind.STRIKE) MatchRules.GUIDED_CANNON_POWER else 4.0
-        val viewers = level.players().filter { (it.team?.name ?: "") == site.team }
-        if (viewers.isEmpty()) return
-        val y = surface.y + 1.2
-        val centerX = surface.x + 0.5
-        val centerZ = surface.z + 0.5
-        val rings = if (radius >= 8.0) doubleArrayOf(radius * 0.5, radius) else doubleArrayOf(radius)
-        for (ring in rings) {
-            val count = 32
-            for (index in 0 until count) {
-                val angle = Math.PI * 2.0 * index / count
-                val x = centerX + cos(angle) * ring
-                val z = centerZ + sin(angle) * ring
-                for (viewer in viewers) {
-                    level.sendParticles(viewer, ParticleTypes.END_ROD, true, true, x, y, z, 1, 0.0, 0.0, 0.0, 0.0)
-                }
-            }
-        }
-        for (viewer in viewers) {
-            level.sendParticles(viewer, ParticleTypes.END_ROD, true, true, centerX, y, centerZ, 8, 0.2, 0.6, 0.2, 0.01)
-        }
+    private fun showPreview(level: ServerLevel, site: SiteCoreBlockEntity, kind: Kind, surface: BlockPos, age: Long) {
+        val center = Vec3.atCenterOf(surface).add(0.0, 0.7, 0.0)
+        SuperWeaponParticles.preview(level, site.team, center, kind == Kind.STRIKE, age)
     }
 
     private fun appearBeside(player: ServerPlayer, site: SiteCoreBlockEntity) {
@@ -292,9 +270,9 @@ object SuperWeaponAim {
         val level = player.level()
         val dest = exact ?: Vec3(feet.x + 0.5, feet.y.toDouble(), feet.z + 0.5)
         player.fallDistance = 0.0
-        player.setDeltaMovement(Vec3.ZERO)
+        player.deltaMovement = Vec3.ZERO
         player.teleportTo(level, dest.x, dest.y, dest.z, emptySet(), player.yRot, 0f, false)
-        player.setDeltaMovement(Vec3.ZERO)
+        player.deltaMovement = Vec3.ZERO
         player.fallDistance = 0.0
         stopFlight(player)
         MatchRoster.followChunks(player)

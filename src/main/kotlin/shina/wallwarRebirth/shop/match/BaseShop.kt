@@ -77,18 +77,13 @@ object BaseShop {
             items.add(Tab(tab.tabSlot, tab, currentPage, site, access))
         }
         if (currentPage == Page.BUILDING) {
-            items.add(CategoryLabel(buildingSlot(0, 0), "资源类"))
-            items.add(CategoryLabel(buildingSlot(0, 1), "生产类"))
-            items.add(CategoryLabel(buildingSlot(0, 2), "防御类"))
-            items.add(CategoryLabel(buildingSlot(0, 4), "超级武器类"))
-            items.add(CategoryLabel(buildingSlot(0, 5), "模块"))
-            for (good in goods) {
-                items.add(BuildingOffer(buildingSlot(good.row, good.column), good.item, site))
+            for ((row, column, item) in goods) {
+                items.add(BuildingOffer(buildingSlot(row, column), item, site))
             }
         } else {
-            for (good in goods) {
-                if (good.row / ROWS != current) continue
-                items.add(Offer(slotOf(good.row % ROWS, good.column), good.item, good.requiresWorkshop))
+            for ((row, column, item, requiresWorkshop) in goods) {
+                if (row / ROWS != current) continue
+                items.add(Offer(slotOf(row % ROWS, column), item, requiresWorkshop))
             }
             if (sheets > 1) items.add(PageTurn(PAGE_SLOT, site, currentPage, current, sheets, access))
         }
@@ -122,9 +117,21 @@ object BaseShop {
             tool(0, 1, Items.IRON_AXE, "iron", MatchRules.AXE_MATERIAL),
             tool(0, 2, Items.IRON_PICKAXE, "iron", MatchRules.PICKAXE_MATERIAL),
             tool(0, 3, Items.IRON_SHOVEL, "iron", MatchRules.SHOVEL_MATERIAL),
+            tool(0, 4, Items.IRON_HOE, "iron", MatchRules.HOE_MATERIAL),
+            tool(0, 6, Items.BOW, "iron", MatchRules.BOW_IRON),
+            tool(1, 0, Items.DIAMOND_SWORD, "diamond", MatchRules.SWORD_MATERIAL),
+            tool(1, 1, Items.DIAMOND_AXE, "diamond", MatchRules.AXE_MATERIAL),
+            tool(1, 2, Items.DIAMOND_PICKAXE, "diamond", MatchRules.PICKAXE_MATERIAL),
+            tool(1, 3, Items.DIAMOND_SHOVEL, "diamond", MatchRules.SHOVEL_MATERIAL),
+            tool(1, 4, Items.DIAMOND_HOE, "diamond", MatchRules.HOE_MATERIAL),
+            tool(1, 6, Items.CROSSBOW, "iron", MatchRules.CROSSBOW_IRON),
+            tool(1, 7, Items.DIAMOND_SPEAR, "diamond", MatchRules.SPEAR_MATERIAL),
+            tool(2, 0, Items.COOKED_BEEF, "iron", MatchRules.BEEF_IRON, MatchRules.BEEF_COUNT),
+            tool(2, 1, Items.OAK_PLANKS, "iron", MatchRules.PLANK_IRON, MatchRules.PLANK_COUNT),
+            tool(2, 6, Items.ARROW, "iron", MatchRules.ARROW_IRON, MatchRules.ARROW_COUNT),
             listing(
-                0,
-                4,
+                2,
+                7,
                 ItemStack(Items.TNT),
                 mapOf(
                     WallwarMod.idOf("diamond") to MatchRules.SHOP_TNT_DIAMOND,
@@ -132,15 +139,6 @@ object BaseShop {
                 ),
                 requiresWorkshop = true,
             ),
-            tool(0, 5, Items.BOW, "iron", MatchRules.BOW_IRON),
-            tool(0, 6, Items.ARROW, "iron", MatchRules.ARROW_IRON, MatchRules.ARROW_COUNT),
-            tool(1, 0, Items.DIAMOND_SWORD, "diamond", MatchRules.SWORD_MATERIAL),
-            tool(1, 1, Items.DIAMOND_AXE, "diamond", MatchRules.AXE_MATERIAL),
-            tool(1, 2, Items.DIAMOND_PICKAXE, "diamond", MatchRules.PICKAXE_MATERIAL),
-            tool(1, 4, Items.DIAMOND_SPEAR, "diamond", MatchRules.SPEAR_MATERIAL),
-            tool(1, 5, Items.CROSSBOW, "iron", MatchRules.CROSSBOW_IRON),
-            tool(1, 6, Items.COOKED_BEEF, "iron", MatchRules.BEEF_IRON, MatchRules.BEEF_COUNT),
-            tool(2, 6, Items.OAK_PLANKS, "iron", MatchRules.PLANK_IRON, MatchRules.PLANK_COUNT),
         )
         Page.ARMOR -> listOf(
             tool(0, 0, Items.COPPER_HELMET, "copper", MatchRules.HELMET_MATERIAL),
@@ -160,7 +158,7 @@ object BaseShop {
         Page.BASE, Page.WAREHOUSE -> emptyList()
         Page.BUILDING -> listOf(
             listing(
-                1,
+                0,
                 0,
                 ItemStack(ModItems.CORE_RELAY),
                 mapOf(
@@ -169,7 +167,7 @@ object BaseShop {
                 ),
             ),
             listing(
-                2,
+                1,
                 0,
                 ItemStack(ModItems.CORE_FARMLAND),
                 mapOf(
@@ -177,10 +175,10 @@ object BaseShop {
                     WallwarMod.idOf("copper") to MatchRules.FARMLAND_PRICE_COPPER,
                 ),
             ),
-            listing(1, 1, ItemStack(ModItems.CORE_BARRACKS), iron(MatchRules.BARRACKS_PRICE_IRON)),
-            listing(2, 1, ItemStack(ModItems.CORE_PILLAGER), iron(MatchRules.PILLAGER_TOWER_PRICE_IRON)),
+            listing(0, 1, ItemStack(ModItems.CORE_BARRACKS), iron(MatchRules.BARRACKS_PRICE_IRON)),
+            listing(1, 1, ItemStack(ModItems.CORE_PILLAGER), iron(MatchRules.PILLAGER_TOWER_PRICE_IRON)),
             listing(
-                3,
+                2,
                 1,
                 ItemStack(ModItems.CORE_WORKSHOP),
                 mapOf(
@@ -189,7 +187,7 @@ object BaseShop {
                 ),
             ),
             listing(
-                4,
+                3,
                 1,
                 ItemStack(ModItems.CORE_CRYSTAL_FURNACE),
                 mapOf(
@@ -197,13 +195,13 @@ object BaseShop {
                     WallwarMod.idOf("copper") to MatchRules.CRYSTAL_FURNACE_PRICE_COPPER,
                 ),
             ),
-            listing(1, 2, ItemStack(ModItems.CORE_WALL), copper(MatchRules.WALL_PRICE_COPPER)),
-            listing(2, 2, ItemStack(ModItems.CORE_TOWER), copper(MatchRules.TOWER_PRICE_COPPER)),
-            listing(3, 2, ItemStack(ModItems.CORE_TESLA), copper(MatchRules.TESLA_PRICE_COPPER)),
-            listing(1, 3, ItemStack(ModItems.CORE_CANNON), copper(MatchRules.CANNON_PRICE_COPPER)),
-            listing(2, 3, ItemStack(ModItems.CORE_QUAKE), diamond(MatchRules.QUAKE_PRICE_DIAMOND)),
+            listing(0, 2, ItemStack(ModItems.CORE_WALL), copper(MatchRules.WALL_PRICE_COPPER)),
+            listing(1, 2, ItemStack(ModItems.CORE_TOWER), copper(MatchRules.TOWER_PRICE_COPPER)),
+            listing(2, 2, ItemStack(ModItems.CORE_TESLA), copper(MatchRules.TESLA_PRICE_COPPER)),
+            listing(0, 3, ItemStack(ModItems.CORE_CANNON), copper(MatchRules.CANNON_PRICE_COPPER)),
+            listing(1, 3, ItemStack(ModItems.CORE_QUAKE), diamond(MatchRules.QUAKE_PRICE_DIAMOND)),
             listing(
-                1,
+                0,
                 4,
                 ItemStack(ModItems.CORE_GUIDED_CANNON),
                 mapOf(
@@ -213,7 +211,7 @@ object BaseShop {
                 ),
             ),
             listing(
-                2,
+                1,
                 4,
                 ItemStack(ModItems.CORE_TELEPORT_SPIRE),
                 mapOf(
@@ -222,9 +220,9 @@ object BaseShop {
                     WallwarMod.idOf("diamond") to MatchRules.TELEPORT_SPIRE_PRICE_DIAMOND,
                 ),
             ),
-            listing(1, 5, ItemStack(ModItems.REINFORCE), lapis(MatchRules.MODULE_LAPIS)),
-            listing(2, 5, ItemStack(ModItems.REINFORCE_TWO), lapis(MatchRules.MODULE_TWO_LAPIS)),
-            listing(3, 5, ItemStack(ModItems.DIFFUSION), lapis(MatchRules.MODULE_DIFFUSION_LAPIS)),
+            listing(0, 5, ItemStack(ModItems.REINFORCE), lapis(MatchRules.MODULE_LAPIS)),
+            listing(1, 5, ItemStack(ModItems.REINFORCE_TWO), lapis(MatchRules.MODULE_TWO_LAPIS)),
+            listing(2, 5, ItemStack(ModItems.DIFFUSION), lapis(MatchRules.MODULE_DIFFUSION_LAPIS)),
         )
     }
 
@@ -452,28 +450,6 @@ private class Offer(
     }
 }
 
-
-private class CategoryLabel(
-    private val slot: Int,
-    private val title: String,
-) : ShopItemWithIndex {
-    override fun index(): Int = slot
-
-    override fun getDefaultIcon(): ItemStack = icon()
-
-    override fun getIcon(gui: ShopGui, viewModel: ShopItemViewModel): ItemStack = icon()
-
-    override fun getBaseItem(gui: ShopGui, clickType: ClickType, viewModel: ShopItemViewModel): BaseShopItem =
-        BaseShopItem(icon(), emptyMap(), emptyList(), false, 0, true, null)
-
-    override fun executeBuying(item: BaseShopItem, gui: ShopGui, clickType: ClickType, materialSuffix: Component?) {
-    }
-
-    private fun icon(): ItemStack =
-        ItemStackBuilder.of(Items.NAME_TAG)
-            .setName(Component.literal(title).withStyle { style -> style.withColor(ChatFormatting.YELLOW).withItalic(false) })
-            .build()
-}
 
 private class BuildingOffer(
     private val slot: Int,

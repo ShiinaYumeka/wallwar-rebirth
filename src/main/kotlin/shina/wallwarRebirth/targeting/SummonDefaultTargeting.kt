@@ -51,7 +51,7 @@ object SummonDefaultTargeting {
     ): LivingEntity? {
         val found = world.summons(level).filter { actor ->
             actor.entity !== self &&
-                actor.entity.isAlive &&
+                Targeting.canSeek(actor.entity) &&
                 Targeting.hostile(team, actor.team) &&
                 origin.distanceTo(actor.entity.position()) <= radius
         }
@@ -68,7 +68,7 @@ object SummonDefaultTargeting {
         radius: Double,
     ): LivingEntity? {
         val found = world.players(level).filter { actor ->
-            actor.entity.isAlive &&
+            Targeting.canSeek(actor.entity) &&
                 Targeting.hostile(team, actor.team) &&
                 origin.distanceTo(actor.entity.position()) <= radius
         }

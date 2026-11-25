@@ -40,12 +40,12 @@ object Match : MatchPort {
         var classLocked: Boolean = true
         var skillReadyAt: Long = 0
         var swordPassiveReadyAt: Long = 0
-        var wreckerDigUntil: Long = 0
         var ready: Boolean = false
         var spectating: Boolean = false
         var started: Boolean = false
         var ironGiven: Boolean = false
         var respawnAt: Int = 0
+        var championFastRespawn: Boolean = false
         var pendingReset: Boolean = false
         var heldItems: List<ItemStack> = emptyList()
         var heldLevel: Int = 0
@@ -92,7 +92,7 @@ object Match : MatchPort {
         flushLobbyReturns(current)
         for (level in current.allLevels) {
             val rules = level.gameRules
-            if (rules.get(GameRules.IMMEDIATE_RESPAWN) == true) continue
+            if (rules.get(GameRules.IMMEDIATE_RESPAWN)) continue
             rules.set(GameRules.IMMEDIATE_RESPAWN, true, current)
         }
         val arena = current.getLevel(MatchRules.DIMENSION)
@@ -212,9 +212,6 @@ object Match : MatchPort {
         if (message != null) player.sendSystemMessage(Component.literal(message))
         if (cast.readyAt != null) {
             member.skillReadyAt = cast.readyAt
-            if (member.classId == Classes.WRECKER) {
-                member.wreckerDigUntil = now + MatchRules.WRECKER_ACTIVE_TICKS
-            }
             Classes.applyEffect(player, member.classId)
             MatchPersistence.save(player.level().server)
         }
@@ -352,7 +349,6 @@ object Match : MatchPort {
         member.classLocked = true
         member.skillReadyAt = 0
         member.swordPassiveReadyAt = 0
-        member.wreckerDigUntil = 0
         MatchPersistence.save(player.level().server)
         player.sendSystemMessage(Component.literal("职业：${Classes.name(chosen)}"))
     }
@@ -419,12 +415,12 @@ object Match : MatchPort {
             member.classLocked = true
             member.skillReadyAt = 0
             member.swordPassiveReadyAt = 0
-            member.wreckerDigUntil = 0
             member.ready = false
             member.spectating = false
             member.started = false
             member.ironGiven = false
             member.respawnAt = 0
+            member.championFastRespawn = false
             member.pendingReset = true
             member.heldItems = emptyList()
             member.heldLevel = 0
@@ -605,8 +601,7 @@ object Match : MatchPort {
         else "点击同意重置，达到半数后回到大厅；再点一次取消"
 
     fun needsSettleConsent(player: ServerPlayer): Boolean {
-        if (phase != Phase.SETTLE) return false
-        return inThisMatch(player) || isArena(player.level())
+        return phase == Phase.SETTLE && (inThisMatch(player) || isArena(player.level()))
     }
 
     private fun tickSettleReset(current: MinecraftServer) {
@@ -652,8 +647,7 @@ object Match : MatchPort {
         member.team == WallwarTeams.RED || member.team == WallwarTeams.BLUE
 
     private fun inThisMatch(member: Member?): Boolean {
-        if (member == null || phase == Phase.LOBBY) return false
-        return isTeamed(member) || member.spectating
+        return !(member == null || phase == Phase.LOBBY) && (isTeamed(member) || member.spectating)
     }
 
     private fun inThisMatch(player: ServerPlayer): Boolean = inThisMatch(members[player.uuid])
@@ -694,12 +688,6 @@ object Match : MatchPort {
     }
 
     fun horizontal(a: BlockPos, b: BlockPos): Double = MatchPersistence.horizontal(a, b)
-
-    fun counts(current: MinecraftServer, team: String, readyFlag: Boolean): Pair<Int, Int> {
-        val online = MatchRoster.onlineTeam(current, team)
-        val done = online.count { if (readyFlag) it.second.ready else it.second.started }
-        return done to online.size
-    }
 
     fun readyCounts(current: MinecraftServer): Pair<Int, Int> {
         val online = MatchRoster.onlineTeam(current, WallwarTeams.RED) + MatchRoster.onlineTeam(current, WallwarTeams.BLUE)

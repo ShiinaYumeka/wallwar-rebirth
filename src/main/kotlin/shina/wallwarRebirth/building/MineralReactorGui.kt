@@ -30,7 +30,7 @@ class MineralReactorGui(
             close()
             return
         }
-        val refusal = MineralReactorCapture.openRefusal(site, viewer)
+        val refusal = MineralReactorCapture.openRefusal(viewer)
         if (refusal != null) {
             close()
             return
@@ -72,7 +72,7 @@ class MineralReactorGui(
     private fun occupyIcon(): ItemStack {
         val builder = ItemStackBuilder.of(Items.EMERALD)
             .setName(line("占领", ChatFormatting.GREEN))
-            .appendLore(line("需要 1 个正在跟随的无职业村民走过来"))
+            .appendLore(line("让最近的无职业村民走过来，到达后村民消失"))
         if (site.team.isEmpty()) builder.appendLore(line("当前无主"))
         else builder.appendLore(line("当前属于：${site.team}"))
         return builder.build()

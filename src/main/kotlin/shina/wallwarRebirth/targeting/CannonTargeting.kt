@@ -15,14 +15,14 @@ sealed interface CannonAim {
 object CannonTargeting {
     fun select(world: TargetWorld, level: ServerLevel, origin: Vec3, team: String, self: BlockPos, range: Double, tie: Double): CannonAim? {
         val summons = world.summons(level).filter { actor ->
-            actor.entity.isAlive &&
+            Targeting.canSeek(actor.entity) &&
                 Targeting.hostile(team, actor.team) &&
                 Targeting.distanceToBox(origin, actor.entity.boundingBox) <= range + tie
         }
         Targeting.nearest(summons, { Targeting.distanceToBox(origin, it.entity.boundingBox) }, { it.entity.health }, { it.entity.id }, tie)
             ?.let { return CannonAim.Creature(Vec3.atCenterOf(it.entity.blockPosition())) }
         val players = world.players(level).filter { actor ->
-            actor.entity.isAlive &&
+            Targeting.canSeek(actor.entity) &&
                 Targeting.hostile(team, actor.team) &&
                 Targeting.distanceToBox(origin, actor.entity.boundingBox) <= range + tie
         }

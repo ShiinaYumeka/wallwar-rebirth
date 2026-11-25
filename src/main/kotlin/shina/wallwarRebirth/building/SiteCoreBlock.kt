@@ -122,30 +122,30 @@ class SiteCoreBlock(properties: Properties) : BaseEntityBlock(properties), Polym
                 val part = level.getBlockEntity(pos) as? SiteStructureBlockEntity ?: return InteractionResult.PASS
                 SiteCores.find(level, part.corePos)
             } ?: return InteractionResult.PASS
-            return openSite(serverPlayer, site)
+            openSite(serverPlayer, site)
+            return InteractionResult.SUCCESS
         }
 
-        fun openSite(player: ServerPlayer, site: SiteCoreBlockEntity): InteractionResult {
-            if (CannonCrew.tryEnter(site, player)) return InteractionResult.SUCCESS
+        private fun openSite(player: ServerPlayer, site: SiteCoreBlockEntity) {
+            if (CannonCrew.tryEnter(site, player)) return
             if (site.buildingId == Buildings.MINERAL_REACTOR.id) {
-                val refusal = MineralReactorCapture.openRefusal(site, player)
+                val refusal = MineralReactorCapture.openRefusal(player)
                 if (refusal != null) {
                     player.sendSystemMessage(net.minecraft.network.chat.Component.literal(refusal))
-                    return InteractionResult.SUCCESS
+                    return
                 }
                 BuildingMenus.open(player, site)
-                return InteractionResult.SUCCESS
+                return
             }
             if (site.team.isNotEmpty() && !site.isAlly(player)) {
                 player.sendSystemMessage(net.minecraft.network.chat.Component.literal("敌方打不开"))
-                return InteractionResult.SUCCESS
+                return
             }
             if (site.buildingId == Buildings.BASE.id) {
                 BaseShop.open(player, site)
             } else {
                 BuildingMenus.open(player, site)
             }
-            return InteractionResult.SUCCESS
         }
     }
 

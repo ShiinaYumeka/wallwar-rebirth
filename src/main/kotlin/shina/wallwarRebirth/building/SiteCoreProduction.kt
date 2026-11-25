@@ -41,10 +41,15 @@ internal fun SiteCoreBlockEntity.insert(stack: ItemStack): ItemStack {
 
 internal fun SiteCoreBlockEntity.intervalOf(mineral: MineralOutput): Int? {
     if (buildingLevel < mineral.minLevel) return null
-    val ticks = if ((buildingId == Buildings.BASE.id || buildingId == Buildings.MINERAL_REACTOR.id) && !reinforce.isEmpty) {
-        MatchRules.BASE_BOOSTED_TICKS
-    } else {
-        mineral.baseTicks
+    val boosted = (buildingId == Buildings.BASE.id || buildingId == Buildings.MINERAL_REACTOR.id) && !reinforce.isEmpty
+    val levelOneGem = buildingId == Buildings.BASE.id &&
+        buildingLevel == 1 &&
+        (mineral.item == Items.REDSTONE || mineral.item == Items.LAPIS_LAZULI)
+    val ticks = when {
+        levelOneGem && boosted -> MatchRules.BASE_LEVEL1_GEM_BOOSTED_TICKS
+        levelOneGem -> MatchRules.BASE_LEVEL1_GEM_TICKS
+        boosted -> MatchRules.BASE_BOOSTED_TICKS
+        else -> mineral.baseTicks
     }
     return maxOf(MatchRules.MIN_PRODUCTION_TICKS, ticks)
 }
@@ -88,7 +93,4 @@ internal fun SiteCoreBlockEntity.storedProductionLines(): List<Pair<String, Bool
         text to (unlocked && interval != null)
     }
 }
-
-internal fun SiteCoreBlockEntity.storedGeneratableMinerals(definition: BuildingDefinition): List<MineralOutput> =
-    definition.minerals().filter { buildingLevel >= it.minLevel }
 

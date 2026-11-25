@@ -1,6 +1,7 @@
 package shina.wallwarRebirth.monster
 
 import net.minecraft.core.BlockPos
+import net.minecraft.core.Direction
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.sounds.SoundEvents
 import net.minecraft.sounds.SoundSource
@@ -34,6 +35,39 @@ internal object SummonedEscape {
         var pendingPlace: BlockPos? = null
         var escaping = false
         var acted = false
+    }
+
+    enum class PillarStep { NONE, WORKING, PLACED }
+
+    fun pillarFromPit(mob: Mob, level: ServerLevel, memory: Memory, mayStart: Boolean): PillarStep {
+        memory.acted = false
+        if (memory.placeWait > 0) memory.placeWait--
+        val pending = memory.pendingPlace
+        if (pending != null) {
+            if (mob.blockX != pending.x || mob.blockZ != pending.z || memory.placeWait == 0) {
+                memory.pendingPlace = null
+            } else {
+                if (mob.y < pending.y + 1.0) return PillarStep.WORKING
+                finishPendingPlace(mob, level, memory)
+                return if (memory.acted) PillarStep.PLACED else PillarStep.NONE
+            }
+        }
+        if (!mayStart || !mob.onGround() || memory.placeWait > 0) return PillarStep.NONE
+        val feet = mob.blockPosition()
+        if (memory.pillarFloor != Int.MIN_VALUE && feet.y - memory.pillarFloor >= MatchRules.PILLAR_MAX_RISE) {
+            return PillarStep.NONE
+        }
+        val hasRim = Direction.Plane.HORIZONTAL.any { side ->
+            val column = feet.relative(side)
+            if (blockedByBuilding(level, column, feet.y) || !canPillar(mob, level, column)) return@any false
+            val rim = column.above(ledgeRise(level, column, feet.y))
+            open(level, rim.above())
+        }
+        if (!hasRim) return PillarStep.NONE
+        mob.navigation.stop()
+        mob.moveControl.setWantedPosition(mob.x, mob.y, mob.z, 0.0)
+        climb(mob, level, memory)
+        return if (memory.acted) PillarStep.WORKING else PillarStep.NONE
     }
 
     fun tick(mob: Mob, level: ServerLevel, goal: Vec3?, trying: Boolean, memory: Memory) {
@@ -205,8 +239,9 @@ internal object SummonedEscape {
         val pending = memory.pendingPlace ?: return
         if (mob.y <= pending.y + 0.9) return
         val state = level.getBlockState(pending)
-        if (state.canBeReplaced() && !isSite(state)) {
+        if (state.canBeReplaced() && !isSite(state) &&
             level.setBlockAndUpdate(pending, Blocks.OAK_PLANKS.defaultBlockState())
+        ) {
             level.playSound(null, pending, SoundEvents.WOOD_PLACE, SoundSource.BLOCKS, 1f, 0.8f)
             memory.acted = true
         }

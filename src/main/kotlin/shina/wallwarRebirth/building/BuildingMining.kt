@@ -43,6 +43,7 @@ object BuildingMining {
     }
 
     fun finish(level: Level, player: Player, pos: BlockPos, state: BlockState): Boolean {
+        val miner = player as? ServerPlayer
         if (FarmlandWork.isProtected(level, pos)) return false
         if (state.block !is SiteCoreBlock && state.block !is SiteStructureBlock && state.block !is SitePartBlock) {
             return true
@@ -50,14 +51,11 @@ object BuildingMining {
         val core = resolve(level, pos, state) ?: return false
         if (core.isAlly(player) || !player.mainHandItem.`is`(ItemTags.PICKAXES)) return false
         if (protectedFloor(core, pos) || FarmlandWork.isPart(core, pos)) return false
-        val miner = player as? ServerPlayer
         if (miner != null && repeatedSwing(miner, pos)) return false
         val amount = if (miner != null) digDamage(miner) else MatchRules.DIG_DAMAGE
         core.damage(amount, pos, player.scoreboardName, player)
         level.playSound(null, pos, SoundEvents.PLAYER_ATTACK_STRONG, SoundSource.BLOCKS, 1f, 0.8f)
-        if (miner != null) {
-            miner.forceAddEffect(MobEffectInstance(MobEffects.GLOWING, MatchRules.GLOW_TICKS, 0, false, false, true), miner)
-        }
+        miner?.forceAddEffect(MobEffectInstance(MobEffects.GLOWING, MatchRules.GLOW_TICKS, 0, false, false, true), miner)
         return false
     }
 
@@ -103,13 +101,8 @@ object BuildingMining {
 
     private fun digDamage(player: ServerPlayer): Int {
         val member = Match.member(player.uuid) ?: return MatchRules.DIG_DAMAGE
-        if (Classes.isWrecker(member.classLocked, member.classId)) {
-            val now = player.level().server.overworld().gameTime
-            if (now < member.wreckerDigUntil) return MatchRules.DIG_DAMAGE * 2
-        }
-        if (ProfessionEffects.championArmed(player)) {
-            return MatchRules.DIG_DAMAGE + MatchRules.CHAMPION_BONUS_BUILDING
-        }
+        if (Classes.isWrecker(member.classLocked, member.classId)) return MatchRules.DIG_DAMAGE * 2
+        if (ProfessionEffects.championArmed(player)) return MatchRules.CHAMPION_BUILDING_DAMAGE
         return MatchRules.DIG_DAMAGE
     }
 

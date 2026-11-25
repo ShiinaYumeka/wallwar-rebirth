@@ -16,7 +16,7 @@ object TowerTargeting {
         visible: (LivingEntity) -> Boolean,
     ): LivingEntity? {
         val summons = world.summons(level).filter { actor ->
-            actor.entity.isAlive &&
+            Targeting.canSeek(actor.entity) &&
                 Targeting.hostile(team, actor.team) &&
                 Targeting.distanceToBox(origin, actor.entity.boundingBox) <= range + tie &&
                 visible(actor.entity)
@@ -24,7 +24,7 @@ object TowerTargeting {
         Targeting.nearest(summons, { Targeting.distanceToBox(origin, it.entity.boundingBox) }, { it.entity.health }, { it.entity.id }, tie)
             ?.let { return it.entity }
         val players = world.players(level).filter { actor ->
-            actor.entity.isAlive &&
+            Targeting.canSeek(actor.entity) &&
                 Targeting.hostile(team, actor.team) &&
                 Targeting.distanceToBox(origin, actor.entity.boundingBox) <= range + tie &&
                 visible(actor.entity)

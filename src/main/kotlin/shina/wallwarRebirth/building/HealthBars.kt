@@ -1,34 +1,35 @@
 package shina.wallwarRebirth.building
 
 import net.minecraft.ChatFormatting
+import net.minecraft.core.Direction
 import net.minecraft.network.chat.Component
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
+import net.minecraft.world.phys.Vec3
 import kotlin.math.ceil
 import kotlin.math.min
 
 object HealthBars {
     private val partial = arrayOf("▏", "▎", "▍", "▌", "▋", "▊", "▉")
+    private const val SIDE_OFFSET = 0.6
 
     fun tick(site: SiteCoreBlockEntity, level: ServerLevel, definition: BuildingDefinition) {
         val max = definition.maxHealth(site.buildingLevel)
         val label = find(site, level)
-        if (site.health <= 0 || site.health >= max) {
+        if (site.health !in 1..<max) {
             label?.discard()
             site.healthDisplayId = null
             return
         }
-        val shown = label ?: spawn(site, level)
+        val position = position(site, level)
+        val shown = label ?: spawn(site, level, position)
         shown.buildingTeam = site.team
         shown.currentHealth = site.health
         shown.maxHealth = max
         shown.corePos = site.blockPos
         shown.refresh()
-        val x = site.blockPos.x + 0.5
-        val y = site.blockPos.y + 1.2
-        val z = site.blockPos.z + 0.5
-        if (shown.x != x || shown.y != y || shown.z != z) {
-            shown.snapTo(x, y, z, 0f, 0f)
+        if (shown.position() != position) {
+            shown.snapTo(position.x, position.y, position.z, 0f, 0f)
         }
         site.healthDisplayId = shown.uuid
     }
@@ -77,10 +78,26 @@ object HealthBars {
             .firstOrNull { it.corePos == site.blockPos && !it.isRemoved }
     }
 
-    private fun spawn(site: SiteCoreBlockEntity, level: ServerLevel): BuildingHealthLabel {
+    private fun position(site: SiteCoreBlockEntity, level: ServerLevel): Vec3 {
+        val core = site.blockPos
+        val center = Vec3(core.x + 0.5, core.y + 1.2, core.z + 0.5)
+        val above = core.above()
+        if (level.getBlockState(above).isAir) return center
+
+        val front = site.facingDirection()
+        val side = if (front.axis.isHorizontal && level.getBlockState(above.relative(front)).isAir) {
+            front
+        } else {
+            Direction.Plane.HORIZONTAL.firstOrNull { level.getBlockState(above.relative(it)).isAir }
+                ?: return center
+        }
+        return center.add(side.stepX * SIDE_OFFSET, 0.0, side.stepZ * SIDE_OFFSET)
+    }
+
+    private fun spawn(site: SiteCoreBlockEntity, level: ServerLevel, position: Vec3): BuildingHealthLabel {
         val label = BuildingHealthLabel(shina.wallwarRebirth.monster.ModMonsters.HEALTH_LABEL, level)
         label.corePos = site.blockPos
-        label.snapTo(site.blockPos.x + 0.5, site.blockPos.y + 1.2, site.blockPos.z + 0.5, 0f, 0f)
+        label.snapTo(position.x, position.y, position.z, 0f, 0f)
         level.addFreshEntity(label)
         return label
     }

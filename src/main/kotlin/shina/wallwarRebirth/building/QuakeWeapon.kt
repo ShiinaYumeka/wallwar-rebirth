@@ -61,7 +61,7 @@ object QuakeWeapon {
             val origin = Vec3.atCenterOf(ally.blockPos)
             for (candidate in eligibleAround(site, level, origin, MatchRules.QUAKE_RANGE)) {
                 val current = best
-                if (current == null || prefer(candidate, origin, current.target, bestOrigin)) {
+                if (Targeting.canSeek(candidate) && (current == null || prefer(candidate, origin, current.target, bestOrigin))) {
                     best = Relay(ally, candidate)
                     bestOrigin = origin
                 }
@@ -100,7 +100,9 @@ object QuakeWeapon {
     private fun strike(site: SiteCoreBlockEntity, level: ServerLevel, preferred: LivingEntity, link: SiteCoreBlockEntity?) {
         val origin = Vec3.atCenterOf((link ?: site).blockPos)
         val range = MatchRules.QUAKE_RANGE
-        val main = if (eligible(site, preferred) && Targeting.distanceToBox(origin, preferred.boundingBox) <= range) {
+        val main = if (Targeting.canSeek(preferred) && eligible(site, preferred) &&
+            Targeting.distanceToBox(origin, preferred.boundingBox) <= range
+        ) {
             preferred
         } else {
             select(site, level, origin, range)
@@ -167,7 +169,7 @@ object QuakeWeapon {
     private fun select(site: SiteCoreBlockEntity, level: ServerLevel, origin: Vec3, range: Double): LivingEntity? {
         val candidates = eligibleAround(site, level, origin, range)
         if (candidates.isEmpty()) return null
-        return candidates.minWithOrNull(
+        return candidates.asSequence().filter(Targeting::canSeek).minWithOrNull(
             compareByDescending<LivingEntity> { it.maxHealth }
                 .thenBy { (Targeting.distanceToBox(origin, it.boundingBox) / MatchRules.TOWER_TIE_DISTANCE).toLong() }
                 .thenBy { it.health }
@@ -178,16 +180,15 @@ object QuakeWeapon {
     private fun eligibleAround(site: SiteCoreBlockEntity, level: ServerLevel, origin: Vec3, range: Double): List<LivingEntity> {
         val found = ArrayList<LivingEntity>()
         val world = TargetWorlds.world
-        for (actor in world.players(level)) {
-            val player = actor.entity as? Player ?: continue
+        for ((entity) in world.players(level)) {
+            val player = entity as? Player ?: continue
             if (!eligiblePlayer(site, player)) continue
             if (Targeting.distanceToBox(origin, player.boundingBox) > range) continue
             found.add(player)
         }
-        for (actor in world.summons(level)) {
-            val living = actor.entity
+        for ((living, team) in world.summons(level)) {
             if (!living.isAlive) continue
-            if (!Targeting.hostile(site.team, actor.team)) continue
+            if (!Targeting.hostile(site.team, team)) continue
             if (Targeting.distanceToBox(origin, living.boundingBox) > range) continue
             found.add(living)
         }
@@ -195,8 +196,7 @@ object QuakeWeapon {
     }
 
     private fun eligible(site: SiteCoreBlockEntity, entity: LivingEntity): Boolean {
-        if (!entity.isAlive) return false
-        return when (entity) {
+        return entity.isAlive && when (entity) {
             is Player -> eligiblePlayer(site, entity)
             is SummonedUnit -> Targeting.hostile(site.team, entity.summonedTeam)
             else -> false
@@ -204,8 +204,7 @@ object QuakeWeapon {
     }
 
     private fun eligiblePlayer(site: SiteCoreBlockEntity, player: Player): Boolean {
-        if (!player.isAlive || !Targeting.canTargetPlayer(player)) return false
-        return Targeting.hostile(site.team, player.team?.name ?: "")
+        return !(!player.isAlive || !Targeting.canTargetPlayer(player)) && Targeting.hostile(site.team, player.team?.name ?: "")
     }
 
     private val PURPLE = DustParticleOptions(0xC26BFF, 1.45f)

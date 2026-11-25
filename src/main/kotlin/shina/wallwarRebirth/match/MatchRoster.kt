@@ -61,10 +61,12 @@ object MatchRoster {
     internal fun startRespawnWait(player: ServerPlayer, member: Match.Member) {
         player.removeAllEffects()
         player.clearFire()
-        member.respawnAt = player.level().server.tickCount + MatchRules.RESPAWN_TICKS
+        val ticks = if (member.championFastRespawn) MatchRules.RESPAWN_TICKS / 2 else MatchRules.RESPAWN_TICKS
+        member.championFastRespawn = false
+        member.respawnAt = player.level().server.tickCount + ticks
         teleportThenSpectate(player, member.team)
         MatchMenu.give(player)
-        showRespawnTitle(player, MatchRules.RESPAWN_TICKS / MatchRules.TICKS_PER_SECOND)
+        showRespawnTitle(player, ticks / MatchRules.TICKS_PER_SECOND)
     }
 
     internal fun showRespawnTitle(player: ServerPlayer, seconds: Int) {

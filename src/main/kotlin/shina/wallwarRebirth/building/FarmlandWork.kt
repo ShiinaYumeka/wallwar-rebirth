@@ -1,13 +1,26 @@
 package shina.wallwarRebirth.building
 
+import net.minecraft.ChatFormatting
 import net.minecraft.core.BlockPos
+import net.minecraft.core.SectionPos
+import net.minecraft.core.component.DataComponents
+import net.minecraft.core.registries.Registries
+import net.minecraft.network.chat.Component
 import net.minecraft.network.protocol.game.ClientboundBlockUpdatePacket
+import net.minecraft.server.MinecraftServer
 import net.minecraft.server.level.ServerLevel
+import net.minecraft.server.level.ServerPlayer
 import net.minecraft.sounds.SoundEvents
 import net.minecraft.sounds.SoundSource
+import net.minecraft.tags.FluidTags
+import net.minecraft.tags.ItemTags
 import net.minecraft.world.Containers
+import net.minecraft.world.effect.MobEffects
+import net.minecraft.world.entity.EquipmentSlot
+import net.minecraft.world.entity.player.Player
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
+import net.minecraft.world.item.enchantment.Enchantments
 import net.minecraft.world.level.BlockGetter
 import net.minecraft.world.level.block.*
 import net.minecraft.world.level.block.state.BlockState
@@ -18,8 +31,22 @@ import shina.wallwarRebirth.monster.SummonedUnits
 import shina.wallwarRebirth.monster.SummonedVillager
 import shina.wallwarRebirth.rules.MatchRules
 import shina.wallwarRebirth.shop.match.TeamWarehouses
+import shina.wallwarRebirth.util.showActionBar
+import java.util.UUID
+import kotlin.math.ceil
 
 object FarmlandWork {
+    private class PlayerHarvest(
+        val player: ServerPlayer,
+        val level: ServerLevel,
+        val plot: WheatPlot,
+        val hoe: ItemStack,
+        val totalTicks: Int,
+        var elapsedTicks: Int = 0,
+    )
+
+    private val playerHarvests = HashMap<UUID, PlayerHarvest>()
+
     fun isPart(core: SiteCoreBlockEntity, pos: BlockPos): Boolean =
         BuildingStyles.isUnbreakablePart(core, pos)
 
@@ -145,6 +172,77 @@ object FarmlandWork {
         return best
     }
 
+    fun startPlayerHarvest(level: ServerLevel, player: ServerPlayer, pos: BlockPos): Boolean {
+        if (!Match.isFight() || !canHarvest(player, level, pos)) return false
+        val hoe = player.mainHandItem
+        if (!hoe.`is`(ItemTags.HOES)) return false
+        val crop = cropOf(level, pos) ?: return false
+        if (!crop.mature) return false
+        val site = owner(level, pos) ?: return false
+        if (site.buildingId != Buildings.FARMLAND.id || site.health <= 0) return false
+        val active = playerHarvests[player.uuid]
+        if (active?.player === player && active.plot.core === site && active.plot.pos == pos &&
+            ItemStack.isSameItemSameComponents(hoe, active.hoe)
+        ) return true
+        val speed = hoeSpeed(player)
+        if (!speed.isFinite() || speed <= 0f) return false
+        val duration = ceil(FARMLAND_HARDNESS / speed).toInt().coerceAtLeast(1)
+        val plot = WheatPlot(site, pos.immutable(), crop.state, crop.block)
+        val job = PlayerHarvest(player, level, plot, hoe.copy(), duration)
+        playerHarvests[player.uuid] = job
+        showHarvestProgress(job)
+        return true
+    }
+
+    fun tickPlayerHarvests(server: MinecraftServer) {
+        val jobs = playerHarvests.values.iterator()
+        while (jobs.hasNext()) {
+            val job = jobs.next()
+            val player = job.player
+            if (server.playerList.getPlayer(player.uuid) !== player) {
+                jobs.remove()
+                continue
+            }
+            val (site, pos) = job.plot
+            val level = job.level
+            if (!Match.isFight() || !canHarvest(player, level, pos) ||
+                !ItemStack.isSameItemSameComponents(player.mainHandItem, job.hoe) ||
+                site.isRemoved || site.health <= 0 || site.buildingId != Buildings.FARMLAND.id ||
+                pos !in site.partPositions || cropOf(level, pos)?.mature != true
+            ) {
+                jobs.remove()
+                player.showActionBar(Component.literal("收割已取消"))
+                continue
+            }
+            job.elapsedTicks++
+            if (job.elapsedTicks >= job.totalTicks) {
+                jobs.remove()
+                if (harvest(level, job.plot)) {
+                    player.mainHandItem.hurtAndBreak(1, player, EquipmentSlot.MAINHAND)
+                    Block.popResource(level, pos, ItemStack(Items.WHEAT))
+                    showHarvestProgress(job)
+                }
+            } else if (job.elapsedTicks % 2 == 0) {
+                showHarvestProgress(job)
+            }
+        }
+    }
+
+    private fun canHarvest(player: ServerPlayer, level: ServerLevel, pos: BlockPos): Boolean =
+        player.isAlive && !player.isSpectator && player.level() === level &&
+            player.isWithinBlockInteractionRange(pos, 0.0) &&
+            level.chunkSource.hasChunk(SectionPos.blockToSectionCoord(pos.x), SectionPos.blockToSectionCoord(pos.z))
+
+    private fun showHarvestProgress(job: PlayerHarvest) {
+        val percent = (job.elapsedTicks.toLong() * 100 / job.totalTicks).toInt()
+        val filled = percent / 10
+        val bar = Component.literal("收割小麦 ")
+            .append(Component.literal("■".repeat(filled)).withStyle(ChatFormatting.GREEN))
+            .append(Component.literal("■".repeat(10 - filled)).withStyle(ChatFormatting.DARK_GRAY))
+            .append(" $percent%")
+        job.player.showActionBar(bar)
+    }
+
     fun harvest(level: ServerLevel, plot: WheatPlot): Boolean {
         val crop = cropOf(level, plot.pos) ?: return false
         if (!crop.mature) return false
@@ -239,6 +337,44 @@ object FarmlandWork {
         return CropView(state, crop, age, crop.isMaxAge(state))
     }
 
+    private fun hoeSpeed(player: Player): Float {
+        val stack = player.mainHandItem
+        val tool = stack.get(DataComponents.TOOL)
+        var speed = 1f
+        if (tool != null) {
+            for (rule in tool.rules) {
+                if (!rule.speed.isPresent) continue
+                val value = rule.speed.get()
+                if (value > speed) speed = value
+            }
+        }
+        if (speed > 1f) {
+            val efficiency = enchantmentLevel(player, stack, Enchantments.EFFICIENCY)
+            if (efficiency > 0) speed += efficiency * efficiency + 1
+        }
+        val haste = player.getEffect(MobEffects.HASTE)
+        if (haste != null) speed *= 1f + (haste.amplifier + 1) * 0.2f
+        val fatigue = player.getEffect(MobEffects.MINING_FATIGUE)
+        if (fatigue != null) {
+            speed *= when (fatigue.amplifier) {
+                0 -> 0.3f
+                1 -> 0.09f
+                2 -> 0.027f
+                else -> 0.0081f
+            }
+        }
+        val aqua = enchantmentLevel(player, player.getItemBySlot(EquipmentSlot.HEAD), Enchantments.AQUA_AFFINITY) > 0
+        if (player.isEyeInFluid(FluidTags.WATER) && !aqua) speed /= 5f
+        if (!player.onGround()) speed /= 5f
+        return speed
+    }
+
+    private fun enchantmentLevel(player: Player, stack: ItemStack, enchantment: net.minecraft.resources.ResourceKey<net.minecraft.world.item.enchantment.Enchantment>): Int {
+        val enchants = stack.get(DataComponents.ENCHANTMENTS) ?: return 0
+        val holder = player.registryAccess().lookupOrThrow(Registries.ENCHANTMENT).get(enchantment).orElse(null) ?: return 0
+        return enchants.getLevel(holder)
+    }
+
     private fun wheatState(level: ServerLevel, pos: BlockPos): BlockState? {
         val entity = level.getBlockEntity(pos) as? SiteStructureBlockEntity
         if (entity != null) return entity.appearance
@@ -266,4 +402,6 @@ object FarmlandWork {
     data class WheatPlot(val core: SiteCoreBlockEntity, val pos: BlockPos, val state: BlockState, val block: CropBlock)
 
     private data class CropView(val state: BlockState, val block: CropBlock, val age: Int, val mature: Boolean)
+
+    private const val FARMLAND_HARDNESS = 200f
 }

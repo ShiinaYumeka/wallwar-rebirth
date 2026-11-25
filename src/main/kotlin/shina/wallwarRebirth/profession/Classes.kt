@@ -52,8 +52,8 @@ object Classes {
             "破坏手",
             { ModItems.SKILL_WRECKER },
             Items.EXPERIENCE_BOTTLE,
-            "自己把敌方建筑生命扣到 0 并摧毁时，在核心位置掉落该建筑购买与升级费用合计的 10%，每种资源向上取整",
-            "手持娴熟技巧右键，之后 30 秒内挖掘建筑伤害翻倍，并清除自身的挖掘疲劳和蓄风；附近 8 格内有敌方唤灵时隐身 10 秒，冷却 60 秒",
+            "挖掘敌方建筑时伤害翻倍。亲手摧毁时直接获得该建筑购买与升级费用合计的 20%，每种资源向上取整，背包放不下时转入团队箱",
+            "手持娴熟技巧右键，清除自身的挖掘疲劳和蓄风；附近 8 格内有敌方唤灵时隐身 10 秒，冷却 60 秒",
         ),
         Spec(
             BASTION,
@@ -84,8 +84,8 @@ object Classes {
             "冠军",
             { ModItems.SKILL_CHAMPION },
             Items.GOLDEN_APPLE,
-            "穿着一整套钻石护甲时，最大生命提升 10 点，攻击力与对建筑的伤害各提升 1 点",
-            "手持加冕右键，恢复 2 点生命；若正穿着整套钻石护甲，改为恢复 8 点并清除负面效果，冷却 60 秒",
+            "穿着一整套钻石护甲时，复活时间减半、受到的非玩家伤害减半、对唤灵的伤害增加 50%，对建筑的挖掘伤害为 2，生命上限变为 40，击退抗性为 1",
+            "手持加冕右键回满饱食度。穿着整套钻石护甲时额外回满饱和度并清除所有状态效果，冷却 90 秒",
         ),
         Spec(
             COMMANDER,
@@ -168,7 +168,7 @@ object Classes {
             "，附近没有敌方唤灵，未隐身"
         }
         return Cast(
-            "挖掘建筑伤害翻倍持续 ${MatchRules.WRECKER_ACTIVE_TICKS / MatchRules.TICKS_PER_SECOND} 秒，已清除挖掘疲劳和蓄风$invis",
+            "已清除挖掘疲劳和蓄风$invis",
             now + MatchRules.WRECKER_SKILL_COOLDOWN_TICKS,
         )
     }
@@ -206,10 +206,13 @@ object Classes {
 
     private fun crown(now: Long, player: ServerPlayer): Cast {
         val armed = ProfessionEffects.championArmed(player)
-        val amount = if (armed) MatchRules.CHAMPION_HEAL_ARMORED else MatchRules.CHAMPION_HEAL
-        if (armed) ProfessionEffects.clearHarmful(player)
-        player.heal(amount.toFloat())
-        val text = if (armed) "恢复 $amount 点生命，并清除负面效果" else "恢复 $amount 点生命"
+        val food = player.foodData
+        food.foodLevel = 20
+        if (armed) {
+            food.setSaturation(20f)
+            player.removeAllEffects()
+        }
+        val text = if (armed) "饱食度和饱和度已满，已清除所有状态效果" else "饱食度已满"
         return Cast(text, now + MatchRules.CHAMPION_SKILL_COOLDOWN_TICKS)
     }
 

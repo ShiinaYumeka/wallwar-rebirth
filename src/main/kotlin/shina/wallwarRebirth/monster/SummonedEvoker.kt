@@ -10,19 +10,14 @@ import net.minecraft.world.damagesource.DamageSource
 import net.minecraft.world.entity.Entity
 import net.minecraft.world.entity.EntityType
 import net.minecraft.world.entity.LivingEntity
-import net.minecraft.world.entity.monster.illager.SpellcasterIllager
 import net.minecraft.world.entity.projectile.EvokerFangs
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.Level
 import shina.wallwarRebirth.match.Match
 import shina.wallwarRebirth.rules.MatchRules
 import xyz.nucleoid.packettweaker.PacketContext
-import java.util.UUID
-import kotlin.math.atan2
-import kotlin.math.cos
-import kotlin.math.max
-import kotlin.math.min
-import kotlin.math.sin
+import java.util.*
+import kotlin.math.*
 
 class SummonedEvoker(type: EntityType<out SummonedEvoker>, level: Level) :
     net.minecraft.world.entity.monster.illager.Evoker(type, level),
@@ -72,7 +67,7 @@ class SummonedEvoker(type: EntityType<out SummonedEvoker>, level: Level) :
         if (fangCooldown > 0) fangCooldown--
         if (fangWindup <= 0) return
         val target = fangTargetId?.let { level.getEntity(it) } as? LivingEntity
-        if (target == null || !target.isAlive || target.isRemoved) {
+        if (target == null || !target.isAlive || target.isRemoved || !mind.canKeepFocus(target)) {
             fangWindup = 0
             fangTargetId = null
             setIsCastingSpell(IllagerSpell.NONE)

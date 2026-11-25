@@ -233,7 +233,7 @@ internal fun SiteCoreBlockEntity.storedDamage(amount: Int, struck: BlockPos = bl
                 val fallen = level as? ServerLevel
                 if (fallen != null) Ports.match.onBaseFallen(fallen, team)
             }
-            ProfessionEffects.dropIfWrecker(this, attacker as? Player)
+            ProfessionEffects.rewardWrecker(this, attacker as? Player)
             ProfessionEffects.rewardConqueror(this, attacker as? Player)
             destroy()
         }
@@ -299,6 +299,6 @@ private fun SiteCoreBlockEntity.echoCommandPost(dealt: Int, attackerName: String
     val base = SiteCores.all().firstOrNull { site ->
         site.level === world && !site.isRemoved && site.team == team && site.buildingId == Buildings.BASE.id && site.health > 0
     } ?: return
-    base.damage(dealt, base.blockPos, attackerName, attacker)
+    base.damage(dealt * MatchRules.COMMAND_POST_ECHO, base.blockPos, attackerName, attacker)
 }
 

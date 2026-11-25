@@ -12,6 +12,7 @@ import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.sounds.SoundSource
 import net.minecraft.tags.BlockTags
+import net.minecraft.world.InteractionHand
 import net.minecraft.world.InteractionResult
 import net.minecraft.world.entity.Mob
 import net.minecraft.world.entity.animal.Animal
@@ -23,6 +24,7 @@ import net.minecraft.world.item.Items
 import net.minecraft.world.item.context.BlockPlaceContext
 import net.minecraft.world.item.context.UseOnContext
 import shina.wallwarRebirth.item.ModItems
+import shina.wallwarRebirth.profession.ProfessionEffects
 import net.minecraft.world.level.block.Block
 import net.minecraft.world.level.block.CrafterBlock
 import net.minecraft.world.level.block.CraftingTableBlock
@@ -63,7 +65,10 @@ object MatchHooks {
     fun blockCrafter(): Boolean = Match.phase == Match.Phase.FIGHT
 
     fun init() {
-        ServerTickEvents.END_SERVER_TICK.register { Match.tick(it) }
+        ServerTickEvents.END_SERVER_TICK.register { server ->
+            Match.tick(server)
+            FarmlandWork.tickPlayerHarvests(server)
+        }
         ServerPlayConnectionEvents.JOIN.register { handler, _, _ -> Match.onJoin(handler.player) }
         ServerPlayConnectionEvents.DISCONNECT.register { handler, server ->
             CannonCrew.disconnect(handler.player)
@@ -81,6 +86,8 @@ object MatchHooks {
         }
         ServerLivingEntityEvents.ALLOW_DEATH.register { entity, _, _ ->
             if (entity is ServerPlayer) {
+                val member = Match.member(entity.uuid)
+                if (member != null) member.championFastRespawn = ProfessionEffects.championArmed(entity)
                 BoundItems.stash(entity)
                 MatchMenu.stripOnDeath(entity)
             }
@@ -140,7 +147,12 @@ object MatchHooks {
             }
             val thrown = ShopTnt.use(player, hand)
             if (thrown != InteractionResult.PASS) return@register thrown
-            if (world is ServerLevel && FarmlandWork.isProtected(world, hit.blockPos)) return@register InteractionResult.FAIL
+            if (world is ServerLevel) {
+                if (hand == InteractionHand.MAIN_HAND && FarmlandWork.startPlayerHarvest(world, player, hit.blockPos)) {
+                    return@register InteractionResult.SUCCESS_SERVER
+                }
+                if (FarmlandWork.isProtected(world, hit.blockPos)) return@register InteractionResult.FAIL
+            }
             if (Match.phase == Match.Phase.FIGHT) {
                 val block = world.getBlockState(hit.blockPos).block
                 if (block is CraftingTableBlock || block is CrafterBlock) {
@@ -188,7 +200,7 @@ object MatchHooks {
     private fun places(stack: ItemStack): Boolean =
         stack.item is BlockItem || stack.item is BuildingCoreItem || stack.item is SummonEggItem
 
-    private fun placementPos(player: ServerPlayer, hand: net.minecraft.world.InteractionHand, stack: ItemStack, hit: net.minecraft.world.phys.BlockHitResult): BlockPos? {
+    private fun placementPos(player: ServerPlayer, hand: InteractionHand, stack: ItemStack, hit: net.minecraft.world.phys.BlockHitResult): BlockPos? {
         val item = stack.item
         if (item is BuildingCoreItem) return hit.blockPos.relative(hit.direction)
         if (item is BlockItem) return BlockPlaceContext(player, hand, stack, hit).clickedPos

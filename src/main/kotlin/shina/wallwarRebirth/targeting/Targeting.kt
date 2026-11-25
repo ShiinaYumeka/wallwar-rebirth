@@ -25,6 +25,8 @@ object Targeting {
     fun canTargetPlayer(player: Player): Boolean =
         !player.isSpectator && !player.isCreative && !isAiming(player.uuid)
 
+    fun canSeek(entity: LivingEntity): Boolean = entity.isAlive && !entity.isInvisible
+
     fun distanceToBox(origin: Vec3, box: AABB): Double {
         val dx = if (origin.x in box.minX..box.maxX) 0.0 else origin.x.coerceIn(box.minX, box.maxX) - origin.x
         val dy = if (origin.y in box.minY..box.maxY) 0.0 else origin.y.coerceIn(box.minY, box.maxY) - origin.y

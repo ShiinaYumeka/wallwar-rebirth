@@ -40,7 +40,7 @@ object Buildings {
                 ),
             ),
             ProductionRule(
-                2,
+                1,
                 MatchRules.BASE_REDSTONE_TICKS,
                 listOf(
                     ItemAmount(Items.REDSTONE, MatchRules.BASE_REDSTONE_COUNT, "红石"),
@@ -103,6 +103,7 @@ object Buildings {
         ),
         acceptsModules = true,
         acceptsDiffusion = true,
+        defensive = true,
     )
 
     val TESLA = BuildingDefinition(
@@ -127,6 +128,7 @@ object Buildings {
         ),
         acceptsModules = true,
         acceptsDiffusion = true,
+        defensive = true,
     )
 
     val BARRACKS = BuildingDefinition(
@@ -183,6 +185,7 @@ object Buildings {
         ),
         acceptsModules = true,
         acceptsDiffusion = true,
+        defensive = true,
     )
 
     val RELAY = BuildingDefinition(
@@ -255,7 +258,7 @@ object Buildings {
         production = emptyList(),
         healthByLevel = List(3) { MatchRules.CRYSTAL_FURNACE_HEALTH },
         icon = Items.FURNACE,
-        summary = "开启后自动从本队团队仓库扣铜锭和铁锭，每 10 个一批、20 秒转化一次。成功得到 1 个钻石，失败时一半得到 4 个红石、一半得到 4 个青金石，产物进团队仓库，放不下就作废。需已解锁晶核工坊。每队不限制座数，无模块。",
+        summary = "开启后自动从本队团队仓库扣铜锭和铁锭，每 10 个一批、20 秒转化一次。成功得到 1 个钻石，失败时一半得到 4 个红石、一半得到 4 个青金石，产物进团队仓库，放不下就作废。每队不限制座数，无模块。",
         details = listOf(
             LevelNote(1, furnaceNote(0)),
             LevelNote(2, furnaceNote(1)),
@@ -293,7 +296,7 @@ object Buildings {
         production = emptyList(),
         healthByLevel = List(3) { MatchRules.GUIDED_CANNON_HEALTH },
         icon = Items.TNT,
-        summary = "冷却结束后，在面板按下开炮，以旁观视角选定地点发动一次超远距离爆破打击。中心伤害 120，威力半径 16，对建筑仍为 25%。需已解锁晶核工坊。每队同时只能有一座。",
+        summary = "冷却结束后，在面板按下开炮，以旁观视角选定地点发动一次超远距离爆破打击。中心伤害 120，威力半径 16，对建筑仍为 25%。每队同时只能有一座。",
         footprint = Footprint.SQUARE_9,
         details = listOf(
             LevelNote(1, guidedNote(0)),
@@ -333,7 +336,7 @@ object Buildings {
         production = emptyList(),
         healthByLevel = List(3) { MatchRules.TELEPORT_SPIRE_HEALTH },
         icon = Items.AMETHYST_SHARD,
-        summary = "冷却结束后，在面板按下传送，以旁观视角选定地表位置，将使用的玩家以及跟随其的唤灵传送至安全位置；挤不下的唤灵不传。需已解锁晶核工坊。每队同时只能有一座。",
+        summary = "冷却结束后，在面板按下传送，以旁观视角选定地表位置，将使用的玩家以及跟随其的唤灵传送至安全位置；挤不下的唤灵不传。每队同时只能有一座。",
         footprint = Footprint.SQUARE_9,
         details = listOf(
             LevelNote(1, spireNote(0)),
@@ -359,7 +362,7 @@ object Buildings {
         production = emptyList(),
         healthByLevel = List(3) { MatchRules.QUAKE_HEALTH },
         icon = Items.LODESTONE,
-        summary = "按当前等级的间隔，在 24 格内优先选定最大生命值最高的敌方目标，对该目标周围溅射半径内的敌方造成一次伤害。被命中的敌人会略微增加此后受到此技能的伤害，层数由本队所有晶震装置共用。需已解锁晶核工坊。只打敌方玩家和唤灵，不打建筑。",
+        summary = "按当前等级的间隔，在 24 格内优先选定最大生命值最高的敌方目标，对该目标周围溅射半径内的敌方造成一次伤害。被命中的敌人会略微增加此后受到此技能的伤害，层数由本队所有晶震装置共用。只打敌方玩家和唤灵，不打建筑。",
         footprint = Footprint.SQUARE_5,
         details = listOf(
             LevelNote(1, quakeNote(0)),
@@ -416,7 +419,7 @@ object Buildings {
         production = BASE.production,
         healthByLevel = List(3) { MatchRules.MINERAL_REACTOR_HEALTH },
         icon = Items.FURNACE,
-        summary = "开局出现在两侧角矿靠边界一侧。固定 3 级，不能升级。开局无主，有跟随的无职业村民走过去即可占领，可被再占领；打掉后本局消失。产出与 3 级基地相同，进入本队团队仓库。可装强化 1 和强化 2，没有扩散槽，不能开商店。",
+        summary = "开局出现在两侧角矿靠边界一侧。固定 3 级，不能升级。开局无主，点击占领会让最近的本队无职业村民寻路过来，到达后村民消失并完成占领，可被再占领；打掉后本局消失。产出与 3 级基地相同，进入本队团队仓库。可装强化 1 和强化 2，没有扩散槽，不能开商店。",
         footprint = Footprint.SQUARE_5,
         acceptsModules = true,
         acceptsDiffusion = false,
