@@ -183,7 +183,7 @@ class SiteCoreBlockEntity(pos: BlockPos, state: BlockState) : BlockEntity(ModSit
         this.facing = facing.serializedName
         age = 0
         fallAge = 0
-        actionAge = 0
+        actionAge = BuildingCombat.initialActionAge(definition)
         weaponCooldown = if (definition.teamUnique) SuperWeapons.cooldownTicks(definition, 1) else 0
         producedMonster = defaultMonster(definition)
         marching = true

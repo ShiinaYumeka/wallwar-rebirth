@@ -25,6 +25,14 @@ import kotlin.math.sin
 import kotlin.math.sqrt
 
 object BuildingCombat {
+    fun initialActionAge(definition: BuildingDefinition): Int = when (definition.id) {
+        Buildings.TOWER.id -> MatchRules.TOWER_INTERVAL.first()
+        Buildings.TESLA.id -> MatchRules.TESLA_INTERVAL.first()
+        Buildings.CANNON.id -> MatchRules.CANNON_INTERVAL
+        Buildings.QUAKE.id -> MatchRules.QUAKE_INTERVAL.first()
+        else -> 0
+    }
+
     fun tick(site: SiteCoreBlockEntity, level: ServerLevel) {
         val before = site.actionAge
         val beforeEgg = site.eggReleaseAge

@@ -56,7 +56,7 @@ object Buildings {
         ),
         healthByLevel = List(3) { MatchRules.BASE_HEALTH },
         icon = Items.BEACON,
-        summary = "胜负目标，也是商店入口。产出进入本队团队仓库。不能购买、放置或拆除。",
+        summary = "产出基础资源，直接进入本队团队仓库。",
         acceptsModules = true,
         acceptsDiffusion = true,
     )
@@ -74,7 +74,7 @@ object Buildings {
         production = emptyList(),
         healthByLevel = MatchRules.WALL_HEALTH,
         icon = Items.STONE_BRICKS,
-        summary = "一截有碰撞的墙，用来让敌方怪物先打它，而不是直接打到后面的核心。唤灵·蜘蛛不会把它当目标。没有攻击，没有产出。",
+        summary = "有碰撞的墙，没有攻击，也没有产出。唤灵·蜘蛛不会把它当目标。",
         footprint = Footprint.WALL_9,
         acceptsModules = true,
         acceptsDiffusion = true,
@@ -94,7 +94,7 @@ object Buildings {
         production = emptyList(),
         healthByLevel = MatchRules.TOWER_HEALTH,
         icon = Items.CROSSBOW,
-        summary = "核心方块上平放一把弩，水平转向当前目标。射出不会被捡起的箭。优先最近的、没有被实心方块挡住的敌方唤灵，没有再打没有被挡住的敌方玩家。不打我方，不拆建筑，不消耗箭。",
+        summary = "每隔 2 秒，向 16 格内的敌人射出箭矢速度为 2/3/4 的箭矢，造成 4/6/8 点伤害",
         footprint = Footprint.SQUARE_1,
         details = listOf(
             LevelNote(1, towerNote(0)),
@@ -119,7 +119,7 @@ object Buildings {
         production = emptyList(),
         healthByLevel = MatchRules.TESLA_HEALTH,
         icon = Items.LIGHTNING_ROD,
-        summary = "按等级间隔电击 16 格内没有蓄风的敌人，优先玩家。命中造成闪电伤害并给予 ${MatchRules.secondsText(MatchRules.TESLA_WIND_TICKS)} 秒蓄风；玩家的蓄风时间减半。蓄风只显示计时，死亡不爆炸。",
+        summary = "每隔 5/4/3 秒，电击 16 格内没有蓄风的敌人，造成 6/10/14 点闪电伤害，并给予10秒蓄风（玩家 5 秒）。命中还会施加失明 1 秒、缓慢 V 1 秒、挖掘疲劳 I 10 秒、虚弱 I 5 秒。不拆建筑。",
         footprint = Footprint.SQUARE_3,
         details = listOf(
             LevelNote(1, teslaNote(0)),
@@ -150,7 +150,7 @@ object Buildings {
         production = emptyList(),
         healthByLevel = MatchRules.BARRACKS_HEALTH,
         icon = Items.IRON_BARS,
-        summary = "用左侧材料生产选定的唤灵，生产出来立刻放出。材料不够时不计时。",
+        summary = "用材料生产唤灵，做好就放出。材料不够时不计时。2 级产出间隔变为原来的 2/3，3 级变为原来的一半。1 级可生产僵尸、蜘蛛（15 秒）和骷髅（30 秒）。2 级解锁尸壳、苦力怕、僵尸战士（15 秒）、骷髅死士（15 秒，一轮 3 只）、矿工僵尸（60 秒）、村民（30 秒）。3 级解锁高压苦力怕、铁傀儡（30 秒）。",
         details = listOf(
             LevelNote(
                 1,
@@ -176,7 +176,7 @@ object Buildings {
         production = emptyList(),
         healthByLevel = MatchRules.CANNON_HEALTH,
         icon = Items.DISPENSER,
-        summary = "朝上的投掷器。发射带重力的 TNT，不消耗背包里的 TNT。先打最近的敌方唤灵，没有再打最近的敌方玩家，两类都没有时打敌方建筑。",
+        summary = "每隔 10 秒，向 32 格内发射带重力的 TNT，不消耗背包里的 TNT。中心伤害 20/30/40，建筑伤害 5/8/10。普通炮弹不拆方块。",
         footprint = Footprint.SQUARE_1,
         details = listOf(
             LevelNote(1, cannonNote(0)),
@@ -198,7 +198,7 @@ object Buildings {
         production = emptyList(),
         healthByLevel = listOf(MatchRules.RELAY_HEALTH),
         icon = Items.HOPPER,
-        summary = "矿工交矿时的更近落点。可以打开基地商店，也可以召集矿工。放置后在旁边额外生成一只本队矿工僵尸。",
+        summary = "可以打开基地商店，也可以召集最近的我方矿工。矿工赶到后交掉身上的矿，再去挖。放置后在旁边额外生成一只本队矿工僵尸。不能升级。",
         footprint = Footprint.SQUARE_3,
     )
 
@@ -212,7 +212,7 @@ object Buildings {
         production = emptyList(),
         healthByLevel = listOf(MatchRules.FARMLAND_HEALTH),
         icon = Items.COMPOSTER,
-        summary = "召集无职业唤灵·村民成为农民。农田没人干活时，村民也会自己走过去转职。农民最多带 20 个小麦，满了先去交。",
+        summary = "农田没人干活时，村民也会自己走过去转职。农民最多带 20 个小麦，满了先去交。小麦约每 20 秒成熟，收割间隔 3 秒。不能升级。",
         realWorldParts = true,
     )
 
@@ -226,7 +226,7 @@ object Buildings {
         production = emptyList(),
         healthByLevel = listOf(MatchRules.WORKSHOP_HEALTH),
         icon = Items.BLAST_FURNACE,
-        summary = "作为高科技武器及相关建筑的研发前置。本队至少有一座已放下且仍存在的晶核工坊时，解锁这些建筑的购买，并把基地产出钻石的基础概率从 ${MatchRules.BASE_DIAMOND_PERCENT}% 提升到 ${MatchRules.WORKSHOP_DIAMOND_PERCENT}%。每队不限制座数，按普通建筑可放多座。",
+        summary = "本队有已放下的晶核工坊时，可购买晶化反应炉、晶核制导炮、传送尖塔、晶震装置，并开始制作唤灵·重甲尸壳。同时把基地产出钻石的基础概率从 10% 提升到 12%。每队不限制座数。不能升级。占地 9×9。",
         footprint = Footprint.SQUARE_9,
         coverBelowLayers = 2,
         realWorldParts = true,
@@ -258,7 +258,7 @@ object Buildings {
         production = emptyList(),
         healthByLevel = List(3) { MatchRules.CRYSTAL_FURNACE_HEALTH },
         icon = Items.FURNACE,
-        summary = "开启后自动从本队团队仓库扣铜锭和铁锭，每 10 个一批、20 秒转化一次。成功得到 1 个钻石，失败时一半得到 4 个红石、一半得到 4 个青金石，产物进团队仓库，放不下就作废。每队不限制座数，无模块。",
+        summary = "开启后自动从本队团队仓库扣料，铜锭和铁锭各 10 个一批，每 20 秒转化一次。成功得到 1 个钻石；失败时一半得到 4 个红石，一半得到 4 个青金石。产物进入团队仓库，放不下就作废。关闭后不再开始新批次，正在转化的那批会做完。成功率 20/30/40%。每队不限制座数。",
         details = listOf(
             LevelNote(1, furnaceNote(0)),
             LevelNote(2, furnaceNote(1)),
@@ -296,7 +296,7 @@ object Buildings {
         production = emptyList(),
         healthByLevel = List(3) { MatchRules.GUIDED_CANNON_HEALTH },
         icon = Items.TNT,
-        summary = "冷却结束后，在面板按下开炮，以旁观视角选定地点发动一次超远距离爆破打击。中心伤害 120，威力半径 16，对建筑仍为 25%。每队同时只能有一座。",
+        summary = "每队同时只能有一座。中心伤害 120，威力半径 16 格，对建筑为 25%（30 点）。不伤友方、无队伍和自身。会拆威力半径内的非建筑木板并掉落，不拆建筑方块，不引燃。冷却 600/500/400 秒。占地 9×9。冷却就绪后在面板开炮，从天上选定地表，左键选定后再按左键确认。潜行取消，不进入冷却。",
         footprint = Footprint.SQUARE_9,
         details = listOf(
             LevelNote(1, guidedNote(0)),
@@ -336,7 +336,7 @@ object Buildings {
         production = emptyList(),
         healthByLevel = List(3) { MatchRules.TELEPORT_SPIRE_HEALTH },
         icon = Items.AMETHYST_SHARD,
-        summary = "冷却结束后，在面板按下传送，以旁观视角选定地表位置，将使用的玩家以及跟随其的唤灵传送至安全位置；挤不下的唤灵不传。每队同时只能有一座。",
+        summary = "每队同时只能有一座。挤不下的唤灵不传，留在原地。冷却 480/400/320 秒。占地 9×9。冷却就绪后在面板传送，选定方式与晶核制导炮相同。确认后玩家传到安全落点，正在跟随的同队唤灵一起传。",
         footprint = Footprint.SQUARE_9,
         details = listOf(
             LevelNote(1, spireNote(0)),
@@ -362,7 +362,7 @@ object Buildings {
         production = emptyList(),
         healthByLevel = List(3) { MatchRules.QUAKE_HEALTH },
         icon = Items.LODESTONE,
-        summary = "按当前等级的间隔，在 24 格内优先选定最大生命值最高的敌方目标，对该目标周围溅射半径内的敌方造成一次伤害。被命中的敌人会略微增加此后受到此技能的伤害，层数由本队所有晶震装置共用。只打敌方玩家和唤灵，不打建筑。",
+        summary = "每隔 3/2/1 秒，在 24 格内对目标周围溅射 3 格的敌方造成 5 点伤害。只打敌方玩家和唤灵，不打建筑。被命中后易伤每次 +1，最多 30 层，由本队所有晶震装置共用。占地 5×5。",
         footprint = Footprint.SQUARE_5,
         details = listOf(
             LevelNote(1, quakeNote(0)),
@@ -396,7 +396,7 @@ object Buildings {
         production = emptyList(),
         healthByLevel = MatchRules.PILLAGER_TOWER_HEALTH,
         icon = Items.WHITE_BANNER,
-        summary = "用左侧材料生产掠夺者系唤灵。生产规则照搬兵营，另有固守/掠夺切换。商店不出售这些唤灵。",
+        summary = "生产规则与兵营相同。商店不出售这些唤灵。2 级产出间隔变为原来的 2/3，3 级变为原来的一半。1 级可生产掠夺者（15 秒）。2 级解锁卫道士、幻术师（15 秒）。3 级解锁唤魔者、劫掠兽（30 秒）。",
         details = listOf(
             LevelNote(
                 1,
@@ -419,7 +419,7 @@ object Buildings {
         production = BASE.production,
         healthByLevel = List(3) { MatchRules.MINERAL_REACTOR_HEALTH },
         icon = Items.FURNACE,
-        summary = "开局出现在两侧角矿靠边界一侧。固定 3 级，不能升级。开局无主，点击占领会让最近的本队无职业村民寻路过来，到达后村民消失并完成占领，可被再占领；打掉后本局消失。产出与 3 级基地相同，进入本队团队仓库。可装强化 1 和强化 2，没有扩散槽，不能开商店。",
+        summary = "开局出现在两侧角矿靠边界一侧。固定 3 级，不能升级，开局无主。点击占领后，最近的本队无职业村民会寻路过来，到达后村民消失并完成占领。可被再占领。打掉后本局消失。产出与 3 级基地相同，进入本队团队仓库。不能开商店。占地 5×5。",
         footprint = Footprint.SQUARE_5,
         acceptsModules = true,
         acceptsDiffusion = false,

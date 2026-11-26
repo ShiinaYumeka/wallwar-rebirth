@@ -12,6 +12,8 @@ import net.minecraft.world.item.Items
 import net.minecraft.world.level.block.Blocks
 import net.minecraft.world.item.component.ItemLore
 import shina.wallwarRebirth.WallwarMod
+import shina.wallwarRebirth.copy.DescriptionStyle
+import shina.wallwarRebirth.copy.GameCopy
 import shina.wallwarRebirth.item.core.PolymerInteractionType
 
 object ModItems {
@@ -38,12 +40,7 @@ object ModItems {
         "reinforce_module",
         "强化模块",
         Items.LIGHT_BLUE_GLAZED_TERRACOTTA,
-        listOf(
-            "使部分建筑的效果增强。",
-            "*那是个疯狂的夜晚，禁忌科学让强化核心诞生。",
-            "电闪雷鸣，狂风怒号，整个世界都愤怒地否定着。",
-            "但是这一切都无济于事，强化核心仍然活着，活着！",
-        ),
+        GameCopy.moduleLines("reinforce"),
     )
 
     @JvmField
@@ -51,11 +48,7 @@ object ModItems {
         "reinforce_module_2",
         "强化模块 2",
         Items.LIGHT_GRAY_GLAZED_TERRACOTTA,
-        listOf(
-            "使部分建筑的效果增强。",
-            "*他是强化核心的姐妹，强化核心二号，他一直不满意自己的名字。",
-            "因为他觉得自己的名字是因为父母想不出新名字随便起的一样。",
-        ),
+        GameCopy.moduleLines("reinforce2"),
     )
 
     @JvmField
@@ -63,35 +56,35 @@ object ModItems {
         "diffusion_module",
         "扩散模块",
         Items.PURPLE_GLAZED_TERRACOTTA,
-        listOf(
-            "取消部分建筑的生效范围",
-            "*扩散模块生于辽宁省朝阳市，",
-            "从小就被亲戚朋友教会了",
-            "优秀的侦查以及说闲话技巧，",
-            "目前在村委会担当播音员一职。",
-        ),
+        GameCopy.moduleLines("diffusion"),
     )
 
     @JvmField
-    val SKILL_MINER: Item = skill("skill_golden_hour", "黄金时刻", Items.CLOCK, "手持右键获得急迫 I，持续 30 秒，冷却 60 秒")
+    val SKILL_MINER: Item = skill("skill_golden_hour", "黄金时刻", Items.CLOCK, "黄金时刻：获得30秒急迫I（冷却：60s）")
 
     @JvmField
-    val SKILL_WRECKER: Item = skill("skill_practiced", "娴熟技巧", Items.EXPERIENCE_BOTTLE, "手持右键清除自身的挖掘疲劳和蓄风；附近 8 格内有敌方唤灵时隐身 10 秒，冷却 60 秒")
+    val SKILL_WRECKER: Item = skill(
+        "skill_practiced",
+        "娴熟技巧",
+        Items.EXPERIENCE_BOTTLE,
+        "娴熟技巧：清除自身的挖掘疲劳和蓄风；附近 8 格内有敌方唤灵时隐身 10 秒（冷却：60s）",
+        polymerItem = Items.PAPER, // 防止客户端右键时按原版经验瓶扣除物品
+    )
 
     @JvmField
-    val SKILL_BASTION: Item = skill("skill_binder", "强力粘合剂", Items.SLIME_BALL, "手持右键己方城墙核心，恢复当前生命上限的 50%，冷却 60 秒")
+    val SKILL_BASTION: Item = skill("skill_binder", "强力粘合剂", Items.SLIME_BALL, "强力粘合剂：右键己方城墙核心，为其恢复 50%最大生命值（冷却：60s）")
 
     @JvmField
-    val SKILL_SWORDSMAN: Item = skill("skill_sprint", "急速冲刺", Items.FEATHER, "手持右键获得速度 II，持续 5 秒，冷却 30 秒")
+    val SKILL_SWORDSMAN: Item = skill("skill_sprint", "急速冲刺", Items.FEATHER, "急速冲刺：获得5秒速度II（冷却：30s）")
 
     @JvmField
-    val SKILL_CONQUEROR: Item = skill("skill_suppress", "镇压", Items.IRON_AXE, "手持右键，对面向 4 格内的敌方防御建筑核心造成 8 点伤害，冷却 90 秒")
+    val SKILL_CONQUEROR: Item = skill("skill_suppress", "镇压", Items.IRON_AXE, "镇压：对面向 4 格内的敌方防御建筑核心造成 8 点伤害（冷却：90s）")
 
     @JvmField
-    val SKILL_CHAMPION: Item = skill("skill_crown", "加冕", Items.GOLDEN_APPLE, "手持右键回满饱食度。穿着整套钻石护甲时额外回满饱和度并清除所有状态效果，冷却 90 秒")
+    val SKILL_CHAMPION: Item = skill("skill_crown", "加冕", Items.GOLDEN_APPLE, "加冕：回满饱食度；穿着整套钻石护甲时额外回满饱和度并清除所有状态效果（冷却：90s）")
 
     @JvmField
-    val SKILL_COMMANDER: Item = skill("skill_dispatch", "调度", Items.GOAT_HORN, "手持右键，在这座兵营满血时回收它，冷却 30 秒")
+    val SKILL_COMMANDER: Item = skill("skill_dispatch", "调度", Items.GOAT_HORN, "调度：若这座兵营当前满血，则回收并可以重新放置（冷却：30s)")
 
     @JvmField
     val TERMINAL: Item = register("portable_terminal") { properties ->
@@ -335,7 +328,13 @@ object ModItems {
         CORE_QUAKE
     }
 
-    private fun skill(path: String, name: String, icon: Item, lore: String): Item = register(path) { properties ->
+    private fun skill(
+        path: String,
+        name: String,
+        icon: Item,
+        lore: String,
+        polymerItem: Item = icon,
+    ): Item = register(path) { properties ->
         SkillItem(
             properties = properties.stacksTo(1)
                 .component(
@@ -348,7 +347,8 @@ object ModItems {
                         Component.literal(lore).withStyle { style -> style.withItalic(false).withColor(ChatFormatting.GRAY) },
                     )),
                 ),
-            polymerItem = icon,
+            polymerItem = polymerItem,
+            icon = icon,
         )
     }
 
@@ -369,10 +369,15 @@ object ModItems {
 
     private fun egg(path: String, name: String, icon: Item, monsterId: String): Item = register(path) { properties ->
         SummonEggItem(
-            properties = properties.component(
-                DataComponents.CUSTOM_NAME,
-                Component.literal(name).withStyle { style -> style.withItalic(false) },
-            ),
+            properties = properties
+                .component(
+                    DataComponents.CUSTOM_NAME,
+                    Component.literal(name).withStyle { style -> style.withItalic(false) },
+                )
+                .component(
+                    DataComponents.LORE,
+                    ItemLore(GameCopy.monsterLines(monsterId).map { DescriptionStyle.styled(it) }),
+                ),
             polymerItem = icon,
             monsterId = monsterId,
         )
@@ -380,10 +385,15 @@ object ModItems {
 
     private fun core(path: String, name: String, icon: Item, buildingId: String): Item = register(path) { properties ->
         BuildingCoreItem(
-            properties = properties.component(
-                DataComponents.CUSTOM_NAME,
-                Component.literal(name).withStyle { style -> style.withItalic(false) },
-            ),
+            properties = properties
+                .component(
+                    DataComponents.CUSTOM_NAME,
+                    Component.literal(name).withStyle { style -> style.withItalic(false) },
+                )
+                .component(
+                    DataComponents.LORE,
+                    ItemLore(GameCopy.buildingLines(buildingId).map { DescriptionStyle.styled(it) }),
+                ),
             polymerItem = icon,
             buildingId = buildingId,
         )

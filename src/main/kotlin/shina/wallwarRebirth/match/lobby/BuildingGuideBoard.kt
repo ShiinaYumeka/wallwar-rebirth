@@ -8,6 +8,8 @@ import net.minecraft.world.inventory.MenuType
 import net.minecraft.world.item.Item
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
+import shina.wallwarRebirth.copy.DescriptionStyle
+import shina.wallwarRebirth.copy.GameCopy
 import shina.wallwarRebirth.building.BuildingDefinition
 import shina.wallwarRebirth.building.BuildingModuleEffects
 import shina.wallwarRebirth.building.Buildings
@@ -40,7 +42,7 @@ class BuildingHomeBoard(private val viewer: ServerPlayer) : SimpleGui(MenuType.G
         title = line("建筑", ChatFormatting.YELLOW)
         fillGlass(this)
         for ((index, entry) in guideBuildings().withIndex()) {
-            val lore = if (entry.wonder) listOf("图标待定", "首版不做具体内容", "点击查看") else listOf("点击查看数值")
+            val lore = if (entry.wonder) listOf("未实装", "图鉴占位", "点击查看") else listOf("点击查看说明")
             setSlot(
                 9 + index,
                 GuiElement(
@@ -78,13 +80,13 @@ private class BuildingDetailBoard(
             setSlot(
                 10,
                 GuiElement(
-                    named(Items.BOOK, "功能", ChatFormatting.WHITE, listOf("首版不做具体内容。全图同时只能有一座奇观。")),
+                    named(Items.BOOK, "说明", ChatFormatting.WHITE, loreComponents = GameCopy.buildingLines("wonder").map { DescriptionStyle.styled(it) }),
                 ) { _, _, _, _ -> },
             )
         } else {
             setSlot(9, GuiElement(named(Items.NAME_TAG, "类别 ${definition.categoryText()}", ChatFormatting.WHITE)) { _, _, _, _ -> })
             setSlot(10, GuiElement(named(Items.GRASS_BLOCK, "占地 ${footprintText(definition.footprint)}", ChatFormatting.WHITE)) { _, _, _, _ -> })
-            setSlot(11, GuiElement(named(Items.BOOK, "功能", ChatFormatting.WHITE, listOf(definition.summary))) { _, _, _, _ -> })
+            setSlot(11, GuiElement(named(Items.BOOK, "说明", ChatFormatting.WHITE, loreComponents = GameCopy.buildingLines(definition.id).map { DescriptionStyle.styled(it) })) { _, _, _, _ -> })
             placeOptions(12, costOptions(definition), 6)
             placeOptions(18, moduleOptions(definition), 3)
             val seek = seekLines(definition)
@@ -144,6 +146,7 @@ private fun guideBuildings(): List<GuideBuilding> = listOf(
     GuideBuilding(Buildings.GUIDED_CANNON.id, Buildings.GUIDED_CANNON.displayName, Buildings.GUIDED_CANNON, Items.TNT),
     GuideBuilding(Buildings.TELEPORT_SPIRE.id, Buildings.TELEPORT_SPIRE.displayName, Buildings.TELEPORT_SPIRE, Items.AMETHYST_SHARD),
     GuideBuilding(Buildings.QUAKE.id, Buildings.QUAKE.displayName, Buildings.QUAKE, Items.LODESTONE),
+    GuideBuilding(Buildings.MINERAL_REACTOR.id, Buildings.MINERAL_REACTOR.displayName, Buildings.MINERAL_REACTOR, Buildings.MINERAL_REACTOR.icon),
     GuideBuilding("wonder", "奇观", null, Items.NETHER_STAR, wonder = true),
 )
 

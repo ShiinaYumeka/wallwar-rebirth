@@ -20,7 +20,7 @@ import shina.wallwarRebirth.rules.MatchRules
 import java.util.UUID
 
 object MineralReactorCapture {
-    private const val REACH = 2.5
+    private const val REACH = MatchRules.MINERAL_REACTOR_CAPTURE_RANGE
     private const val REACH_SQR = REACH * REACH
     private const val STUCK_TICKS = 10 * MatchRules.TICKS_PER_SECOND
     private const val WALK_SPEED = 1.0

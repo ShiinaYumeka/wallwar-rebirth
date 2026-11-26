@@ -1,6 +1,8 @@
 package shina.wallwarRebirth.item
 
 import eu.pb4.polymer.core.api.item.SimplePolymerItem
+import net.minecraft.core.component.DataComponents
+import net.minecraft.resources.Identifier
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.InteractionHand
@@ -14,11 +16,16 @@ import net.minecraft.world.level.Level
 import net.minecraft.world.level.block.state.BlockState
 import net.minecraft.world.phys.BlockHitResult
 import shina.wallwarRebirth.match.Match
+import xyz.nucleoid.packettweaker.PacketContext
 
 class SkillItem(
     properties: Properties,
     polymerItem: Item,
+    private val icon: Item = polymerItem,
 ) : SimplePolymerItem(properties, polymerItem, false) {
+    override fun getPolymerItemModel(stack: ItemStack, context: PacketContext): Identifier? =
+        icon.components()[DataComponents.ITEM_MODEL]
+
     override fun use(level: Level, player: Player, hand: InteractionHand): InteractionResult {
         val serverPlayer = player as? ServerPlayer ?: return InteractionResult.PASS
         if (level.isClientSide) return InteractionResult.SUCCESS

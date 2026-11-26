@@ -30,10 +30,11 @@ class ProfessionBoard(private val viewer: ServerPlayer) : SimpleGui(MenuType.GEN
                 ChatFormatting.AQUA,
                 listOf(
                     if (current) "当前职业" else "点击选择",
-                    "被动：${spec.passive}",
-                    "主动：${spec.active}",
+                    spec.passive,
+                    spec.active,
                 ),
                 glow = current,
+                bold = true,
             )
             setSlot(slot, GuiElement(stack) { _, click, _, _ ->
                 if (!click.isLeft || click.shift) return@GuiElement

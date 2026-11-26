@@ -45,7 +45,7 @@ object CommandPosts {
                 Component.literal("对方会收到放置提醒").withStyle { style ->
                     style.withItalic(false).withColor(ChatFormatting.GRAY)
                 },
-                Component.literal("打到这座兵营的伤害会转到我方基地，兵营本身不扣血").withStyle { style ->
+                Component.literal("打到这座兵营的伤害按 2 倍转到我方基地，兵营本身不扣血。").withStyle { style ->
                     style.withItalic(false).withColor(ChatFormatting.GRAY)
                 },
             )),

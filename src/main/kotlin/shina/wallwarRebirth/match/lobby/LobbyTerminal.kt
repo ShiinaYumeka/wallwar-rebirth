@@ -20,7 +20,7 @@ enum class LobbyTab(val title: String, val icon: Item) {
     UPDATES("更新公告", Items.KNOWLEDGE_BOOK),
     JOIN("加入游戏", Items.COMPASS),
     PROFESSION("职业", Items.IRON_SWORD),
-    MONSTERS("怪物", Items.ZOMBIE_SPAWN_EGG),
+    MONSTERS("唤灵", Items.ZOMBIE_SPAWN_EGG),
     BUILDINGS("建筑", Items.BRICKS),
 }
 
@@ -82,9 +82,18 @@ internal fun named(
     glow: Boolean = false,
     stack: ItemStack = ItemStack(item),
     count: Int? = null,
+    bold: Boolean = false,
+    loreComponents: List<Component>? = null,
 ): ItemStack {
-    val builder = ItemStackBuilder.of(stack).setName(line(name, color))
-    for (row in lore) builder.appendLore(line(row))
+    val title = Component.literal(name).withStyle { style ->
+        style.withColor(color).withItalic(false).withBold(bold)
+    }
+    val builder = ItemStackBuilder.of(stack).setName(title)
+    if (loreComponents != null) {
+        for (row in loreComponents) builder.appendLore(row)
+    } else {
+        for (row in lore) builder.appendLore(line(row))
+    }
     val built = builder.build()
     if (glow) built[DataComponents.ENCHANTMENT_GLINT_OVERRIDE] = true
     if (count != null && count > 0) {

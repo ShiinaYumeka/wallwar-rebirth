@@ -12,6 +12,7 @@ object MatchRules {
     const val BASE_FORBID = 4
     const val PLATFORM_RADIUS = 3
     const val MINERAL_REACTOR_RADIUS = 2
+    const val MINERAL_REACTOR_CAPTURE_RANGE = 2.5
     const val SPAWN_DISTANCE = 8.0
     const val BASE_HEALTH = 100
     const val SURFACE_ORE_EVERY = 32

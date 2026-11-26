@@ -16,6 +16,8 @@ import net.minecraft.world.inventory.Slot
 import net.minecraft.world.item.Item
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
+import shina.wallwarRebirth.copy.DescriptionStyle
+import shina.wallwarRebirth.copy.GameCopy
 import shina.wallwarRebirth.gui.ItemStackBuilder
 import shina.wallwarRebirth.match.Match
 import shina.wallwarRebirth.match.MatchSurrender
@@ -119,6 +121,10 @@ object BuildingMenus {
         builder.appendLore(plain("等级：${site.buildingLevel}"))
         builder.appendLore(plain("生命：${site.health}/${definition.maxHealth(site.buildingLevel)}"))
         builder.appendLore(plain("队伍：${site.team.ifEmpty { "无" }}"))
+        val installed = ModuleSlot.entries.filterNot { site.moduleStack(it).isEmpty }.toSet()
+        for (text in GameCopy.buildingLines(definition.id)) {
+            builder.appendLore(DescriptionStyle.styled(text, site.buildingLevel, installed, definition.maxLevel))
+        }
         return builder.build()
     }
 
@@ -131,7 +137,8 @@ object BuildingMenus {
         }
         builder.setName(plain(label, ChatFormatting.YELLOW))
         if (filled.isEmpty) builder.appendLore(plain("左键放入${moduleName(slot)}"))
-        for (text in BuildingModuleEffects.lines(Buildings.BASE, slot)) builder.appendLore(plain(text))
+        val moduleColor = if (filled.isEmpty) ChatFormatting.GRAY else ChatFormatting.GREEN
+        for (text in BuildingModuleEffects.lines(Buildings.BASE, slot)) builder.appendLore(plain(text, moduleColor))
         return builder.build()
     }
 
@@ -163,13 +170,6 @@ object BuildingMenus {
             builder.appendLore(plain("观察和结算阶段不能投降"))
         }
         return builder.build()
-    }
-
-    private fun levelMark(level: Int): String = when (level) {
-        1 -> "I"
-        2 -> "II"
-        3 -> "III"
-        else -> level.toString()
     }
 
     private fun plain(text: String, color: ChatFormatting = ChatFormatting.GRAY): Component =
@@ -377,7 +377,9 @@ class BuildingPanelGui(
             .setName(line(monster.displayName, if (selected) ChatFormatting.GREEN else ChatFormatting.YELLOW))
         if (selected) builder.appendLore(line("当前生产", ChatFormatting.GREEN))
         if (site.buildingLevel < monster.rank) builder.appendLore(line(rankShortage()))
-        for (text in monster.detailLines(site.buildingLevel)) builder.appendLore(line(text))
+        for (text in monster.detailLines(site.buildingLevel)) {
+            builder.appendLore(DescriptionStyle.styled(text, site.buildingLevel, maxLevel = 3))
+        }
         val stack = builder.build()
         if (selected) stack.set(DataComponents.ENCHANTMENT_GLINT_OVERRIDE, true)
         if (selected && producer) showRemainingSeconds(stack, monster)
@@ -428,21 +430,14 @@ class BuildingPanelGui(
         builder.appendLore(line("等级：${site.buildingLevel}"))
         builder.appendLore(line("生命：${site.health}/${definition.maxHealth(site.buildingLevel)}"))
         builder.appendLore(line("队伍：${site.team.ifEmpty { "无" }}"))
-        if (definition.summary.isNotEmpty()) builder.appendLore(line(definition.summary))
-        val minerals = site.productionLines()
-        if (minerals.isEmpty()) {
-            for (rule in definition.production) {
-                val color = if (site.buildingLevel >= rule.minLevel) ChatFormatting.GREEN else ChatFormatting.GRAY
-                builder.appendLore(line(rule.describe(), color))
+        val installed = ModuleSlot.entries.filterNot { site.moduleStack(it).isEmpty }.toSet()
+        val copy = GameCopy.buildingLines(definition.id)
+        if (copy.isNotEmpty()) {
+            for (text in copy) {
+                builder.appendLore(DescriptionStyle.styled(text, site.buildingLevel, installed, definition.maxLevel))
             }
-        } else {
-            for ((text, active) in minerals) {
-                builder.appendLore(line(text, if (active) ChatFormatting.GREEN else ChatFormatting.GRAY))
-            }
-        }
-        for (detail in definition.details) {
-            val color = if (site.buildingLevel >= detail.minLevel) ChatFormatting.GREEN else ChatFormatting.GRAY
-            builder.appendLore(line(detail.text, color))
+        } else if (definition.summary.isNotEmpty()) {
+            builder.appendLore(line(definition.summary))
         }
         if (definition.id == Buildings.CRYSTAL_FURNACE.id) {
             for (line in CrystalFurnaceWork.infoLines(site)) builder.appendLore(line(line))
@@ -638,7 +633,8 @@ private class UpgradePanelGui(
         }
         builder.setName(line(label, ChatFormatting.YELLOW))
         if (filled.isEmpty) builder.appendLore(line("左键放入${moduleName(slot)}"))
-        for (text in effectLines(definition, slot)) builder.appendLore(line(text))
+        val moduleColor = if (filled.isEmpty) ChatFormatting.GRAY else ChatFormatting.GREEN
+        for (text in effectLines(definition, slot)) builder.appendLore(line(text, moduleColor))
         if (definition.id == Buildings.BARRACKS.id && slot == ModuleSlot.SECONDARY) {
             builder.appendLore(line("放好后左键选择只数"))
             val count = site.releaseCount

@@ -10,6 +10,8 @@ import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.inventory.MenuType
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
+import shina.wallwarRebirth.copy.DescriptionStyle
+import shina.wallwarRebirth.copy.GameCopy
 import shina.wallwarRebirth.gui.ItemStackBuilder
 import shina.wallwarRebirth.util.hideTooltip
 
@@ -85,7 +87,15 @@ class MineralReactorGui(
         builder.appendLore(line("等级：${site.buildingLevel}"))
         builder.appendLore(line("生命：${site.health}/${definition.maxHealth(site.buildingLevel)}"))
         builder.appendLore(line("队伍：${site.team.ifEmpty { "无" }}"))
-        if (definition.summary.isNotEmpty()) builder.appendLore(line(definition.summary))
+        val installed = ModuleSlot.entries.filterNot { site.moduleStack(it).isEmpty }.toSet()
+        val copy = GameCopy.buildingLines(definition.id)
+        if (copy.isNotEmpty()) {
+            for (text in copy) {
+                builder.appendLore(DescriptionStyle.styled(text, site.buildingLevel, installed, definition.maxLevel))
+            }
+        } else if (definition.summary.isNotEmpty()) {
+            builder.appendLore(line(definition.summary))
+        }
         if (site.team.isEmpty()) builder.appendLore(line("未占领，不产出"))
         else builder.appendLore(line("占领后在战斗阶段产出，进入本队团队仓库"))
         return builder.build()
@@ -119,7 +129,8 @@ class MineralReactorGui(
         }
         builder.setName(line(label, ChatFormatting.YELLOW))
         if (filled.isEmpty) builder.appendLore(line("左键放入${reactorModuleName(slot)}"))
-        for (text in BuildingModuleEffects.lines(definition, slot)) builder.appendLore(line(text))
+        val moduleColor = if (filled.isEmpty) ChatFormatting.GRAY else ChatFormatting.GREEN
+        for (text in BuildingModuleEffects.lines(definition, slot)) builder.appendLore(line(text, moduleColor))
         return builder.build()
     }
 

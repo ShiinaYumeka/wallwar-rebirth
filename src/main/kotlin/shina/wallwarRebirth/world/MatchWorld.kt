@@ -24,6 +24,7 @@ import shina.wallwarRebirth.building.CoreForm
 import shina.wallwarRebirth.building.ModSites
 import shina.wallwarRebirth.building.SiteCoreBlock
 import shina.wallwarRebirth.building.SiteCoreBlockEntity
+import shina.wallwarRebirth.building.SiteCores
 import shina.wallwarRebirth.mixin.ChunkMapAccess
 import shina.wallwarRebirth.mixin.ServerChunkCacheAccess
 import shina.wallwarRebirth.contract.WallwarTeams
@@ -104,16 +105,23 @@ object MatchWorld {
         placeBase(level, blueCore, WallwarTeams.BLUE, blueFacing)
         placeRearTree(level, redCore, blueCore)
         placeRearTree(level, blueCore, redCore)
-        placeMineralReactors(level)
-        SurfaceOres.scatter(level, redCore, blueCore)
+        val corners = ArenaOres.corners(innerMin, innerMax, size)
+        val reactors = placeMineralReactors(level, corners) ?: return null
+        val redSpawn = spawn(level, redCore, blueCore)
+        val redSpawnPos = BlockPos.containing(redSpawn.x, redSpawn.y, redSpawn.z)
+        val blueSpawn = spawnAt(level, innerMin + innerMax - redSpawnPos.z, innerMin + innerMax - redSpawnPos.x, redCore)
+        val blueSpawnPos = BlockPos.containing(blueSpawn.x, blueSpawn.y, blueSpawn.z)
+        if (!ArenaOres.generate(level, size, Match.terrainSeed, redCore, blueCore, redSpawnPos, blueSpawnPos, corners, reactors)) {
+            return null
+        }
         shortenGrass(level, min, max)
         level.dayTime = MatchRules.DAY_TIME
         level.setWeatherParameters(6000, 0, false, false)
         return Built(
             redCore,
             blueCore,
-            spawn(level, redCore, blueCore),
-            spawn(level, blueCore, redCore),
+            redSpawn,
+            blueSpawn,
         )
     }
 
@@ -347,16 +355,15 @@ object MatchWorld {
         core.installBase(team, facing)
     }
 
-    private fun placeMineralReactors(level: ServerLevel) {
-        val size = Match.mapSize
-        val min = -size / 2
-        val max = min + size - 1
-        val innerMin = min + 1
-        val innerMax = max - 1
-        for (plan in SurfaceOres.cornerPlans(innerMin, innerMax)) {
+    private fun placeMineralReactors(level: ServerLevel, corners: List<ArenaOres.Corner>): List<BlockPos>? {
+        return corners.map { plan ->
             val core = platform(level, plan.reactorX, plan.reactorZ, MatchRules.MINERAL_REACTOR_RADIUS)
             val inward = BlockPos(0, core.y, 0)
             placeMineralReactor(level, core, facing(core, inward))
+            // The model can move its core upward to put its bottom on the platform.
+            SiteCores.all().firstOrNull {
+                it.level === level && it.blockPos.x == core.x && it.blockPos.z == core.z
+            }?.blockPos ?: return null
         }
     }
 
@@ -399,15 +406,13 @@ object MatchWorld {
                 }
             }
         }
-        val ground = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, bestX, bestZ) - 1
-        for (y in ground + 1..ground + 3) {
-            val pos = BlockPos(bestX, y, bestZ)
-            val state = level.getBlockState(pos)
-            if (state.`is`(BlockTags.LOGS) || state.`is`(BlockTags.LEAVES) || plant(state)) {
-                level.setBlock(pos, Blocks.AIR.defaultBlockState(), Block.UPDATE_NONE)
-            }
-        }
-        val yaw = Math.toDegrees(atan2(-(to.x - bestX).toDouble(), (to.z - bestZ).toDouble())).toFloat()
-        return Match.Spawn(bestX + 0.5, (ground + 1).toDouble(), bestZ + 0.5, yaw)
+        return spawnAt(level, bestX, bestZ, to)
+    }
+
+    private fun spawnAt(level: ServerLevel, x: Int, z: Int, to: BlockPos): Match.Spawn {
+        val ground = naturalGround(level, x, z)
+        flatten(level, x, z, ground)
+        val yaw = Math.toDegrees(atan2(-(to.x - x).toDouble(), (to.z - z).toDouble())).toFloat()
+        return Match.Spawn(x + 0.5, (ground + 1).toDouble(), z + 0.5, yaw)
     }
 }

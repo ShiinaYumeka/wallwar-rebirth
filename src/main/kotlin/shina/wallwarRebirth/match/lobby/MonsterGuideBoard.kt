@@ -6,6 +6,8 @@ import net.minecraft.ChatFormatting
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.inventory.MenuType
 import net.minecraft.world.item.Items
+import shina.wallwarRebirth.copy.DescriptionStyle
+import shina.wallwarRebirth.copy.GameCopy
 import shina.wallwarRebirth.monster.MonsterDefinition
 import shina.wallwarRebirth.monster.MonsterSource
 import shina.wallwarRebirth.monster.Monsters
@@ -29,13 +31,26 @@ object MonsterGuide {
         Monsters.VINDICATOR,
         Monsters.EVOKER,
         Monsters.RAVAGER,
+        Monsters.VILLAGER,
+        Monsters.VEX,
     )
 }
 
 class MonsterHomeBoard(private val viewer: ServerPlayer) : SimpleGui(MenuType.GENERIC_9x6, viewer, false) {
     init {
-        title = line("怪物", ChatFormatting.YELLOW)
+        title = line("唤灵", ChatFormatting.YELLOW)
         fillGlass(this)
+        setSlot(
+            0,
+            GuiElement(
+                named(
+                    Items.BOOK,
+                    "通用规则",
+                    ChatFormatting.WHITE,
+                    loreComponents = GameCopy.generalSummonRules.map { DescriptionStyle.styled(it) },
+                ),
+            ) { _, _, _, _ -> },
+        )
         for ((index, definition) in MonsterGuide.purchasable.withIndex()) {
             val slot = 9 + index
             setSlot(
@@ -58,9 +73,9 @@ private class MonsterDetailBoard(
     definition: MonsterDefinition,
 ) : SimpleGui(MenuType.GENERIC_9x6, viewer, false) {
     init {
-        title = line("怪物 · ${definition.displayName}", ChatFormatting.YELLOW)
+        title = line("唤灵 · ${definition.displayName}", ChatFormatting.YELLOW)
         fillGlass(this)
-        setSlot(0, GuiElement(named(definition.egg, definition.displayName, ChatFormatting.WHITE)) { _, _, _, _ -> })
+        setSlot(0, GuiElement(named(definition.egg, definition.displayName, ChatFormatting.WHITE, loreComponents = GameCopy.monsterLines(definition.id).map { DescriptionStyle.styled(it) })) { _, _, _, _ -> })
         val stats = listOf(
             Triple(Items.EXPERIENCE_BOTTLE, "等级 ${definition.rank}", definition.rank),
             Triple(Items.APPLE, "生命 ${definition.health.toInt()}", null),
@@ -98,7 +113,13 @@ private class MonsterDetailBoard(
                     if (definition.source == MonsterSource.TOWER) Items.WHITE_BANNER else Items.CRAFTER,
                     "来源",
                     ChatFormatting.WHITE,
-                    listOf(if (definition.source == MonsterSource.TOWER) "掠夺者哨塔" else "兵营"),
+                    listOf(
+                        when (definition.source) {
+                            MonsterSource.TOWER -> "掠夺者哨塔"
+                            MonsterSource.SUMMONED -> "唤魔者召唤"
+                            else -> "兵营"
+                        },
+                    ),
                 ),
             ) { _, _, _, _ -> },
         )
